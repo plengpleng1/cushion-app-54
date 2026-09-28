@@ -23,13 +23,16 @@ export default function ProfileScreen() {
     useCallback(() => {
       const loadProfileData = async () => {
         try {
-          const patientDataJson = await AsyncStorage.getItem('@patient_info');
+          // 1. ดึงข้อมูลผู้ป่วยจากคีย์ "patientInfo" ตามโค้ดของเพื่อน
+          const patientDataJson = await AsyncStorage.getItem('patientInfo');
           if (patientDataJson) {
             const patientData = JSON.parse(patientDataJson);
-            setFullName(patientData.fullName || '');
-            setIdCard(patientData.idCard || '');
+            // ดึงฟิลด์ name และ citizenId จากโค้ดของเพื่อน
+            setFullName(patientData.name || '');
+            setIdCard(patientData.citizenId || '');
           }
 
+          // 2. ดึง Username
           const currentUserJson = await AsyncStorage.getItem('@current_user');
           if (currentUserJson) {
             const currentUser = JSON.parse(currentUserJson);
@@ -44,15 +47,13 @@ export default function ProfileScreen() {
     }, [])
   );
 
-  // ฟังก์ชันบังคับออกจากระบบและกลับหน้า Login
+  // ฟังก์ชันสลับหน้ากลับไป Login
   const performLogout = async () => {
     try {
-      // 1. ลบข้อมูลผู้ใช้ปัจจุบัน
       await AsyncStorage.removeItem('@current_user');
     } catch (error) {
-      console.error('Logout storage error:', error);
+      console.error('Logout error:', error);
     } finally {
-      // 2. เคลียร์ Stack และบังคับย้ายไปหน้า Login ทันที
       if (router.canDismiss()) {
         router.dismissAll();
       }
@@ -60,22 +61,16 @@ export default function ProfileScreen() {
     }
   };
 
-  // ฟังก์ชันกด Log out
+  // ฟังก์ชัน Log Out
   const handleLogout = () => {
     if (Platform.OS === 'web') {
-      // บน Web ใช้ confirm ของ browser
       if (window.confirm('Are you sure you want to log out?')) {
         performLogout();
       }
     } else {
-      // บน Mobile ใช้ Alert
       Alert.alert('Log Out', 'Are you sure you want to log out?', [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Log Out',
-          style: 'destructive',
-          onPress: performLogout,
-        },
+        { text: 'Log Out', style: 'destructive', onPress: performLogout },
       ]);
     }
   };
@@ -86,17 +81,17 @@ export default function ProfileScreen() {
         <Text style={styles.brandTitle}>Cushion Sense</Text>
 
         <View style={styles.cardContainer}>
-          {/* ชื่อ - นามสกุล */}
+          {/* ช่องที่ 1: ชื่อ - นามสกุล */}
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>{fullName || 'ชื่อ - นามสกุล'}</Text>
           </View>
 
-          {/* เลขบัตรประชาชน */}
+          {/* ช่องที่ 2: เลขบัตรประจำตัวประชาชน */}
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>{idCard || 'เลขประชาชน'}</Text>
           </View>
 
-          {/* Username */}
+          {/* ช่องที่ 3: Username */}
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>
               {username ? `Username : ${username}` : 'Username'}
