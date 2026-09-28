@@ -21,7 +21,7 @@ export default function PatientInfo() {
       return;
     }
 
-    router.replace("../tabs");
+    router.replace("/(tabs)");
   };
 
   return (
