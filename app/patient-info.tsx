@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -14,6 +14,11 @@ const BLUE = "#4966D5";
 
 export default function PatientInfo() {
   const router = useRouter();
+
+  const nameRef = useRef<TextInput>(null);
+  const citizenIdRef = useRef<TextInput>(null);
+  const ageRef = useRef<TextInput>(null);
+  const phoneRef = useRef<TextInput>(null);
 
   const [name, setName] = useState("");
   const [citizenId, setCitizenId] = useState("");
@@ -31,7 +36,9 @@ export default function PatientInfo() {
     phone: "",
   });
 
+  // =========================
   // ตรวจสอบชื่อ
+  // =========================
   const validateName = (value: string) => {
     if (!value.trim()) {
       return "กรุณากรอกชื่อ - นามสกุล";
@@ -40,20 +47,24 @@ export default function PatientInfo() {
     return "";
   };
 
+  // =========================
   // ตรวจสอบเลขบัตรประชาชน
+  // =========================
   const validateCitizenId = (value: string) => {
     if (!value) {
       return "กรุณากรอกเลขบัตรประชาชน";
     }
 
     if (!/^\d{13}$/.test(value)) {
-      return "เลขบัตรประชาชนต้องมี 13 หลัก";
+      return "กรุณากรอกเลขบัตรประชาชน";
     }
 
     return "";
   };
 
+  // =========================
   // ตรวจสอบเพศ
+  // =========================
   const validateGender = (value: string) => {
     if (!value) {
       return "กรุณาเลือกเพศ";
@@ -62,7 +73,9 @@ export default function PatientInfo() {
     return "";
   };
 
+  // =========================
   // ตรวจสอบอายุ
+  // =========================
   const validateAge = (value: string) => {
     if (!value) {
       return "กรุณากรอกอายุ";
@@ -71,26 +84,31 @@ export default function PatientInfo() {
     const number = Number(value);
 
     if (number < 1 || number > 120) {
-      return "กรุณากรอกอายุระหว่าง 1 - 120 ปี";
+      return "กรุณากรอกอายุ";
     }
 
     return "";
   };
 
+  // =========================
   // ตรวจสอบเบอร์โทร
+  // =========================
   const validatePhone = (value: string) => {
     if (!value) {
       return "กรุณากรอกเบอร์โทรศัพท์";
     }
 
     if (!/^\d{10}$/.test(value)) {
-      return "เบอร์โทรศัพท์ต้องมี 10 หลัก";
+      return "กรุณากรอกเบอร์โทรศัพท์";
     }
 
     return "";
   };
 
-  // กด Next
+  // =========================
+  // ฟังก์ชัน Next
+  // ใช้ได้ทั้งปุ่ม Next และ Enter
+  // =========================
   const handleNext = async () => {
     const newErrors = {
       name: validateName(name),
@@ -108,7 +126,6 @@ export default function PatientInfo() {
       return;
     }
 
-    // ข้อมูลผู้ป่วย
     const patientInfo = {
       name: name.trim(),
       citizenId,
@@ -118,10 +135,8 @@ export default function PatientInfo() {
     };
 
     try {
-      // บันทึกข้อมูลไว้ใน AsyncStorage
       await AsyncStorage.setItem("patientInfo", JSON.stringify(patientInfo));
 
-      // ไปหน้า Tabs
       router.replace("/(tabs)");
     } catch (error) {
       console.error("ไม่สามารถบันทึกข้อมูลได้:", error);
@@ -146,8 +161,11 @@ export default function PatientInfo() {
 
       {/* Form */}
       <View style={styles.card}>
-        {/* Name */}
+        {/* =========================
+            Name
+        ========================= */}
         <TextInput
+          ref={nameRef}
           style={[styles.input, errors.name !== "" && styles.inputError]}
           placeholder="ชื่อ - นามสกุล"
           placeholderTextColor="#777"
@@ -168,14 +186,22 @@ export default function PatientInfo() {
               name: validateName(name),
             });
           }}
+          returnKeyType="next"
+          onSubmitEditing={() => {
+            citizenIdRef.current?.focus();
+          }}
+          blurOnSubmit={false}
         />
 
         {errors.name !== "" && (
           <Text style={styles.errorText}>{errors.name}</Text>
         )}
 
-        {/* Citizen ID */}
+        {/* =========================
+            Citizen ID
+        ========================= */}
         <TextInput
+          ref={citizenIdRef}
           style={[styles.input, errors.citizenId !== "" && styles.inputError]}
           placeholder="เลขบัตรประจำตัวประชาชน"
           placeholderTextColor="#777"
@@ -202,13 +228,20 @@ export default function PatientInfo() {
               citizenId: validateCitizenId(citizenId),
             });
           }}
+          returnKeyType="next"
+          onSubmitEditing={() => {
+            ageRef.current?.focus();
+          }}
+          blurOnSubmit={false}
         />
 
         {errors.citizenId !== "" && (
           <Text style={styles.errorText}>{errors.citizenId}</Text>
         )}
 
-        {/* Gender + Age */}
+        {/* =========================
+            Gender + Age
+        ========================= */}
         <View style={styles.row}>
           {/* Gender */}
           <View style={styles.halfContainer}>
@@ -229,7 +262,6 @@ export default function PatientInfo() {
               <Text style={styles.arrow}>{genderOpen ? "▲" : "▼"}</Text>
             </TouchableOpacity>
 
-            {/* Gender Dropdown */}
             {genderOpen && (
               <View style={styles.dropdownMenu}>
                 <TouchableOpacity
@@ -272,6 +304,7 @@ export default function PatientInfo() {
           {/* Age */}
           <View style={styles.halfContainer}>
             <TextInput
+              ref={ageRef}
               style={[styles.input, errors.age !== "" && styles.inputError]}
               placeholder="อายุ"
               placeholderTextColor="#777"
@@ -296,6 +329,11 @@ export default function PatientInfo() {
                   age: validateAge(age),
                 });
               }}
+              returnKeyType="next"
+              onSubmitEditing={() => {
+                phoneRef.current?.focus();
+              }}
+              blurOnSubmit={false}
             />
 
             {errors.age !== "" && (
@@ -304,8 +342,11 @@ export default function PatientInfo() {
           </View>
         </View>
 
-        {/* Phone */}
+        {/* =========================
+            Phone
+        ========================= */}
         <TextInput
+          ref={phoneRef}
           style={[styles.input, errors.phone !== "" && styles.inputError]}
           placeholder="เบอร์โทรศัพท์"
           placeholderTextColor="#777"
@@ -332,13 +373,20 @@ export default function PatientInfo() {
               phone: validatePhone(phone),
             });
           }}
+          // =========================
+          // กด Enter = Next
+          // =========================
+          returnKeyType="done"
+          onSubmitEditing={handleNext}
         />
 
         {errors.phone !== "" && (
           <Text style={styles.errorText}>{errors.phone}</Text>
         )}
 
-        {/* Next */}
+        {/* =========================
+            Next Button
+        ========================= */}
         <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
           <Text style={styles.nextText}>Next</Text>
         </TouchableOpacity>
@@ -373,12 +421,10 @@ const styles = StyleSheet.create({
 
   logo: {
     fontSize: 32,
-    fontStyle: "italic",
     fontWeight: "700",
     color: BLUE,
   },
 
-  // Sense เอียงและบาง
   sense: {
     fontStyle: "italic",
     fontWeight: "400",
@@ -491,7 +537,7 @@ const styles = StyleSheet.create({
 
   nextText: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "600",
   },
 });
