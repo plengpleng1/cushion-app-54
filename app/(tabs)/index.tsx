@@ -398,10 +398,14 @@ const formatUpdateTime = (time?: string) => {
       {/* Sensor Values */}
       <View style={styles.row}>
         {/* Pressure */}
-        <View style={[styles.card, styles.thirdCard]}>
-          <Text style={styles.cardLabel}>Pressure</Text>
-          <Text style={styles.cardValue}>{sensorData?.pressure ?? '-'}</Text>
-        </View>
+        {/* Pressure */}
+      <View style={[styles.card, styles.thirdCard]}>
+        <Text style={styles.cardLabel}>Pressure</Text>
+
+        <Text style={styles.cardValue}>
+          {pressureSide === 'none' ? 'LOW' : 'HIGH'}
+        </Text>
+      </View>
 
         {/* Temperature */}
         <View
