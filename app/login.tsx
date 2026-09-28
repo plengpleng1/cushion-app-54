@@ -23,7 +23,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // ฟังก์ชันตรวจสอบเงื่อนไข Password (อย่างน้อย 8 ตัวอักษร มีทั้งอักษรและตัวเลข)
+  // ฟังก์ชันตรวจสอบเงื่อนไขความปลอดภัยของ Password (อย่างน้อย 8 ตัวอักษร มีทั้งอักษรและตัวเลข)
   const validatePassword = (pass: string) => {
     const hasMinLength = pass.length >= 8;
     const hasLetter = /[a-zA-Z]/.test(pass);
@@ -41,7 +41,7 @@ export default function LoginScreen() {
       return;
     }
 
-    // ตรวจสอบเงื่อนไขความปลอดภัยของรหัสผ่าน
+    // ตรวจสอบความปลอดภัยของรหัสผ่าน
     if (!validatePassword(trimmedPassword)) {
       Alert.alert(
         'รหัสผ่านไม่ปลอดภัย',
@@ -50,8 +50,8 @@ export default function LoginScreen() {
       return;
     }
 
-    // เปรียบเทียบรหัสผ่านยืนยัน (แปลงเป็น lowercase ทั้งคู่)
-    if (trimmedPassword.toLowerCase() !== confirmPassword.trim().toLowerCase()) {
+    // เช็ค Confirm Password ให้ตรงกันเป๊ะๆ (แยกตัวเล็ก/ตัวใหญ่)
+    if (trimmedPassword !== confirmPassword.trim()) {
       Alert.alert('รหัสผ่านไม่ตรงกัน', 'กรุณายืนยัน Password ให้ตรงกัน');
       return;
     }
@@ -60,22 +60,17 @@ export default function LoginScreen() {
       const existingUsersJson = await AsyncStorage.getItem('@user_accounts');
       const users = existingUsersJson ? JSON.parse(existingUsersJson) : [];
 
-      // แปลงเป็น ตัวพิมพ์เล็ก ทั้งหมดก่อนตรวจสอบ Username ซ้ำ
-      const normalizedUsername = trimmedUsername.toLowerCase();
-      const isExist = users.some(
-        (u: any) => u.username.toLowerCase() === normalizedUsername
-      );
-
+      // เช็ค Username ซ้ำแบบแยกตัวพิมพ์เล็ก/ใหญ่ (User123 กับ user123 จะไม่ซ้ำกัน)
+      const isExist = users.some((u: any) => u.username === trimmedUsername);
       if (isExist) {
         Alert.alert('สมัครไม่สำเร็จ', 'Username นี้ถูกใช้งานแล้ว');
         return;
       }
 
-      // บันทึก Username และ Password ในรูปแบบ lowercase เพื่อให้ล็อกอินง่ายไม่สนใจตัวพิมพ์เล็ก/ใหญ่
+      // บันทึก Username และ Password ตามค่าจริงที่พิมพ์เข้ามา
       users.push({
-        username: normalizedUsername,
-        password: trimmedPassword.toLowerCase(),
-        displayUsername: trimmedUsername, // บันทึกชื่อตัวจริงไว้แสดงผล
+        username: trimmedUsername,
+        password: trimmedPassword,
       });
 
       await AsyncStorage.setItem('@user_accounts', JSON.stringify(users));
@@ -92,8 +87,8 @@ export default function LoginScreen() {
 
   // 2. ฟังก์ชันเข้าสู่ระบบ (Sign In)
   const handleSignIn = async () => {
-    const trimmedUsername = username.trim().toLowerCase();
-    const trimmedPassword = password.trim().toLowerCase();
+    const trimmedUsername = username.trim();
+    const trimmedPassword = password.trim();
 
     if (!trimmedUsername || !trimmedPassword) {
       Alert.alert('กรอกข้อมูลไม่ครบ', 'กรุณากรอก Username และ Password');
@@ -104,19 +99,17 @@ export default function LoginScreen() {
       const existingUsersJson = await AsyncStorage.getItem('@user_accounts');
       const users = existingUsersJson ? JSON.parse(existingUsersJson) : [];
 
-      // ค้นหาโดยแปลงเทียบเป็น lowercase ทั้ง Username และ Password
+      // ค้นหาผู้ใช้โดยเช็คทั้ง Username และ Password ให้ตรงตามตัวอักษรจริงทุกตัว
       const foundUser = users.find(
-        (u: any) =>
-          u.username.toLowerCase() === trimmedUsername &&
-          u.password.toLowerCase() === trimmedPassword
+        (u: any) => u.username === trimmedUsername && u.password === trimmedPassword
       );
 
       if (foundUser) {
-        // บันทึก Session ผู้ใช้ปัจจุบัน (นำ displayUsername หรือ username มาใช้)
+        // บันทึก Session ผู้ใช้ปัจจุบัน
         await AsyncStorage.setItem(
           '@current_user',
           JSON.stringify({
-            username: foundUser.displayUsername || foundUser.username,
+            username: foundUser.username,
           })
         );
         router.push('/patient-info');
