@@ -31,9 +31,7 @@ export default function PatientInfo() {
     phone: "",
   });
 
-  // =========================
   // ตรวจสอบชื่อ
-  // =========================
   const validateName = (value: string) => {
     if (!value.trim()) {
       return "กรุณากรอกชื่อ - นามสกุล";
@@ -42,24 +40,20 @@ export default function PatientInfo() {
     return "";
   };
 
-  // =========================
   // ตรวจสอบเลขบัตรประชาชน
-  // =========================
   const validateCitizenId = (value: string) => {
     if (!value) {
       return "กรุณากรอกเลขบัตรประชาชน";
     }
 
     if (!/^\d{13}$/.test(value)) {
-      return "กรุณากรอกเลขบัตรประชาชน";
+      return "เลขบัตรประชาชนต้องมี 13 หลัก";
     }
 
     return "";
   };
 
-  // =========================
   // ตรวจสอบเพศ
-  // =========================
   const validateGender = (value: string) => {
     if (!value) {
       return "กรุณาเลือกเพศ";
@@ -68,9 +62,7 @@ export default function PatientInfo() {
     return "";
   };
 
-  // =========================
   // ตรวจสอบอายุ
-  // =========================
   const validateAge = (value: string) => {
     if (!value) {
       return "กรุณากรอกอายุ";
@@ -79,30 +71,26 @@ export default function PatientInfo() {
     const number = Number(value);
 
     if (number < 1 || number > 120) {
-      return "กรุณากรอกอายุ";
+      return "กรุณากรอกอายุระหว่าง 1 - 120 ปี";
     }
 
     return "";
   };
 
-  // =========================
   // ตรวจสอบเบอร์โทร
-  // =========================
   const validatePhone = (value: string) => {
     if (!value) {
       return "กรุณากรอกเบอร์โทรศัพท์";
     }
 
     if (!/^\d{10}$/.test(value)) {
-      return "กรุณากรอกเบอร์โทรศัพท์";
+      return "เบอร์โทรศัพท์ต้องมี 10 หลัก";
     }
 
     return "";
   };
 
-  // =========================
   // กด Next
-  // =========================
   const handleNext = async () => {
     const newErrors = {
       name: validateName(name),
@@ -116,14 +104,11 @@ export default function PatientInfo() {
 
     const hasError = Object.values(newErrors).some((error) => error !== "");
 
-    // ถ้ามีข้อมูลผิด ไม่ให้ไปต่อ
     if (hasError) {
       return;
     }
 
-    // =========================
-    // บันทึกข้อมูลผู้ป่วย
-    // =========================
+    // ข้อมูลผู้ป่วย
     const patientInfo = {
       name: name.trim(),
       citizenId,
@@ -133,9 +118,10 @@ export default function PatientInfo() {
     };
 
     try {
+      // บันทึกข้อมูลไว้ใน AsyncStorage
       await AsyncStorage.setItem("patientInfo", JSON.stringify(patientInfo));
 
-      // บันทึกสำเร็จ → ไปหน้า Tabs
+      // ไปหน้า Tabs
       router.replace("/(tabs)");
     } catch (error) {
       console.error("ไม่สามารถบันทึกข้อมูลได้:", error);
@@ -149,22 +135,18 @@ export default function PatientInfo() {
       contentContainerStyle={styles.scrollContainer}
       keyboardShouldPersistTaps="handled"
     >
-      {/* =========================
-          Header
-      ========================= */}
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.welcome}>Patient Information</Text>
 
-        <Text style={styles.logo}>Cushion Sense</Text>
+        <Text style={styles.logo}>
+          Cushion <Text style={styles.sense}>Sense</Text>
+        </Text>
       </View>
 
-      {/* =========================
-          Form
-      ========================= */}
+      {/* Form */}
       <View style={styles.card}>
-        {/* =========================
-            Name
-        ========================= */}
+        {/* Name */}
         <TextInput
           style={[styles.input, errors.name !== "" && styles.inputError]}
           placeholder="ชื่อ - นามสกุล"
@@ -192,9 +174,7 @@ export default function PatientInfo() {
           <Text style={styles.errorText}>{errors.name}</Text>
         )}
 
-        {/* =========================
-            Citizen ID
-        ========================= */}
+        {/* Citizen ID */}
         <TextInput
           style={[styles.input, errors.citizenId !== "" && styles.inputError]}
           placeholder="เลขบัตรประจำตัวประชาชน"
@@ -228,9 +208,7 @@ export default function PatientInfo() {
           <Text style={styles.errorText}>{errors.citizenId}</Text>
         )}
 
-        {/* =========================
-            Gender + Age
-        ========================= */}
+        {/* Gender + Age */}
         <View style={styles.row}>
           {/* Gender */}
           <View style={styles.halfContainer}>
@@ -251,7 +229,7 @@ export default function PatientInfo() {
               <Text style={styles.arrow}>{genderOpen ? "▲" : "▼"}</Text>
             </TouchableOpacity>
 
-            {/* Dropdown */}
+            {/* Gender Dropdown */}
             {genderOpen && (
               <View style={styles.dropdownMenu}>
                 <TouchableOpacity
@@ -326,9 +304,7 @@ export default function PatientInfo() {
           </View>
         </View>
 
-        {/* =========================
-            Phone
-        ========================= */}
+        {/* Phone */}
         <TextInput
           style={[styles.input, errors.phone !== "" && styles.inputError]}
           placeholder="เบอร์โทรศัพท์"
@@ -362,9 +338,7 @@ export default function PatientInfo() {
           <Text style={styles.errorText}>{errors.phone}</Text>
         )}
 
-        {/* =========================
-            Next
-        ========================= */}
+        {/* Next */}
         <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
           <Text style={styles.nextText}>Next</Text>
         </TouchableOpacity>
@@ -399,9 +373,15 @@ const styles = StyleSheet.create({
 
   logo: {
     fontSize: 32,
-    fontWeight: "700",
     fontStyle: "italic",
+    fontWeight: "700",
     color: BLUE,
+  },
+
+  // Sense เอียงและบาง
+  sense: {
+    fontStyle: "italic",
+    fontWeight: "400",
   },
 
   card: {
@@ -499,18 +479,19 @@ const styles = StyleSheet.create({
   },
 
   nextButton: {
-    width: "100%",
-    height: 60,
+    width: "40%",
+    height: 40,
     backgroundColor: BLUE,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
+    alignSelf: "flex-end",
     marginTop: 20,
   },
 
   nextText: {
     color: "#FFFFFF",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "600",
   },
 });
