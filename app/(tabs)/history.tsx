@@ -7,15 +7,10 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 
-import Svg, {
-  Circle,
-  Line,
-  Text as SvgText,
-} from 'react-native-svg';
-
-// ดึงข้อมูลจาก sensorService
+// ดึงข้อมูลจาก sensorService โดยไม่แก้ไขอะไรใน service
 import {
   fetchSensorData,
   SensorData,
@@ -30,16 +25,19 @@ interface HistoryLog extends SensorData {
   isHumidHigh: boolean;
   leftPressed: boolean;
   rightPressed: boolean;
+
+  // เพิ่มตัวนี้
+  isPositionChanged: boolean;
 }
 
+const screenWidth = Dimensions.get('window').width;
+
 // =====================================================
-// แปลงเวลา
+// ฟังก์ชันจัดรูปแบบเวลา
 // =====================================================
 const formatTime = (time?: string) => {
   if (!time) return '-';
 
-  // Google Sheet อาจส่งมาแบบ
-  // 1899-12-30T17:00:48.000Z
   if (time.includes('T')) {
     const date = new Date(time);
 
@@ -57,51 +55,32 @@ const formatTime = (time?: string) => {
 };
 
 // =====================================================
-// History Screen
+// จำกัดค่าให้อยู่ระหว่าง 0 - 100
 // =====================================================
+const clamp = (value: number) => {
+  return Math.min(Math.max(value, 0), 100);
+};
+
 export default function HistoryScreen() {
-  const [activeTab, setActiveTab] =
-    useState<TabType>('today');
+  const [activeTab, setActiveTab] = useState<TabType>('today');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [historyLogs, setHistoryLogs] = useState<HistoryLog[]>([]);
 
-  const [loading, setLoading] =
-    useState<boolean>(true);
-
-  const [historyLogs, setHistoryLogs] =
-    useState<HistoryLog[]>([]);
-
-  // ===================================================
-  // โหลดข้อมูล Sensor
-  // ===================================================
+  // ==========================================
+  // ดึงข้อมูล
+  // ==========================================
   const loadHistoryData = async () => {
     try {
       const data = await fetchSensorData();
 
       if (data) {
-        // -----------------------------
-        // ตรวจแรงกดซ้าย
-        // -----------------------------
-        const isLeftPressed =
-          (data.sensor1 ?? 4095) < 500;
+        // คำนวณแรงกดซ้าย / ขวา
+        const isLeftPressed = (data.sensor1 ?? 4095) < 500;
+        const isRightPressed = (data.sensor2 ?? 4095) < 500;
 
-        // -----------------------------
-        // ตรวจแรงกดขวา
-        // -----------------------------
-        const isRightPressed =
-          (data.sensor2 ?? 4095) < 500;
+        let calcPos: 'LEFT' | 'RIGHT' | 'CENTER' | 'NONE' = 'NONE';
 
-        // -----------------------------
-        // หาตำแหน่ง
-        // -----------------------------
-        let calcPos:
-          | 'LEFT'
-          | 'RIGHT'
-          | 'CENTER'
-          | 'NONE' = 'NONE';
-
-        if (
-          isLeftPressed &&
-          isRightPressed
-        ) {
+        if (isLeftPressed && isRightPressed) {
           calcPos = 'CENTER';
         } else if (isLeftPressed) {
           calcPos = 'LEFT';
@@ -109,17 +88,11 @@ export default function HistoryScreen() {
           calcPos = 'RIGHT';
         }
 
-        // -----------------------------
-        // Temperature สูง
-        // -----------------------------
-        const tempHigh =
-          (data.temperature || 0) > 38;
+        // อุณหภูมิสูง
+        const tempHigh = (data.temperature || 0) > 38;
 
-        // -----------------------------
-        // Humidity สูง
-        // -----------------------------
-        const humidHigh =
-          (data.humidity || 0) > 75;
+        // ความชื้นสูง
+        const humidHigh = (data.humidity || 0) > 75;
 
         const newLog: HistoryLog = {
           ...data,
@@ -135,10 +108,14 @@ export default function HistoryScreen() {
           leftPressed: isLeftPressed,
 
           rightPressed: isRightPressed,
+
+        // เช็คว่าตำแหน่งเปลี่ยนจากครั้งก่อนหรือไม่
+        isPositionChanged:
+        historyLogs.length > 0 &&
+        historyLogs[0].calculatedPosition !== calcPos,
         };
 
         setHistoryLogs((prev) => {
-
           // ป้องกันข้อมูลซ้ำ
           if (
             prev.some(
@@ -150,49 +127,34 @@ export default function HistoryScreen() {
             return prev;
           }
 
-          // เพิ่มข้อมูลใหม่ด้านบน
           return [newLog, ...prev];
         });
       }
-
     } catch (error) {
-
-      console.error(
-        'Error loading history data:',
-        error
-      );
-
+      console.error('Error loading history data:', error);
     } finally {
-
       setLoading(false);
-
     }
   };
 
-  // ===================================================
+  // ==========================================
   // โหลดข้อมูลทุก 3 วินาที
-  // ===================================================
+  // ==========================================
   useEffect(() => {
-
     loadHistoryData();
 
     const interval = setInterval(() => {
       loadHistoryData();
     }, 3000);
 
-    return () => {
-      clearInterval(interval);
-    };
-
+    return () => clearInterval(interval);
   }, []);
 
-  // ===================================================
+  // ==========================================
   // Dashboard Stats
-  // ===================================================
+  // ==========================================
   const getDashboardStats = () => {
-
-    const total =
-      historyLogs.length || 1;
+    const total = historyLogs.length || 1;
 
     let leftCount = 0;
     let rightCount = 0;
@@ -200,71 +162,47 @@ export default function HistoryScreen() {
     let alertCount = 0;
     let moveCount = 0;
 
-    historyLogs.forEach(
-      (log, index) => {
+    historyLogs.forEach((log, idx) => {
+    if (log.leftPressed) {
+        leftCount++;
+    }
 
-        if (log.leftPressed) {
-          leftCount++;
-        }
+    if (log.rightPressed) {
+        rightCount++;
+    }
 
-        if (log.rightPressed) {
-          rightCount++;
-        }
+    tempSum += log.temperature || 0;
 
-        tempSum +=
-          log.temperature || 0;
+    if (log.isTempHigh || log.isHumidHigh) {
+        alertCount++;
+    }
 
-        if (
-          log.isTempHigh ||
-          log.isHumidHigh
-        ) {
-          alertCount++;
-        }
+    if (
+        idx > 0 &&
+        log.calculatedPosition !==
+        historyLogs[idx - 1].calculatedPosition
+    ) {
+        moveCount++;
+    }
+    });
 
-        // ตรวจการเปลี่ยนท่า
-        if (
-          index > 0 &&
-          log.calculatedPosition !==
-            historyLogs[index - 1]
-              .calculatedPosition
-        ) {
-          moveCount++;
-        }
-      }
+    const totalPressureSide = leftCount + rightCount || 1;
+
+    const leftPercent = Math.round(
+      (leftCount / totalPressureSide) * 100
     );
 
-    const totalPressureSide =
-      leftCount + rightCount || 1;
+    const rightPercent = 100 - leftPercent;
 
-    const leftPercent =
-      Math.round(
-        (leftCount /
-          totalPressureSide) *
-          100
-      );
+    const avgTemp = (tempSum / total).toFixed(1);
 
-    const rightPercent =
-      100 - leftPercent;
+    const totalMinutes = Math.floor(
+      (historyLogs.length * 3) / 60
+    );
 
-    const avgTemp =
-      (
-        tempSum / total
-      ).toFixed(1);
+    const hours = Math.floor(totalMinutes / 60);
 
-    // ประมาณเวลานั่ง
-    const totalMinutes =
-      Math.floor(
-        (historyLogs.length * 3) /
-          60
-      );
-
-    const hours =
-      Math.floor(
-        totalMinutes / 60
-      );
-
-    const mins =
-      totalMinutes % 60;
+    const mins = totalMinutes % 60;
 
     const sittingTimeStr =
       hours > 0
@@ -281,83 +219,53 @@ export default function HistoryScreen() {
     };
   };
 
-  const stats =
-    getDashboardStats();
+  const stats = getDashboardStats();
 
-  // ===================================================
+  // ==========================================
   // Loading
-  // ===================================================
-  if (
-    loading &&
-    historyLogs.length === 0
-  ) {
+  // ==========================================
+  if (loading && historyLogs.length === 0) {
     return (
-      <View
-        style={
-          styles.loadingContainer
-        }
-      >
+      <View style={styles.loadingContainer}>
         <ActivityIndicator
           size="large"
           color="#4464D0"
         />
 
-        <Text
-          style={
-            styles.loadingText
-          }
-        >
+        <Text style={styles.loadingText}>
           กำลังโหลดข้อมูล Dashboard...
         </Text>
       </View>
     );
   }
 
-  // ===================================================
-  // เอาข้อมูลสำหรับกราฟ
-  // ===================================================
-  const graphLogs =
-    historyLogs
-      .slice(0, 7)
-      .reverse();
+  // ==========================================
+  // เตรียมข้อมูลกราฟ
+  // เอา 10 รายการล่าสุด แล้วเรียงจากเก่า -> ใหม่
+  // ==========================================
+  const graphLogs = historyLogs
+    .slice(0, 10)
+    .reverse();
 
-  // ===================================================
+  // ==========================================
   // UI
-  // ===================================================
+  // ==========================================
   return (
-    <ScrollView
-      contentContainerStyle={
-        styles.container
-      }
-    >
+    <ScrollView contentContainerStyle={styles.container}>
 
-      {/* =================================================
-          HEADER
-      ================================================= */}
-      <Text
-        style={
-          styles.headerTitle
-        }
-      >
+      {/* Header */}
+      <Text style={styles.headerTitle}>
         Clinical Dashboard
       </Text>
 
-      <Text
-        style={
-          styles.subHeaderTitle
-        }
-      >
+      <Text style={styles.subHeaderTitle}>
         รายงานวิเคราะห์พฤติกรรมทางการแพทย์
       </Text>
 
-      {/* =================================================
-          TAB
-      ================================================= */}
-      <View
-        style={
-          styles.tabContainer
-        }
-      >
+      {/* ==========================================
+          Tab
+      ========================================== */}
+      <View style={styles.tabContainer}>
 
         <TouchableOpacity
           style={[
@@ -365,9 +273,7 @@ export default function HistoryScreen() {
             activeTab === 'today' &&
               styles.activeTabButton,
           ]}
-          onPress={() =>
-            setActiveTab('today')
-          }
+          onPress={() => setActiveTab('today')}
         >
           <Text
             style={[
@@ -386,9 +292,7 @@ export default function HistoryScreen() {
             activeTab === 'week' &&
               styles.activeTabButton,
           ]}
-          onPress={() =>
-            setActiveTab('week')
-          }
+          onPress={() => setActiveTab('week')}
         >
           <Text
             style={[
@@ -403,197 +307,99 @@ export default function HistoryScreen() {
 
       </View>
 
-      {/* =================================================
-          SUMMARY
-      ================================================= */}
-      <View
-        style={
-          styles.gridContainer
-        }
-      >
+      {/* ==========================================
+          Summary Cards
+      ========================================== */}
+      <View style={styles.gridContainer}>
 
-        <View
-          style={
-            styles.summaryCard
-          }
-        >
-          <Text
-            style={
-              styles.cardIcon
-            }
-          >
-            ⏱️
-          </Text>
+        <View style={styles.summaryCard}>
+          <Text style={styles.cardIcon}>⏱️</Text>
 
-          <Text
-            style={
-              styles.cardValueText
-            }
-          >
+          <Text style={styles.cardValueText}>
             {stats.sittingTimeStr}
           </Text>
 
-          <Text
-            style={
-              styles.cardLabelText
-            }
-          >
+          <Text style={styles.cardLabelText}>
             เวลานั่งรวม
           </Text>
         </View>
 
-        <View
-          style={
-            styles.summaryCard
-          }
-        >
-          <Text
-            style={
-              styles.cardIcon
-            }
-          >
-            🚶
-          </Text>
+        <View style={styles.summaryCard}>
+          <Text style={styles.cardIcon}>🚶</Text>
 
-          <Text
-            style={
-              styles.cardValueText
-            }
-          >
+          <Text style={styles.cardValueText}>
             {stats.moveCount} ครั้ง
           </Text>
 
-          <Text
-            style={
-              styles.cardLabelText
-            }
-          >
+          <Text style={styles.cardLabelText}>
             ขยับเปลี่ยนท่า
           </Text>
         </View>
 
-        <View
-          style={
-            styles.summaryCard
-          }
-        >
-          <Text
-            style={
-              styles.cardIcon
-            }
-          >
-            🌡️
-          </Text>
+        <View style={styles.summaryCard}>
+          <Text style={styles.cardIcon}>🌡️</Text>
 
           <Text
             style={[
               styles.cardValueText,
-              {
-                color: '#FF9500',
-              },
+              { color: '#FF9500' },
             ]}
           >
             {stats.avgTemp} °C
           </Text>
 
-          <Text
-            style={
-              styles.cardLabelText
-            }
-          >
+          <Text style={styles.cardLabelText}>
             อุณหภูมิเฉลี่ย
           </Text>
         </View>
 
-        <View
-          style={
-            styles.summaryCard
-          }
-        >
-          <Text
-            style={
-              styles.cardIcon
-            }
-          >
-            🚨
-          </Text>
+        <View style={styles.summaryCard}>
+          <Text style={styles.cardIcon}>🚨</Text>
 
           <Text
             style={[
               styles.cardValueText,
-              {
-                color: '#FF3B30',
-              },
+              { color: '#FF3B30' },
             ]}
           >
             {stats.alertCount} ครั้ง
           </Text>
 
-          <Text
-            style={
-              styles.cardLabelText
-            }
-          >
+          <Text style={styles.cardLabelText}>
             เตือนวิกฤต/ชื้น
           </Text>
         </View>
 
       </View>
 
-      {/* =================================================
-          PRESSURE BALANCE
-      ================================================= */}
-      <View
-        style={
-          styles.cardSection
-        }
-      >
+      {/* ==========================================
+          Pressure Balance
+      ========================================== */}
+      <View style={styles.cardSection}>
 
-        <Text
-          style={
-            styles.sectionTitle
-          }
-        >
+        <Text style={styles.sectionTitle}>
           ⚖️ สัดส่วนการพบแรงกดสูง
         </Text>
 
-        <View
-          style={
-            styles.balanceHeader
-          }
-        >
+        <View style={styles.balanceHeader}>
 
-          <Text
-            style={
-              styles.leftPercentText
-            }
-          >
+          <Text style={styles.leftPercentText}>
             ซ้าย {stats.leftPercent}%
           </Text>
 
-          <Text
-            style={
-              styles.rightPercentText
-            }
-          >
+          <Text style={styles.rightPercentText}>
             ขวา {stats.rightPercent}%
           </Text>
 
         </View>
 
-        <View
-          style={
-            styles.balanceBarContainer
-          }
-        >
+        <View style={styles.balanceBarContainer}>
 
           <View
             style={[
               styles.leftBar,
               {
-                flex:
-                  stats.leftPercent ||
-                  1,
+                flex: stats.leftPercent || 1,
               },
             ]}
           />
@@ -602,20 +408,14 @@ export default function HistoryScreen() {
             style={[
               styles.rightBar,
               {
-                flex:
-                  stats.rightPercent ||
-                  1,
+                flex: stats.rightPercent || 1,
               },
             ]}
           />
 
         </View>
 
-        <Text
-          style={
-            styles.evalText
-          }
-        >
+        <Text style={styles.evalText}>
           💡 ประเมิน:{' '}
           {Math.abs(
             stats.leftPercent -
@@ -627,773 +427,441 @@ export default function HistoryScreen() {
 
       </View>
 
-      {/* =================================================
-          STAR MAP GRAPH
-      ================================================= */}
-      <View
-        style={
-          styles.cardSection
-        }
-      >
+      {/* ==========================================
+          Daily Trend Graph
+      ========================================== */}
+      <View style={styles.cardSection}>
 
-        <Text
-          style={
-            styles.sectionTitle
-          }
-        >
-          📈 แนวโน้มตลอดวัน (Daily Trend)
+        <Text style={styles.sectionTitle}>
+          📈 แนวโน้มข้อมูลตลอดเวลา
         </Text>
 
         {/* Legend */}
-        <View
-          style={
-            styles.legendRow
-          }
-        >
+        <View style={styles.legendRow}>
 
-          <View
-            style={
-              styles.legendItem
-            }
-          >
+          <View style={styles.legendItem}>
             <View
               style={[
-                styles.legendDot,
-                {
-                  backgroundColor:
-                    '#0288D1',
-                },
+                styles.dot,
+                { backgroundColor: '#0288D1' },
               ]}
             />
 
-            <Text
-              style={
-                styles.legendText
-              }
-            >
-              Humid (%)
+            <Text style={styles.legendText}>
+              ความชื้น
             </Text>
           </View>
 
-          <View
-            style={
-              styles.legendItem
-            }
-          >
+          <View style={styles.legendItem}>
             <View
               style={[
-                styles.legendDot,
-                {
-                  backgroundColor:
-                    '#FF3B30',
-                },
+                styles.dot,
+                { backgroundColor: '#FF3B30' },
               ]}
             />
 
-            <Text
-              style={
-                styles.legendText
-              }
-            >
-              Pressure
+            <Text style={styles.legendText}>
+              แรงกด
             </Text>
           </View>
 
-          <View
-            style={
-              styles.legendItem
-            }
-          >
+          <View style={styles.legendItem}>
             <View
               style={[
-                styles.legendDot,
-                {
-                  backgroundColor:
-                    '#FF9500',
-                },
+                styles.dot,
+                { backgroundColor: '#FF9500' },
               ]}
             />
 
-            <Text
-              style={
-                styles.legendText
-              }
-            >
-              Temp (°C)
+            <Text style={styles.legendText}>
+              อุณหภูมิ
             </Text>
           </View>
 
         </View>
 
-        {/* =================================================
-            STAR MAP
-        ================================================= */}
-        <View
-          style={
-            styles.starMapContainer
-          }
-        >
-
-          <Svg
-            width="100%"
-            height={260}
-            viewBox="0 0 340 260"
-          >
-
-            {/* ================================
-                GRID
-            ================================= */}
-
-            <Line
-              x1="30"
-              y1="40"
-              x2="320"
-              y2="40"
-              stroke="#E5E5EA"
-              strokeWidth="1"
-              strokeDasharray="4 5"
-            />
-
-            <Line
-              x1="30"
-              y1="80"
-              x2="320"
-              y2="80"
-              stroke="#E5E5EA"
-              strokeWidth="1"
-              strokeDasharray="4 5"
-            />
-
-            <Line
-              x1="30"
-              y1="120"
-              x2="320"
-              y2="120"
-              stroke="#E5E5EA"
-              strokeWidth="1"
-              strokeDasharray="4 5"
-            />
-
-            <Line
-              x1="30"
-              y1="160"
-              x2="320"
-              y2="160"
-              stroke="#E5E5EA"
-              strokeWidth="1"
-              strokeDasharray="4 5"
-            />
-
-            <Line
-              x1="30"
-              y1="200"
-              x2="320"
-              y2="200"
-              stroke="#E5E5EA"
-              strokeWidth="1"
-              strokeDasharray="4 5"
-            />
-
-            {/* ================================
-                HUMIDITY
-            ================================= */}
-
-            {graphLogs.map(
-              (item, index) => {
-
-                const count =
-                  graphLogs.length;
-
-                const x =
-                  count <= 1
-                    ? 175
-                    : 30 +
-                      index *
-                        (290 /
-                          (count - 1));
-
-                const humidity =
-                  Math.min(
-                    Math.max(
-                      Number(
-                        item.humidity
-                      ) || 0,
-                      0
-                    ),
-                    100
-                  );
-
-                const y =
-                  200 -
-                  (humidity / 100) *
-                    160;
-
-                const previous =
-                  graphLogs[
-                    index - 1
-                  ];
-
-                if (!previous) {
-                  return (
-                    <React.Fragment
-                      key={`humid-${index}`}
-                    >
-
-                      <Circle
-                        cx={x}
-                        cy={y}
-                        r="6"
-                        fill="#0288D1"
-                      />
-
-                      <Circle
-                        cx={x}
-                        cy={y}
-                        r="11"
-                        fill="none"
-                        stroke="#0288D1"
-                        strokeWidth="1"
-                        opacity="0.25"
-                      />
-
-                    </React.Fragment>
-                  );
-                }
-
-                const previousHumidity =
-                  Math.min(
-                    Math.max(
-                      Number(
-                        previous.humidity
-                      ) || 0,
-                      0
-                    ),
-                    100
-                  );
-
-                const previousX =
-                  count <= 1
-                    ? 175
-                    : 30 +
-                      (index - 1) *
-                        (290 /
-                          (count - 1));
-
-                const previousY =
-                  200 -
-                  (previousHumidity /
-                    100) *
-                    160;
-
-                return (
-                  <React.Fragment
-                    key={`humid-${index}`}
-                  >
-
-                    <Line
-                      x1={previousX}
-                      y1={previousY}
-                      x2={x}
-                      y2={y}
-                      stroke="#0288D1"
-                      strokeWidth="2"
-                      strokeDasharray="6 5"
-                    />
-
-                    <Circle
-                      cx={x}
-                      cy={y}
-                      r="6"
-                      fill="#0288D1"
-                    />
-
-                    <Circle
-                      cx={x}
-                      cy={y}
-                      r="11"
-                      fill="none"
-                      stroke="#0288D1"
-                      strokeWidth="1"
-                      opacity="0.25"
-                    />
-
-                  </React.Fragment>
-                );
-              }
-            )}
-
-            {/* ================================
-                PRESSURE
-            ================================= */}
-
-            {graphLogs.map(
-              (item, index) => {
-
-                const count =
-                  graphLogs.length;
-
-                const x =
-                  count <= 1
-                    ? 175
-                    : 30 +
-                      index *
-                        (290 /
-                          (count - 1));
-
-                // ใช้ sensor1 เป็น Pressure
-                const sensor =
-                  Math.min(
-                    Math.max(
-                      Number(
-                        item.sensor1
-                      ) || 0,
-                      0
-                    ),
-                    4095
-                  );
-
-                // sensor ต่ำ = แรงกดสูง
-                const pressure =
-                  ((4095 - sensor) /
-                    4095) *
-                  100;
-
-                const y =
-                  200 -
-                  (pressure / 100) *
-                    160;
-
-                const previous =
-                  graphLogs[
-                    index - 1
-                  ];
-
-                if (!previous) {
-                  return (
-                    <Circle
-                      key={`pressure-${index}`}
-                      cx={x}
-                      cy={y}
-                      r="5"
-                      fill="#FF3B30"
-                    />
-                  );
-                }
-
-                const previousSensor =
-                  Math.min(
-                    Math.max(
-                      Number(
-                        previous.sensor1
-                      ) || 0,
-                      0
-                    ),
-                    4095
-                  );
-
-                const previousPressure =
-                  ((4095 -
-                    previousSensor) /
-                    4095) *
-                  100;
-
-                const previousX =
-                  count <= 1
-                    ? 175
-                    : 30 +
-                      (index - 1) *
-                        (290 /
-                          (count - 1));
-
-                const previousY =
-                  200 -
-                  (previousPressure /
-                    100) *
-                    160;
-
-                return (
-                  <React.Fragment
-                    key={`pressure-${index}`}
-                  >
-
-                    <Line
-                      x1={previousX}
-                      y1={previousY}
-                      x2={x}
-                      y2={y}
-                      stroke="#FF3B30"
-                      strokeWidth="2"
-                      strokeDasharray="4 5"
-                    />
-
-                    <Circle
-                      cx={x}
-                      cy={y}
-                      r="5"
-                      fill="#FF3B30"
-                    />
-
-                  </React.Fragment>
-                );
-              }
-            )}
-
-            {/* ================================
-                TEMPERATURE
-            ================================= */}
-
-            {graphLogs.map(
-              (item, index) => {
-
-                const count =
-                  graphLogs.length;
-
-                const x =
-                  count <= 1
-                    ? 175
-                    : 30 +
-                      index *
-                        (290 /
-                          (count - 1));
-
-                const temperature =
-                  Math.min(
-                    Math.max(
-                      Number(
-                        item.temperature
-                      ) || 0,
-                      0
-                    ),
-                    45
-                  );
-
-                const y =
-                  200 -
-                  (temperature / 45) *
-                    160;
-
-                const previous =
-                  graphLogs[
-                    index - 1
-                  ];
-
-                if (!previous) {
-                  return (
-                    <Circle
-                      key={`temp-${index}`}
-                      cx={x}
-                      cy={y}
-                      r="5"
-                      fill="#FF9500"
-                    />
-                  );
-                }
-
-                const previousTemperature =
-                  Math.min(
-                    Math.max(
-                      Number(
-                        previous.temperature
-                      ) || 0,
-                      0
-                    ),
-                    45
-                  );
-
-                const previousX =
-                  count <= 1
-                    ? 175
-                    : 30 +
-                      (index - 1) *
-                        (290 /
-                          (count - 1));
-
-                const previousY =
-                  200 -
-                  (previousTemperature /
-                    45) *
-                    160;
-
-                return (
-                  <React.Fragment
-                    key={`temp-${index}`}
-                  >
-
-                    <Line
-                      x1={previousX}
-                      y1={previousY}
-                      x2={x}
-                      y2={y}
-                      stroke="#FF9500"
-                      strokeWidth="2"
-                      strokeDasharray="6 5"
-                    />
-
-                    <Circle
-                      cx={x}
-                      cy={y}
-                      r="5"
-                      fill="#FF9500"
-                    />
-
-                  </React.Fragment>
-                );
-              }
-            )}
-
-            {/* ================================
-                TIME
-            ================================= */}
-
-            {graphLogs.map(
-              (item, index) => {
-
-                const count =
-                  graphLogs.length;
-
-                const x =
-                  count <= 1
-                    ? 175
-                    : 30 +
-                      index *
-                        (290 /
-                          (count - 1));
-
-                return (
-                  <SvgText
-                    key={`time-${index}`}
-                    x={x}
-                    y="235"
-                    fill="#8E8E93"
-                    fontSize="9"
-                    textAnchor="middle"
-                  >
-                    {formatTime(
-                      item.time
-                    )}
-                  </SvgText>
-                );
-              }
-            )}
-
-          </Svg>
-
-        </View>
-
-        {/* ถ้ายังมีข้อมูลไม่ถึง 2 จุด */}
-        {graphLogs.length < 2 && (
-          <Text
-            style={
-              styles.graphHint
-            }
-          >
-            กำลังรอข้อมูลเพิ่มเติมเพื่อสร้างเส้นแนวโน้ม...
+        {/* Graph */}
+        {graphLogs.length === 0 ? (
+
+          <Text style={styles.emptyGraphText}>
+            ยังไม่มีข้อมูลสำหรับแสดงกราฟ
           </Text>
+
+        ) : (
+
+          <View style={styles.trendGraph}>
+
+            {/* Y Axis */}
+            <View style={styles.yAxis}>
+
+              <Text style={styles.axisText}>
+                100
+              </Text>
+
+              <Text style={styles.axisText}>
+                75
+              </Text>
+
+              <Text style={styles.axisText}>
+                50
+              </Text>
+
+              <Text style={styles.axisText}>
+                25
+              </Text>
+
+              <Text style={styles.axisText}>
+                0
+              </Text>
+
+            </View>
+
+            {/* Graph Area */}
+            <View style={styles.graphArea}>
+
+              {/* Grid */}
+              <View
+                style={[
+                  styles.gridLine,
+                  { top: '0%' },
+                ]}
+              />
+
+              <View
+                style={[
+                  styles.gridLine,
+                  { top: '25%' },
+                ]}
+              />
+
+              <View
+                style={[
+                  styles.gridLine,
+                  { top: '50%' },
+                ]}
+              />
+
+              <View
+                style={[
+                  styles.gridLine,
+                  { top: '75%' },
+                ]}
+              />
+
+              <View
+                style={[
+                  styles.gridLine,
+                  { top: '100%' },
+                ]}
+              />
+
+              {/* เส้นแนวโน้ม */}
+              <View style={styles.dataRow}>
+
+                {graphLogs.map(
+                  (item, index) => {
+
+                    const humidity =
+                      clamp(
+                        Number(
+                          item.humidity
+                        ) || 0
+                      );
+
+                    const pressure =
+                      item.leftPressed ||
+                      item.rightPressed
+                        ? 80
+                        : 20;
+
+                    const temperature =
+                      clamp(
+                        ((Number(
+                          item.temperature
+                        ) || 0) /
+                          45) *
+                          100
+                      );
+
+                    return (
+                      <View
+                        key={item.id}
+                        style={styles.dataColumn}
+                      >
+
+                        {/* เส้นก่อนหน้า */}
+                        {index > 0 && (
+                          <>
+                            {/* Humidity line */}
+                            <View
+                              style={[
+                                styles.connectLine,
+                                {
+                                  backgroundColor:
+                                    '#0288D1',
+                                  bottom:
+                                    `${Math.min(
+                                      humidity,
+                                      100
+                                    )}%`,
+                                },
+                              ]}
+                            />
+
+                            {/* Pressure line */}
+                            <View
+                              style={[
+                                styles.connectLine,
+                                {
+                                  backgroundColor:
+                                    '#FF3B30',
+                                  bottom:
+                                    `${Math.min(
+                                      pressure,
+                                      100
+                                    )}%`,
+                                },
+                              ]}
+                            />
+
+                            {/* Temperature line */}
+                            <View
+                              style={[
+                                styles.connectLine,
+                                {
+                                  backgroundColor:
+                                    '#FF9500',
+                                  bottom:
+                                    `${Math.min(
+                                      temperature,
+                                      100
+                                    )}%`,
+                                },
+                              ]}
+                            />
+                          </>
+                        )}
+
+                        {/* Humidity Point */}
+                        <View
+                          style={[
+                            styles.dataPoint,
+                            {
+                              bottom:
+                                `${humidity}%`,
+                              backgroundColor:
+                                '#0288D1',
+                            },
+                          ]}
+                        />
+
+                        {/* Pressure Point */}
+                        <View
+                          style={[
+                            styles.dataPoint,
+                            {
+                              bottom:
+                                `${pressure}%`,
+                              backgroundColor:
+                                '#FF3B30',
+                            },
+                          ]}
+                        />
+
+                        {/* Temperature Point */}
+                        <View
+                          style={[
+                            styles.dataPoint,
+                            {
+                              bottom:
+                                `${temperature}%`,
+                              backgroundColor:
+                                '#FF9500',
+                            },
+                          ]}
+                        />
+
+                        {/* เวลา */}
+                        <Text
+                          style={
+                            styles.xAxisText
+                          }
+                        >
+                          {formatTime(
+                            item.time
+                          ).slice(0, 5)}
+                        </Text>
+
+                      </View>
+                    );
+                  }
+                )}
+
+              </View>
+
+            </View>
+
+          </View>
+
         )}
+
+        <Text style={styles.xAxisTitle}>
+          เวลา
+        </Text>
+
+        <Text style={styles.graphDescription}>
+          แสดงแนวโน้มจากข้อมูลล่าสุด
+        </Text>
 
       </View>
 
-      {/* =================================================
-          RECENT LOGS
-      ================================================= */}
-      <View
-        style={
-          styles.cardSection
-        }
-      >
+      {/* ==========================================
+          Recent Logs
+      ========================================== */}
+      <View style={styles.cardSection}>
 
-        <View
-          style={
-            styles.logHeaderRow
-          }
-        >
+        <View style={styles.logHeaderRow}>
 
-          <Text
-            style={
-              styles.sectionTitle
-            }
-          >
+          <Text style={styles.sectionTitle}>
             📋 ประวัติบันทึกเหตุการณ์
           </Text>
 
-          <View
-            style={
-              styles.exportBadge
-            }
+          <TouchableOpacity
+            style={styles.exportBadge}
           >
-            <Text
-              style={
-                styles.exportBadgeText
-              }
-            >
-              LIVE
+            <Text style={styles.exportBadgeText}>
+              ย่อลง
             </Text>
-          </View>
+          </TouchableOpacity>
 
         </View>
 
         {historyLogs.length === 0 ? (
 
-          <Text
-            style={
-              styles.emptyText
-            }
-          >
+          <Text style={styles.emptyText}>
             ยังไม่มีข้อมูลบันทึก
           </Text>
 
         ) : (
 
-          historyLogs.map(
-            (item) => (
+          historyLogs.map((item) => (
+
+            <View
+              key={item.id}
+              style={styles.logItemCard}
+            >
 
               <View
-                key={item.id}
-                style={
-                  styles.logItemCard
-                }
-              >
+                style={[
+                  styles.sideIndicator,
+                  {
+                    backgroundColor:
+                      item.isTempHigh ||
+                      item.isHumidHigh
+                        ? '#FF3B30'
+                        : '#0288D1',
+                  },
+                ]}
+              />
 
-                {/* Indicator */}
-                <View
-                  style={[
-                    styles.sideIndicator,
-                    {
-                      backgroundColor:
-                        item.isTempHigh ||
-                        item.isHumidHigh
-                          ? '#FF3B30'
-                          : '#0288D1',
-                    },
-                  ]}
-                />
+              <View style={styles.logContent}>
 
-                <View
-                  style={
-                    styles.logContent
-                  }
-                >
+                <View style={styles.logTopRow}>
 
-                  <View
-                    style={
-                      styles.logTopRow
-                    }
-                  >
+                  <Text style={styles.logTimeText}>
+                    {formatTime(item.time)} น.
+                  </Text>
 
+                  {item.isTempHigh && (
                     <Text
-                      style={
-                        styles.logTimeText
-                      }
+                      style={styles.criticalBadge}
                     >
-                      {formatTime(
-                        item.time
-                      )}{' '}
-                      น.
+                      🚨 วิกฤต
                     </Text>
+                  )}
 
-                    {item.isTempHigh && (
+                  {!item.isTempHigh &&
+                    item.calculatedPosition ===
+                      'CENTER' && (
                       <Text
-                        style={
-                          styles.criticalBadge
-                        }
+                        style={styles.warningBadge}
                       >
-                        🚨 วิกฤต
+                        ⚠️ นั่งนานเกินไป
                       </Text>
                     )}
 
-                    {!item.isTempHigh &&
-                      item.calculatedPosition ===
-                        'CENTER' && (
-                        <Text
-                          style={
-                            styles.warningBadge
-                          }
-                        >
-                          ⚠️ นั่งนานเกินไป
-                        </Text>
-                      )}
+                </View>
 
-                  </View>
+                <View style={styles.logSubRow}>
 
-                  <View
-                    style={
-                      styles.logSubRow
-                    }
-                  >
+                  <Text style={styles.logDetailText}>
+                    แรงกด: ซ้าย{' '}
 
                     <Text
                       style={
-                        styles.logDetailText
+                        item.leftPressed
+                          ? styles.textRed
+                          : styles.textGreen
                       }
                     >
-                      แรงกด: ซ้าย{' '}
-
-                      <Text
-                        style={
-                          item.leftPressed
-                            ? styles.textRed
-                            : styles.textGreen
-                        }
-                      >
-                        {item.leftPressed
-                          ? 'High'
-                          : 'Low'}
-                      </Text>
-
-                      {' | '}ขวา{' '}
-
-                      <Text
-                        style={
-                          item.rightPressed
-                            ? styles.textRed
-                            : styles.textGreen
-                        }
-                      >
-                        {item.rightPressed
-                          ? 'High'
-                          : 'Low'}
-                      </Text>
+                      {item.leftPressed
+                        ? 'High'
+                        : 'Low'}
                     </Text>
+
+                    {' | '}ขวา{' '}
 
                     <Text
                       style={
-                        styles.logMetricText
+                        item.rightPressed
+                          ? styles.textRed
+                          : styles.textGreen
                       }
                     >
-                      อุณหภูมิ:{' '}
+                      {item.rightPressed
+                        ? 'High'
+                        : 'Low'}
+                    </Text>
+                  </Text>
 
-                      <Text
-                        style={
-                          item.isTempHigh
-                            ? styles.textRed
-                            : styles.textDark
-                        }
-                      >
-                        {item.temperature} °C
-                      </Text>
+                  <Text style={styles.logMetricText}>
 
-                      {'  '}
+                    อุณหภูมิ:{' '}
 
-                      ชื้น:{' '}
-
-                      <Text
-                        style={
-                          item.isHumidHigh
-                            ? styles.textBlue
-                            : styles.textDark
-                        }
-                      >
-                        {item.humidity}% 💧
-                      </Text>
+                    <Text
+                      style={
+                        item.isTempHigh
+                          ? styles.textRed
+                          : styles.textDark
+                      }
+                    >
+                      {item.temperature} °C
                     </Text>
 
-                  </View>
+                    {'  '}
+
+                    ชื้น:{' '}
+
+                    <Text
+                      style={
+                        item.isHumidHigh
+                          ? styles.textBlue
+                          : styles.textDark
+                      }
+                    >
+                      {item.humidity}% 💧
+                    </Text>
+
+                  </Text>
 
                 </View>
 
               </View>
-            )
-          )
+
+            </View>
+
+          ))
+
         )}
 
       </View>
@@ -1403,7 +871,7 @@ export default function HistoryScreen() {
 }
 
 // =====================================================
-// STYLES
+// Styles
 // =====================================================
 
 const styles = StyleSheet.create({
@@ -1442,9 +910,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // ===================================================
-  // TAB
-  // ===================================================
+  // ==========================================
+  // Tab
+  // ==========================================
 
   tabContainer: {
     flexDirection: 'row',
@@ -1476,9 +944,9 @@ const styles = StyleSheet.create({
     color: '#3B5998',
   },
 
-  // ===================================================
-  // SUMMARY
-  // ===================================================
+  // ==========================================
+  // Summary
+  // ==========================================
 
   gridContainer: {
     flexDirection: 'row',
@@ -1513,9 +981,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // ===================================================
-  // CARD
-  // ===================================================
+  // ==========================================
+  // Section
+  // ==========================================
 
   cardSection: {
     backgroundColor: '#FFFFFF',
@@ -1532,9 +1000,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  // ===================================================
-  // BALANCE
-  // ===================================================
+  // ==========================================
+  // Balance
+  // ==========================================
 
   balanceHeader: {
     flexDirection: 'row',
@@ -1576,57 +1044,141 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
   },
 
-  // ===================================================
-  // LEGEND
-  // ===================================================
+  // ==========================================
+  // Legend
+  // ==========================================
 
   legendRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
-    gap: 18,
+    gap: 14,
     marginBottom: 8,
   },
 
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
 
-  legendDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    marginRight: 5,
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 
   legendText: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#8E8E93',
   },
 
-  // ===================================================
-  // STAR MAP
-  // ===================================================
+  // ==========================================
+  // Trend Graph
+  // ==========================================
 
-  starMapContainer: {
-    width: '100%',
-    height: 260,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
+  trendGraph: {
+    flexDirection: 'row',
+    height: 230,
+    marginTop: 8,
   },
 
-  graphHint: {
+  yAxis: {
+    width: 35,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingBottom: 28,
+  },
+
+  axisText: {
+    fontSize: 9,
+    color: '#8E8E93',
+  },
+
+  graphArea: {
+    flex: 1,
+    height: 195,
+    marginLeft: 8,
+    position: 'relative',
+    borderLeftWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#D1D1D6',
+  },
+
+  gridLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5EA',
+  },
+
+  dataRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+
+  dataColumn: {
+    flex: 1,
+    height: '100%',
+    position: 'relative',
+    alignItems: 'center',
+  },
+
+  dataPoint: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    zIndex: 3,
+  },
+
+  connectLine: {
+    position: 'absolute',
+    width: 2,
+    height: 12,
+    opacity: 0.45,
+    zIndex: 1,
+  },
+
+  xAxisText: {
+    position: 'absolute',
+    bottom: -25,
+    fontSize: 8,
+    color: '#8E8E93',
+    width: 45,
+    textAlign: 'center',
+  },
+
+  xAxisTitle: {
+    textAlign: 'center',
+    fontSize: 11,
+    color: '#8E8E93',
+    marginTop: 0,
+    fontWeight: '600',
+  },
+
+  graphDescription: {
+    fontSize: 10,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginTop: 6,
+  },
+
+  emptyGraphText: {
     textAlign: 'center',
     color: '#8E8E93',
-    fontSize: 11,
-    marginTop: -4,
+    paddingVertical: 50,
+    fontSize: 12,
   },
 
-  // ===================================================
-  // LOG
-  // ===================================================
+  // ==========================================
+  // Recent Logs
+  // ==========================================
 
   logHeaderRow: {
     flexDirection: 'row',
@@ -1635,7 +1187,7 @@ const styles = StyleSheet.create({
   },
 
   exportBadge: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#3B5998',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1643,7 +1195,7 @@ const styles = StyleSheet.create({
 
   exportBadgeText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 'bold',
   },
 
