@@ -1,238 +1,1015 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
 
-const screenWidth = Dimensions.get('window').width;
+// ดึงข้อมูลจาก sensorService โดยไม่แก้ไขอะไรใน service
+import {
+  fetchSensorData,
+  SensorData,
+} from '../../services/sensorService';
 
-// Structure ข้อมูล Log รายการย้อนหลัง (เพิ่ม temp)
-type HistoryLog = {
+type TabType = 'today' | 'week';
+
+interface HistoryLog extends SensorData {
   id: string;
-  timestamp: string;
-  status: 'normal' | 'sitting_too_long' | 'critical' | 'standby';
-  pressureSide: 'left' | 'right' | 'both' | 'none';
-  pressureValue: number;
-  humidity: number;
-  temperature: number; // °C
+  calculatedPosition: 'LEFT' | 'RIGHT' | 'CENTER' | 'NONE';
+  isTempHigh: boolean;
   isHumidHigh: boolean;
+  leftPressed: boolean;
+  rightPressed: boolean;
+}
+
+// =====================================================
+// ฟังก์ชันจัดรูปแบบเวลา
+// =====================================================
+const formatTime = (time?: string) => {
+  if (!time) return '-';
+
+  // กรณี Google Sheet ส่งมาเป็น
+  // 1899-12-30T17:00:48.000Z
+  if (time.includes('T')) {
+    const date = new Date(time);
+
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      });
+    }
+  }
+
+  // กรณีส่งมาเป็น 17:00:48 อยู่แล้ว
+  return time;
 };
 
-const MOCK_HISTORY: HistoryLog[] = [
-  { id: '1', timestamp: '15:30 น.', status: 'critical', pressureSide: 'left', pressureValue: 1025, humidity: 85, temperature: 37.2, isHumidHigh: true },
-  { id: '2', timestamp: '14:15 น.', status: 'sitting_too_long', pressureSide: 'right', pressureValue: 1018, humidity: 78, temperature: 36.8, isHumidHigh: false },
-  { id: '3', timestamp: '12:00 น.', status: 'normal', pressureSide: 'both', pressureValue: 1012, humidity: 62, temperature: 35.5, isHumidHigh: false },
-  { id: '4', timestamp: '10:45 น.', status: 'standby', pressureSide: 'none', pressureValue: 1008, humidity: 58, temperature: 34.2, isHumidHigh: false },
-];
-
 export default function HistoryScreen() {
-  const [selectedTab, setSelectedTab] = useState<'today' | 'week'>('today');
-  const [showAllLogs, setShowAllLogs] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('today');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [historyLogs, setHistoryLogs] = useState<HistoryLog[]>([]);
 
-  // ข้อมูลจำลองสำหรับ Trend Chart (เพิ่ม Temp Dataset)
-  const chartData = {
-    labels: ['09:00', '11:00', '13:00', '15:00', '17:00'],
-    datasets: [
-      {
-        data: [65, 58, 62, 78, 85], // Humid (%) - สีฟ้า
-        color: (opacity = 1) => `rgba(2, 136, 209, ${opacity})`,
-        strokeWidth: 2,
-      },
-      {
-        data: [40, 45, 50, 75, 90], // Pressure Index - สีแดง
-        color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
-        strokeWidth: 2,
-      },
-      {
-        data: [34, 35, 36, 37, 37.5], // Temp (°C) - สีส้ม
-        color: (opacity = 1) => `rgba(255, 149, 0, ${opacity})`,
-        strokeWidth: 2,
-      },
-    ],
-    legend: ['Humid (%)', 'Pressure', 'Temp (°C)'],
-  };
+  // ==========================================
+  // ดึงข้อมูลและสะสม Log
+  // ==========================================
+  const loadHistoryData = async () => {
+    try {
+      const data = await fetchSensorData();
 
-  const getStatusBadge = (status: HistoryLog['status']) => {
-    switch (status) {
-      case 'critical':
-        return { label: '🚨 วิกฤต', bgColor: '#FFE5E5', textColor: '#FF3B30' };
-      case 'sitting_too_long':
-        return { label: '⚠️ นั่งนานเกินไป', bgColor: '#FFF5E6', textColor: '#FF9500' };
-      case 'standby':
-        return { label: 'Standby', bgColor: '#F2F2F7', textColor: '#8E8E93' };
-      case 'normal':
-      default:
-        return { label: 'Active', bgColor: '#EAF9EC', textColor: '#34C759' };
+      if (data) {
+        // 1. คำนวณการกดซ้าย/ขวา
+        const isLeftPressed = (data.sensor1 ?? 4095) < 500;
+        const isRightPressed = (data.sensor2 ?? 4095) < 500;
+
+        let calcPos: 'LEFT' | 'RIGHT' | 'CENTER' | 'NONE' = 'NONE';
+
+        if (isLeftPressed && isRightPressed) {
+          calcPos = 'CENTER';
+        } else if (isLeftPressed) {
+          calcPos = 'LEFT';
+        } else if (isRightPressed) {
+          calcPos = 'RIGHT';
+        }
+
+        // 2. เช็คอุณหภูมิสูง > 38°C
+        const tempHigh = (data.temperature || 0) > 38;
+
+        // 3. เช็คความชื้นสูง > 75%
+        const humidHigh = (data.humidity || 0) > 75;
+
+        const newLog: HistoryLog = {
+          ...data,
+
+          id: `${data.date}_${data.time}_${Math.random()}`,
+
+          calculatedPosition: calcPos,
+
+          isTempHigh: tempHigh,
+
+          isHumidHigh: humidHigh,
+
+          leftPressed: isLeftPressed,
+
+          rightPressed: isRightPressed,
+        };
+
+        setHistoryLogs((prev) => {
+          // ป้องกันข้อมูลซ้ำ
+          if (
+            prev.some(
+              (item) =>
+                item.time === data.time &&
+                item.date === data.date
+            )
+          ) {
+            return prev;
+          }
+
+          return [newLog, ...prev];
+        });
+      }
+    } catch (error) {
+      console.error('Error loading history data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getSideText = (side: HistoryLog['pressureSide']) => {
-    switch (side) {
-      case 'left': return 'ซ้ายสูง';
-      case 'right': return 'ขวาสูง';
-      case 'both': return 'เท่ากัน';
-      case 'none': default: return 'ไม่มีแรงกด';
-    }
+  // ==========================================
+  // โหลดข้อมูลทุก 3 วินาที
+  // ==========================================
+  useEffect(() => {
+    loadHistoryData();
+
+    const interval = setInterval(() => {
+      loadHistoryData();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // ==========================================
+  // คำนวณ Dashboard Stats
+  // ==========================================
+  const getDashboardStats = () => {
+    const total = historyLogs.length || 1;
+
+    let leftCount = 0;
+    let rightCount = 0;
+    let tempSum = 0;
+    let alertCount = 0;
+    let moveCount = 0;
+
+    historyLogs.forEach((log, idx) => {
+      if (log.leftPressed) {
+        leftCount++;
+      }
+
+      if (log.rightPressed) {
+        rightCount++;
+      }
+
+      tempSum += log.temperature || 0;
+
+      if (log.isTempHigh || log.isHumidHigh) {
+        alertCount++;
+      }
+
+      // เช็คการเปลี่ยนตำแหน่ง
+      if (
+        idx > 0 &&
+        log.calculatedPosition !==
+          historyLogs[idx - 1].calculatedPosition
+      ) {
+        moveCount++;
+      }
+    });
+
+    const totalPressureSide = leftCount + rightCount || 1;
+
+    const leftPercent = Math.round(
+      (leftCount / totalPressureSide) * 100
+    );
+
+    const rightPercent = 100 - leftPercent;
+
+    const avgTemp = (tempSum / total).toFixed(1);
+
+    // คำนวณเวลานั่งโดยประมาณ
+    const totalMinutes = Math.floor(
+      (historyLogs.length * 3) / 60
+    );
+
+    const hours = Math.floor(totalMinutes / 60);
+
+    const mins = totalMinutes % 60;
+
+    const sittingTimeStr =
+      hours > 0
+        ? `${hours} ชม. ${mins} นาที`
+        : `${mins || 0} นาที`;
+
+    return {
+      sittingTimeStr,
+      moveCount,
+      avgTemp,
+      alertCount,
+      leftPercent,
+      rightPercent,
+    };
   };
 
-  const displayedLogs = showAllLogs ? MOCK_HISTORY : MOCK_HISTORY.slice(0, 2);
+  const stats = getDashboardStats();
 
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <Text style={styles.headerTitle}>Clinical Dashboard</Text>
-      <Text style={styles.subHeaderTitle}>รายงานวิเคราะห์พฤติกรรมทางการแพทย์</Text>
+  // ==========================================
+  // Loading
+  // ==========================================
+  if (loading && historyLogs.length === 0) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator
+          size="large"
+          color="#4464D0"
+        />
 
-      {/* Tab Switcher */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tabButton, selectedTab === 'today' && styles.activeTabButton]}
-          onPress={() => setSelectedTab('today')}
-        >
-          <Text style={[styles.tabText, selectedTab === 'today' && styles.activeTabText]}>วันนี้</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, selectedTab === 'week' && styles.activeTabButton]}
-          onPress={() => setSelectedTab('week')}
-        >
-          <Text style={[styles.tabText, selectedTab === 'week' && styles.activeTabText]}>สัปดาห์นี้</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* ================= SECTION 1: DAILY SUMMARY (สถิติหลัก) ================= */}
-      <View style={styles.gridRow}>
-        <View style={styles.metricCard}>
-          <Text style={styles.metricEmoji}>⏱️</Text>
-          <Text style={styles.metricValue}>5 ชม. 20 นาที</Text>
-          <Text style={styles.metricLabel}>เวลานั่งรวม</Text>
-        </View>
-
-        <View style={styles.metricCard}>
-          <Text style={styles.metricEmoji}>🚶‍♂️</Text>
-          <Text style={styles.metricValue}>12 ครั้ง</Text>
-          <Text style={styles.metricLabel}>ขยับเปลี่ยนท่า</Text>
-        </View>
-
-        <View style={styles.metricCard}>
-          <Text style={styles.metricEmoji}>🌡️</Text>
-          <Text style={[styles.metricValue, { color: '#FF9500' }]}>35.5 °C</Text>
-          <Text style={styles.metricLabel}>อุณหภูมิเฉลี่ย</Text>
-        </View>
-
-        <View style={styles.metricCard}>
-          <Text style={styles.metricEmoji}>🚨</Text>
-          <Text style={[styles.metricValue, { color: '#FF3B30' }]}>1 ครั้ง</Text>
-          <Text style={styles.metricLabel}>เตือนวิกฤต/ชื้น</Text>
-        </View>
-      </View>
-
-      {/* Pressure Balance Card */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>⚖️ สมดุลการลงน้ำหนัก (Pressure Balance)</Text>
-        <View style={styles.balanceInfoRow}>
-          <Text style={styles.leftSideText}>ซ้าย 60%</Text>
-          <Text style={styles.rightSideText}>ขวา 40%</Text>
-        </View>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFillLeft, { width: '60%' }]} />
-          <View style={[styles.progressFillRight, { width: '40%' }]} />
-        </View>
-        <Text style={styles.balanceNote}>
-          💡 **ประเมิน:** ทิ้งน้ำหนักลงฝั่งซ้ายมากกว่าปกติ ควรระวังการลงน้ำหนักเอียง
+        <Text style={styles.loadingText}>
+          กำลังโหลดข้อมูล Dashboard...
         </Text>
       </View>
+    );
+  }
 
-      {/* ================= SECTION 2: CHARTS & TRENDS (แนวโน้มตามเวลา) ================= */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>📈 แนวโน้มตลอดวัน (Daily Trend)</Text>
-        <LineChart
-          data={chartData}
-          width={screenWidth - 72}
-          height={210}
-          chartConfig={{
-            backgroundColor: '#FFFFFF',
-            backgroundGradientFrom: '#FFFFFF',
-            backgroundGradientTo: '#FFFFFF',
-            decimalPlaces: 1,
-            color: (opacity = 1) => `rgba(142, 142, 147, ${opacity})`,
-            labelColor: (opacity = 1) => `rgba(28, 28, 30, ${opacity})`,
-            propsForDots: { r: '4', strokeWidth: '2' },
-          }}
-          bezier
-          style={styles.chartStyle}
-        />
+  // ==========================================
+  // UI
+  // ==========================================
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+
+      {/* Header */}
+      <Text style={styles.headerTitle}>
+        Clinical Dashboard
+      </Text>
+
+      <Text style={styles.subHeaderTitle}>
+        รายงานวิเคราะห์พฤติกรรมทางการแพทย์
+      </Text>
+
+      {/* ==========================================
+          Tab Switcher
+      ========================================== */}
+      <View style={styles.tabContainer}>
+
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            activeTab === 'today' &&
+              styles.activeTabButton,
+          ]}
+          onPress={() => setActiveTab('today')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'today' &&
+                styles.activeTabText,
+            ]}
+          >
+            วันนี้
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            activeTab === 'week' &&
+              styles.activeTabButton,
+          ]}
+          onPress={() => setActiveTab('week')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'week' &&
+                styles.activeTabText,
+            ]}
+          >
+            สัปดาห์นี้
+          </Text>
+        </TouchableOpacity>
+
       </View>
 
-      {/* ================= SECTION 3: RAW EVENT LOGS (ประวัติรายรายการ) ================= */}
-      <View style={styles.card}>
-        <View style={styles.logHeaderRow}>
-          <Text style={styles.cardTitle}>📋 ประวัติบันทึกเหตุการณ์ (Recent Logs)</Text>
-          <TouchableOpacity onPress={() => setShowAllLogs(!showAllLogs)}>
-            <Text style={styles.toggleText}>{showAllLogs ? 'ย่อลง' : 'ดูทั้งหมด'}</Text>
-          </TouchableOpacity>
+      {/* ==========================================
+          Summary Cards
+      ========================================== */}
+      <View style={styles.gridContainer}>
+
+        {/* เวลานั่งรวม */}
+        <View style={styles.summaryCard}>
+          <Text style={styles.cardIcon}>⏱️</Text>
+
+          <Text style={styles.cardValueText}>
+            {stats.sittingTimeStr}
+          </Text>
+
+          <Text style={styles.cardLabelText}>
+            เวลานั่งรวม
+          </Text>
         </View>
 
-        {displayedLogs.map((item) => {
-          const badge = getStatusBadge(item.status);
-          return (
-            <View key={item.id} style={[styles.logItem, item.isHumidHigh && styles.humidHighlight]}>
-              <View style={styles.logTopRow}>
-                <Text style={styles.logTimestamp}>{item.timestamp}</Text>
-                <View style={[styles.badge, { backgroundColor: badge.bgColor }]}>
-                  <Text style={[styles.badgeText, { color: badge.textColor }]}>{badge.label}</Text>
-                </View>
-              </View>
-              <View style={styles.logBottomRow}>
-                <Text style={styles.logSubText}>แรงกด: {getSideText(item.pressureSide)} ({item.pressureValue} hPa)</Text>
-                <Text style={styles.logSubText}>อุณหภูมิ: <Text style={{ color: '#FF9500', fontWeight: 'bold' }}>{item.temperature} °C</Text></Text>
-                <Text style={[styles.logSubText, item.isHumidHigh && { color: '#0288D1', fontWeight: 'bold' }]}>
-                  ชื้น: {item.humidity}% {item.isHumidHigh ? '💧' : ''}
-                </Text>
-              </View>
-            </View>
-          );
-        })}
+        {/* ขยับเปลี่ยนท่า */}
+        <View style={styles.summaryCard}>
+          <Text style={styles.cardIcon}>🚶</Text>
+
+          <Text style={styles.cardValueText}>
+            {stats.moveCount} ครั้ง
+          </Text>
+
+          <Text style={styles.cardLabelText}>
+            ขยับเปลี่ยนท่า
+          </Text>
+        </View>
+
+        {/* อุณหภูมิเฉลี่ย */}
+        <View style={styles.summaryCard}>
+          <Text style={styles.cardIcon}>🌡️</Text>
+
+          <Text
+            style={[
+              styles.cardValueText,
+              { color: '#FF9500' },
+            ]}
+          >
+            {stats.avgTemp} °C
+          </Text>
+
+          <Text style={styles.cardLabelText}>
+            อุณหภูมิเฉลี่ย
+          </Text>
+        </View>
+
+        {/* แจ้งเตือน */}
+        <View style={styles.summaryCard}>
+          <Text style={styles.cardIcon}>🚨</Text>
+
+          <Text
+            style={[
+              styles.cardValueText,
+              { color: '#FF3B30' },
+            ]}
+          >
+            {stats.alertCount} ครั้ง
+          </Text>
+
+          <Text style={styles.cardLabelText}>
+            เตือนวิกฤต/ชื้น
+          </Text>
+        </View>
+
       </View>
+
+      {/* ==========================================
+          Pressure Balance
+      ========================================== */}
+      <View style={styles.cardSection}>
+
+        <Text style={styles.sectionTitle}>
+          ⚖️ สัดส่วนการพบแรงกดสูง (High Pressure Balance)
+        </Text>
+
+        <View style={styles.balanceHeader}>
+          <Text style={styles.leftPercentText}>
+            ซ้าย {stats.leftPercent}%
+          </Text>
+
+          <Text style={styles.rightPercentText}>
+            ขวา {stats.rightPercent}%
+          </Text>
+        </View>
+
+        <View style={styles.balanceBarContainer}>
+
+          <View
+            style={[
+              styles.leftBar,
+              {
+                flex: stats.leftPercent || 1,
+              },
+            ]}
+          />
+
+          <View
+            style={[
+              styles.rightBar,
+              {
+                flex: stats.rightPercent || 1,
+              },
+            ]}
+          />
+
+        </View>
+
+        <Text style={styles.evalText}>
+          💡 ประเมิน:{' '}
+          {Math.abs(
+            stats.leftPercent -
+              stats.rightPercent
+          ) < 20
+            ? 'การลงน้ำหนักซ้าย-ขวาอยู่ในเกณฑ์สมดุล'
+            : 'ตรวจพบการลงน้ำหนักเอียงไปฝั่งใดฝั่งหนึ่งมากเกินไป'}
+        </Text>
+
+      </View>
+
+      {/* ==========================================
+          Daily Trend
+      ========================================== */}
+      <View style={styles.cardSection}>
+
+        <Text style={styles.sectionTitle}>
+          📈 แนวโน้มตลอดวัน (Daily Trend)
+        </Text>
+
+        {/* Legend */}
+        <View style={styles.legendRow}>
+
+          <View style={styles.legendItem}>
+            <View
+              style={[
+                styles.dot,
+                { backgroundColor: '#0288D1' },
+              ]}
+            />
+
+            <Text style={styles.legendText}>
+              Humid (%)
+            </Text>
+          </View>
+
+          <View style={styles.legendItem}>
+            <View
+              style={[
+                styles.dot,
+                { backgroundColor: '#FF8A80' },
+              ]}
+            />
+
+            <Text style={styles.legendText}>
+              Pressure
+            </Text>
+          </View>
+
+          <View style={styles.legendItem}>
+            <View
+              style={[
+                styles.dot,
+                { backgroundColor: '#FF9500' },
+              ]}
+            />
+
+            <Text style={styles.legendText}>
+              Temp (°C)
+            </Text>
+          </View>
+
+        </View>
+
+        {/* Graph */}
+        <View style={styles.graphContainer}>
+
+          {historyLogs
+            .slice(0, 5)
+            .reverse()
+            .map((item, i) => (
+
+              <View
+                key={i}
+                style={styles.graphBarGroup}
+              >
+
+                <View style={styles.barWrapper}>
+
+                  <View
+                    style={[
+                      styles.graphBar,
+                      {
+                        height: `${Math.min(
+                          item.humidity,
+                          100
+                        )}%`,
+                        backgroundColor:
+                          '#0288D1',
+                      },
+                    ]}
+                  />
+
+                  <View
+                    style={[
+                      styles.graphBar,
+                      {
+                        height: `${Math.min(
+                          (item.temperature / 45) *
+                            100,
+                          100
+                        )}%`,
+                        backgroundColor:
+                          '#FF9500',
+                      },
+                    ]}
+                  />
+
+                </View>
+
+                <Text style={styles.graphTimeText}>
+                  {formatTime(item.time)}
+                </Text>
+
+              </View>
+
+            ))}
+
+        </View>
+
+      </View>
+
+      {/* ==========================================
+          Recent Logs
+      ========================================== */}
+      <View style={styles.cardSection}>
+
+        <View style={styles.logHeaderRow}>
+
+          <Text style={styles.sectionTitle}>
+            📋 ประวัติบันทึกเหตุการณ์ (Recent Logs)
+          </Text>
+
+          <TouchableOpacity
+            style={styles.exportBadge}
+          >
+            <Text style={styles.exportBadgeText}>
+              ย่อลง
+            </Text>
+          </TouchableOpacity>
+
+        </View>
+
+        {historyLogs.length === 0 ? (
+
+          <Text style={styles.emptyText}>
+            ยังไม่มีข้อมูลบันทึก
+          </Text>
+
+        ) : (
+
+          historyLogs.map((item) => (
+
+            <View
+              key={item.id}
+              style={styles.logItemCard}
+            >
+
+              {/* เส้นด้านซ้าย */}
+              <View
+                style={[
+                  styles.sideIndicator,
+                  {
+                    backgroundColor:
+                      item.isTempHigh ||
+                      item.isHumidHigh
+                        ? '#FF3B30'
+                        : '#0288D1',
+                  },
+                ]}
+              />
+
+              <View style={styles.logContent}>
+
+                {/* เวลา + Badge */}
+                <View style={styles.logTopRow}>
+
+                  <Text style={styles.logTimeText}>
+                    {formatTime(item.time)} น.
+                  </Text>
+
+                  {item.isTempHigh && (
+                    <Text
+                      style={styles.criticalBadge}
+                    >
+                      🚨 วิกฤต
+                    </Text>
+                  )}
+
+                  {!item.isTempHigh &&
+                    item.calculatedPosition ===
+                      'CENTER' && (
+                      <Text
+                        style={styles.warningBadge}
+                      >
+                        ⚠️ นั่งนานเกินไป
+                      </Text>
+                    )}
+
+                </View>
+
+                {/* Sensor Detail */}
+                <View style={styles.logSubRow}>
+
+                  <Text style={styles.logDetailText}>
+                    แรงกด: ซ้าย{' '}
+
+                    <Text
+                      style={
+                        item.leftPressed
+                          ? styles.textRed
+                          : styles.textGreen
+                      }
+                    >
+                      {item.leftPressed
+                        ? 'High'
+                        : 'Low'}
+                    </Text>
+
+                    {' | '}ขวา{' '}
+
+                    <Text
+                      style={
+                        item.rightPressed
+                          ? styles.textRed
+                          : styles.textGreen
+                      }
+                    >
+                      {item.rightPressed
+                        ? 'High'
+                        : 'Low'}
+                    </Text>
+                  </Text>
+
+                  <Text style={styles.logMetricText}>
+
+                    อุณหภูมิ:{' '}
+
+                    <Text
+                      style={
+                        item.isTempHigh
+                          ? styles.textRed
+                          : styles.textDark
+                      }
+                    >
+                      {item.temperature} °C
+                    </Text>
+
+                    {'  '}
+
+                    ชื้น:{' '}
+
+                    <Text
+                      style={
+                        item.isHumidHigh
+                          ? styles.textBlue
+                          : styles.textDark
+                      }
+                    >
+                      {item.humidity}%
+                      {' '}
+                      💧
+                    </Text>
+
+                  </Text>
+
+                </View>
+
+              </View>
+
+            </View>
+
+          ))
+
+        )}
+
+      </View>
+
     </ScrollView>
   );
 }
 
+// =====================================================
+// Styles
+// =====================================================
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
-  contentContainer: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 40 },
-  headerTitle: { fontSize: 26, fontWeight: 'bold', color: '#4464d0', textAlign: 'center' },
-  subHeaderTitle: { fontSize: 13, color: '#8E8E93', textAlign: 'center', marginBottom: 16, marginTop: 4 },
 
-  tabContainer: { flexDirection: 'row', backgroundColor: '#E5E5EA', borderRadius: 12, padding: 4, marginBottom: 16 },
-  tabButton: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 8 },
-  activeTabButton: { backgroundColor: '#FFFFFF', elevation: 2 },
-  tabText: { fontSize: 13, fontWeight: '600', color: '#8E8E93' },
-  activeTabText: { color: '#4464d0' },
+  container: {
+    padding: 16,
+    paddingTop: 50,
+    backgroundColor: '#F4F6F9',
+    flexGrow: 1,
+  },
 
-  gridRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 12 },
-  metricCard: { width: '48%', backgroundColor: '#FFFFFF', borderRadius: 14, padding: 12, alignItems: 'center', marginBottom: 10, elevation: 2 },
-  metricEmoji: { fontSize: 22, marginBottom: 4 },
-  metricValue: { fontSize: 16, fontWeight: 'bold', color: '#1C1C1E' },
-  metricLabel: { fontSize: 11, color: '#8E8E93', marginTop: 2 },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F4F6F9',
+  },
 
-  card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, marginBottom: 16, elevation: 2 },
-  cardTitle: { fontSize: 15, fontWeight: 'bold', color: '#1C1C1E', marginBottom: 10 },
+  loadingText: {
+    marginTop: 10,
+    color: '#8E8E93',
+  },
 
-  balanceInfoRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  leftSideText: { fontSize: 13, fontWeight: 'bold', color: '#FF3B30' },
-  rightSideText: { fontSize: 13, fontWeight: 'bold', color: '#34C759' },
-  progressTrack: { height: 10, flexDirection: 'row', borderRadius: 5, backgroundColor: '#E5E5EA', overflow: 'hidden', marginBottom: 8 },
-  progressFillLeft: { backgroundColor: '#FF3B30' },
-  progressFillRight: { backgroundColor: '#34C759' },
-  balanceNote: { fontSize: 12, color: '#8E8E93' },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    textAlign: 'center',
+    color: '#3B5998',
+  },
 
-  chartStyle: { marginVertical: 4, borderRadius: 12, alignSelf: 'center' },
+  subHeaderTitle: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginBottom: 16,
+    marginTop: 2,
+  },
 
-  logHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  toggleText: { fontSize: 13, color: '#4464d0', fontWeight: 'bold' },
-  logItem: { backgroundColor: '#F8F9FA', borderRadius: 10, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#E5E5EA' },
-  humidHighlight: { borderLeftWidth: 4, borderLeftColor: '#0288D1' },
-  logTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  logTimestamp: { fontSize: 13, fontWeight: 'bold', color: '#1C1C1E' },
-  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  badgeText: { fontSize: 11, fontWeight: 'bold' },
-  logBottomRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, flexWrap: 'wrap', gap: 4 },
-  logSubText: { fontSize: 11, color: '#8E8E93' },
+  // Tab
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#E0E5EC',
+    borderRadius: 8,
+    padding: 3,
+    marginBottom: 16,
+  },
+
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+
+  activeTabButton: {
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
+  },
+
+  tabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E8E93',
+  },
+
+  activeTabText: {
+    color: '#3B5998',
+  },
+
+  // Summary Cards
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
+  },
+
+  summaryCard: {
+    width: '48.5%',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    elevation: 2,
+  },
+
+  cardIcon: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+
+  cardValueText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1C1C1E',
+  },
+
+  cardLabelText: {
+    fontSize: 11,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+
+  // Section
+  cardSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+  },
+
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1C1C1E',
+    marginBottom: 12,
+  },
+
+  // Balance
+  balanceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+
+  leftPercentText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FF3B30',
+  },
+
+  rightPercentText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#34C759',
+  },
+
+  balanceBarContainer: {
+    height: 14,
+    flexDirection: 'row',
+    borderRadius: 7,
+    overflow: 'hidden',
+    backgroundColor: '#E5E5EA',
+    marginBottom: 8,
+  },
+
+  leftBar: {
+    backgroundColor: '#FF3B30',
+  },
+
+  rightBar: {
+    backgroundColor: '#34C759',
+  },
+
+  evalText: {
+    fontSize: 11,
+    color: '#8E8E93',
+  },
+
+  // Legend
+  legendRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    marginBottom: 12,
+  },
+
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+
+  legendText: {
+    fontSize: 11,
+    color: '#8E8E93',
+  },
+
+  // Graph
+  graphContainer: {
+    height: 120,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    paddingTop: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
+  },
+
+  graphBarGroup: {
+    alignItems: 'center',
+    height: '100%',
+    justifyContent: 'flex-end',
+  },
+
+  barWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 3,
+    height: '80%',
+  },
+
+  graphBar: {
+    width: 8,
+    borderRadius: 4,
+  },
+
+  graphTimeText: {
+    fontSize: 10,
+    color: '#8E8E93',
+    marginTop: 4,
+  },
+
+  // Recent Logs
+  logHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  exportBadge: {
+    backgroundColor: '#3B5998',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+
+  exportBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+
+  emptyText: {
+    textAlign: 'center',
+    color: '#8E8E93',
+    paddingVertical: 12,
+  },
+
+  logItemCard: {
+    flexDirection: 'row',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+
+  sideIndicator: {
+    width: 4,
+  },
+
+  logContent: {
+    flex: 1,
+    padding: 10,
+  },
+
+  logTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+
+  logTimeText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#1C1C1E',
+  },
+
+  criticalBadge: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#FF3B30',
+    backgroundColor: '#FFE5E5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+
+  warningBadge: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#FF9500',
+    backgroundColor: '#FFF5E5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+
+  logSubRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
+
+  logDetailText: {
+    fontSize: 11,
+    color: '#8E8E93',
+  },
+
+  logMetricText: {
+    fontSize: 11,
+    color: '#8E8E93',
+  },
+
+  textRed: {
+    color: '#FF3B30',
+    fontWeight: 'bold',
+  },
+
+  textGreen: {
+    color: '#34C759',
+    fontWeight: 'bold',
+  },
+
+  textBlue: {
+    color: '#0288D1',
+    fontWeight: 'bold',
+  },
+
+  textDark: {
+    color: '#1C1C1E',
+    fontWeight: 'bold',
+  },
+
 });

@@ -188,6 +188,20 @@ export default function HomeScreen() {
       .toString()
       .padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
+  // 🟢 เพิ่มฟังก์ชันนี้: สำหรับจัดฟอร์แมตเวลาจาก Google Sheet (เช่น "1899-12-30T17:00:48.000Z")
+  // แปลง ISO Date String หรือข้อความวันเวลา ให้เหลือเฉพาะ HH:mm:ss
+    const formatTimeDisplay = (timeStr?: string) => {
+      if (!timeStr) return '-';
+
+      // 1. ค้นหาแพตเทิร์นเวลา HH:mm:ss หรือ HH:mm ในข้อความ (เช่น หา 17:00:48 จาก 1899-12-30T17:00:48.000Z)
+      const timeMatch = timeStr.match(/\d{2}:\d{2}(:\d{2})?/);
+      
+      if (timeMatch) {
+        return timeMatch[0]; // ส่งกลับเฉพาะ "17:00:48" หรือ "17:00"
+      }
+
+      return timeStr;
+    };
 
   if (loading) {
     return (
@@ -200,12 +214,33 @@ export default function HomeScreen() {
 
   const isActive = mainStatus === 'ACTIVE';
 
+const formatUpdateTime = (time?: string) => {
+  if (!time) return '-';
+
+  try {
+    const date = new Date(time);
+
+    if (isNaN(date.getTime())) {
+      return time;
+    }
+
+    return date.toLocaleTimeString('th-TH', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+  } catch {
+    return time;
+  }
+};
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Header */}
       <Text style={styles.headerTitle}>Cushion Sense</Text>
       <Text style={styles.lastUpdateText}>
-        อัปเดตล่าสุด: {sensorData?.time || '-'}
+        อัปเดตล่าสุด: {formatUpdateTime(sensorData?.time)}
       </Text>
 
       {/* Alarm Alerts */}
