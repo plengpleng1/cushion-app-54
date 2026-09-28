@@ -23,7 +23,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // ฟังก์ชันตรวจสอบเงื่อนไขความปลอดภัยของ Password (อย่างน้อย 8 ตัว มีทั้งอักษรและตัวเลข)
+  // ฟังก์ชันตรวจสอบเงื่อนไข Password (อย่างน้อย 8 ตัวอักษร มีทั้งอักษรและตัวเลข)
   const validatePassword = (pass: string) => {
     const hasMinLength = pass.length >= 8;
     const hasLetter = /[a-zA-Z]/.test(pass);
@@ -33,13 +33,16 @@ export default function LoginScreen() {
 
   // 1. ฟังก์ชันสมัครสมาชิก (Sign Up)
   const handleSignUp = async () => {
-    if (!username.trim() || !password.trim()) {
+    const trimmedUsername = username.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedUsername || !trimmedPassword) {
       Alert.alert('กรอกข้อมูลไม่ครบ', 'กรุณากรอก Username และ Password ให้ครบถ้วน');
       return;
     }
 
-    // ตรวจสอบเงื่อนไขรหัสผ่าน 8 ตัวขึ้นไป + มีอักษรและตัวเลข
-    if (!validatePassword(password)) {
+    // ตรวจสอบเงื่อนไขความปลอดภัยของรหัสผ่าน
+    if (!validatePassword(trimmedPassword)) {
       Alert.alert(
         'รหัสผ่านไม่ปลอดภัย',
         'Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องประกอบด้วยทั้งตัวอักษรและตัวเลข'
@@ -47,30 +50,38 @@ export default function LoginScreen() {
       return;
     }
 
-    if (password !== confirmPassword) {
+    // เปรียบเทียบรหัสผ่านยืนยัน (แปลงเป็น lowercase ทั้งคู่)
+    if (trimmedPassword.toLowerCase() !== confirmPassword.trim().toLowerCase()) {
       Alert.alert('รหัสผ่านไม่ตรงกัน', 'กรุณายืนยัน Password ให้ตรงกัน');
       return;
     }
 
     try {
-      // ดึงรายชื่อผู้ใช้ที่เคยสมัครไว้ใน AsyncStorage
       const existingUsersJson = await AsyncStorage.getItem('@user_accounts');
       const users = existingUsersJson ? JSON.parse(existingUsersJson) : [];
 
-      // เช็คว่า Username ซ้ำหรือไม่
-      const isExist = users.some((u: any) => u.username === username);
+      // แปลงเป็น ตัวพิมพ์เล็ก ทั้งหมดก่อนตรวจสอบ Username ซ้ำ
+      const normalizedUsername = trimmedUsername.toLowerCase();
+      const isExist = users.some(
+        (u: any) => u.username.toLowerCase() === normalizedUsername
+      );
+
       if (isExist) {
         Alert.alert('สมัครไม่สำเร็จ', 'Username นี้ถูกใช้งานแล้ว');
         return;
       }
 
-      // บันทึกผู้ใช้ใหม่ลงใน Array
-      users.push({ username, password });
+      // บันทึก Username และ Password ในรูปแบบ lowercase เพื่อให้ล็อกอินง่ายไม่สนใจตัวพิมพ์เล็ก/ใหญ่
+      users.push({
+        username: normalizedUsername,
+        password: trimmedPassword.toLowerCase(),
+        displayUsername: trimmedUsername, // บันทึกชื่อตัวจริงไว้แสดงผล
+      });
+
       await AsyncStorage.setItem('@user_accounts', JSON.stringify(users));
 
       Alert.alert('สำเร็จ', 'สมัครสมาชิกเรียบร้อยแล้ว กรุณาเข้าสู่ระบบ');
 
-      // ล้างช่อง Password และสลับกลับมาโหมด Sign In อัตโนมัติ
       setPassword('');
       setConfirmPassword('');
       setIsSignUp(false);
@@ -81,7 +92,10 @@ export default function LoginScreen() {
 
   // 2. ฟังก์ชันเข้าสู่ระบบ (Sign In)
   const handleSignIn = async () => {
-    if (!username.trim() || !password.trim()) {
+    const trimmedUsername = username.trim().toLowerCase();
+    const trimmedPassword = password.trim().toLowerCase();
+
+    if (!trimmedUsername || !trimmedPassword) {
       Alert.alert('กรอกข้อมูลไม่ครบ', 'กรุณากรอก Username และ Password');
       return;
     }
@@ -90,14 +104,21 @@ export default function LoginScreen() {
       const existingUsersJson = await AsyncStorage.getItem('@user_accounts');
       const users = existingUsersJson ? JSON.parse(existingUsersJson) : [];
 
-      // ตรวจสอบ Username และ Password กับข้อมูลที่เคย Sign Up ไว้
+      // ค้นหาโดยแปลงเทียบเป็น lowercase ทั้ง Username และ Password
       const foundUser = users.find(
-        (u: any) => u.username === username && u.password === password
+        (u: any) =>
+          u.username.toLowerCase() === trimmedUsername &&
+          u.password.toLowerCase() === trimmedPassword
       );
 
       if (foundUser) {
-        // บันทึก session ผู้ใช้ปัจจุบันแล้วข้ามไปหน้า Patient Info
-        await AsyncStorage.setItem('@current_user', JSON.stringify(foundUser));
+        // บันทึก Session ผู้ใช้ปัจจุบัน (นำ displayUsername หรือ username มาใช้)
+        await AsyncStorage.setItem(
+          '@current_user',
+          JSON.stringify({
+            username: foundUser.displayUsername || foundUser.username,
+          })
+        );
         router.push('/patient-info');
       } else {
         Alert.alert('เข้าสู่ระบบไม่สำเร็จ', 'Username หรือ Password ไม่ถูกต้อง');
@@ -138,15 +159,20 @@ export default function LoginScreen() {
               <Text style={styles.label}>Password</Text>
               <TextInput
                 style={styles.input}
-                placeholder={isSignUp ? "At least 8 chars (letters & numbers)" : "Enter your password"}
+                placeholder={
+                  isSignUp
+                    ? 'At least 8 chars (letters & numbers)'
+                    : 'Enter your password'
+                }
                 placeholderTextColor="#A0A0A0"
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
+                autoCapitalize="none"
               />
             </View>
 
-            {/* Confirm Password (แสดงเฉพาะโหมด Sign Up) */}
+            {/* Confirm Password (โหมด Sign Up) */}
             {isSignUp && (
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Confirm Password</Text>
@@ -157,6 +183,7 @@ export default function LoginScreen() {
                   secureTextEntry
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
+                  autoCapitalize="none"
                 />
               </View>
             )}
@@ -174,7 +201,9 @@ export default function LoginScreen() {
             {/* Switch Mode Button */}
             <View style={styles.toggleContainer}>
               <Text style={styles.toggleText}>
-                {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+                {isSignUp
+                  ? 'Already have an account? '
+                  : "Don't have an account? "}
               </Text>
               <TouchableOpacity
                 onPress={() => {
