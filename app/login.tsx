@@ -241,13 +241,13 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   welcomeText: {
-    fontSize: 48,
+    fontSize: 58,
     fontWeight: '900',
     color: '#4464D0',
     textAlign: 'center',
   },
   brandText: {
-    fontSize: 32,
+    fontSize: 42,
     fontStyle: 'italic',
     fontWeight: '500',
     color: '#4464D0',
