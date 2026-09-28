@@ -26,8 +26,11 @@ interface HistoryLog extends SensorData {
   leftPressed: boolean;
   rightPressed: boolean;
 
-  // เพิ่มตัวนี้
-  isPositionChanged: boolean;
+  // จำนวนวินาทีที่นั่ง CENTER ต่อเนื่อง
+  sittingSeconds: number;
+
+  // ครบ 2 นาทีหรือยัง
+  isSittingTooLong: boolean;
 }
 
 const screenWidth = Dimensions.get('window').width;
@@ -66,76 +69,131 @@ export default function HistoryScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [historyLogs, setHistoryLogs] = useState<HistoryLog[]>([]);
 
+  // เวลาเริ่มนั่ง CENTER
+  const [centerStartTime, setCenterStartTime] = useState<number | null>(null);
+
   // ==========================================
   // ดึงข้อมูล
   // ==========================================
-  const loadHistoryData = async () => {
-    try {
-      const data = await fetchSensorData();
+const loadHistoryData = async () => {
+  try {
+    const data = await fetchSensorData();
 
-      if (data) {
-        // คำนวณแรงกดซ้าย / ขวา
-        const isLeftPressed = (data.sensor1 ?? 4095) < 500;
-        const isRightPressed = (data.sensor2 ?? 4095) < 500;
+    if (data) {
+      // ==========================================
+      // 1. ตรวจแรงกดซ้าย / ขวา
+      // ==========================================
+      const isLeftPressed = (data.sensor1 ?? 4095) < 500;
+      const isRightPressed = (data.sensor2 ?? 4095) < 500;
 
-        let calcPos: 'LEFT' | 'RIGHT' | 'CENTER' | 'NONE' = 'NONE';
+      let calcPos: 'LEFT' | 'RIGHT' | 'CENTER' | 'NONE' = 'NONE';
 
-        if (isLeftPressed && isRightPressed) {
-          calcPos = 'CENTER';
-        } else if (isLeftPressed) {
-          calcPos = 'LEFT';
-        } else if (isRightPressed) {
-          calcPos = 'RIGHT';
+      if (isLeftPressed && isRightPressed) {
+        calcPos = 'CENTER';
+      } else if (isLeftPressed) {
+        calcPos = 'LEFT';
+      } else if (isRightPressed) {
+        calcPos = 'RIGHT';
+      }
+
+      // ==========================================
+      // 2. ตรวจอุณหภูมิ
+      // ==========================================
+      const tempHigh = (data.temperature || 0) > 38;
+
+      // ==========================================
+      // 3. ตรวจความชื้น
+      // ==========================================
+      const humidHigh = (data.humidity || 0) > 75;
+
+      // ==========================================
+      // 4. จัดการเวลานั่ง CENTER
+      // ==========================================
+      let currentCenterStart = centerStartTime;
+
+      // ถ้าไม่ได้อยู่ CENTER แล้ว
+      // ให้ Reset เวลา
+      if (calcPos !== 'CENTER') {
+        currentCenterStart = null;
+
+        if (centerStartTime !== null) {
+          setCenterStartTime(null);
+        }
+      }
+
+      // ถ้าเริ่มนั่ง CENTER ใหม่
+      if (calcPos === 'CENTER' && currentCenterStart === null) {
+        currentCenterStart = Date.now();
+        setCenterStartTime(currentCenterStart);
+      }
+
+      // ==========================================
+      // 5. คำนวณเวลาที่นั่งต่อเนื่อง
+      // ==========================================
+      let sittingSeconds = 0;
+
+      if (
+        calcPos === 'CENTER' &&
+        currentCenterStart !== null
+      ) {
+        sittingSeconds = Math.floor(
+          (Date.now() - currentCenterStart) / 1000
+        );
+      }
+
+      // ครบ 2 นาที
+      const isSittingTooLong = sittingSeconds >= 120;
+
+      // ==========================================
+      // 6. สร้าง Log
+      // ==========================================
+      const newLog: HistoryLog = {
+        ...data,
+
+        id: `${data.date}_${data.time}_${Math.random()}`,
+
+        calculatedPosition: calcPos,
+
+        isTempHigh: tempHigh,
+
+        isHumidHigh: humidHigh,
+
+        leftPressed: isLeftPressed,
+
+        rightPressed: isRightPressed,
+
+        sittingSeconds,
+
+        isSittingTooLong,
+      };
+
+      // ==========================================
+      // 7. เก็บ History
+      // ==========================================
+      setHistoryLogs((prev) => {
+        // ป้องกันข้อมูลซ้ำ
+        if (
+          prev.some(
+            (item) =>
+              item.time === data.time &&
+              item.date === data.date
+          )
+        ) {
+          return prev;
         }
 
-        // อุณหภูมิสูง
-        const tempHigh = (data.temperature || 0) > 38;
-
-        // ความชื้นสูง
-        const humidHigh = (data.humidity || 0) > 75;
-
-        const newLog: HistoryLog = {
-          ...data,
-
-          id: `${data.date}_${data.time}_${Math.random()}`,
-
-          calculatedPosition: calcPos,
-
-          isTempHigh: tempHigh,
-
-          isHumidHigh: humidHigh,
-
-          leftPressed: isLeftPressed,
-
-          rightPressed: isRightPressed,
-
-        // เช็คว่าตำแหน่งเปลี่ยนจากครั้งก่อนหรือไม่
-        isPositionChanged:
-        historyLogs.length > 0 &&
-        historyLogs[0].calculatedPosition !== calcPos,
-        };
-
-        setHistoryLogs((prev) => {
-          // ป้องกันข้อมูลซ้ำ
-          if (
-            prev.some(
-              (item) =>
-                item.time === data.time &&
-                item.date === data.date
-            )
-          ) {
-            return prev;
-          }
-
-          return [newLog, ...prev];
-        });
-      }
-    } catch (error) {
-      console.error('Error loading history data:', error);
-    } finally {
-      setLoading(false);
+        return [newLog, ...prev];
+      });
     }
-  };
+  } catch (error) {
+    console.error(
+      'Error loading history data:',
+      error
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ==========================================
   // โหลดข้อมูลทุก 3 วินาที
@@ -780,14 +838,11 @@ export default function HistoryScreen() {
                     </Text>
                   )}
 
-                  {!item.isTempHigh &&
-                    item.calculatedPosition ===
-                      'CENTER' && (
-                      <Text
-                        style={styles.warningBadge}
-                      >
+                {!item.isTempHigh &&
+                    item.isSittingTooLong && (
+                        <Text style={styles.warningBadge}>
                         ⚠️ นั่งนานเกินไป
-                      </Text>
+                        </Text>
                     )}
 
                 </View>
