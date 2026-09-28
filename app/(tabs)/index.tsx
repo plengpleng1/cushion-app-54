@@ -3,12 +3,17 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 
 // กำหนด Type ของสถานะให้รองรับทั้ง 4 สถานะ
 type DeviceStatus = 'normal' | 'standby' | 'sitting_too_long' | 'critical';
+type PressureSide = 'left' | 'right' | 'both' | 'none';
 
 export default function HomeScreen() {
   const [seconds, setSeconds] = useState(0);
 
   // จำลอง status (สามารถเปลี่ยนเป็น 'normal' | 'standby' | 'sitting_too_long' | 'critical' เพื่อทดสอบดูได้)
   const [status, setStatus] = useState<DeviceStatus>('normal');
+
+  // จำลองตำแหน่งแรงกดทับ และสถานะความชื้นสูง
+  const [pressureSide, setPressureSide] = useState<PressureSide>('left');
+  const [isHumidHigh, setIsHumidHigh] = useState<boolean>(false);
 
   // นับเวลา Timer
   useEffect(() => {
@@ -86,10 +91,37 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* 3. กล่อง Position */}
+      {/* 3. กล่อง Position (แสดงภาพจำลองแรงกดทับเบาะ และขอบความชื้น) */}
       <View style={styles.card}>
-        <Text style={styles.cardLabel}>Position</Text>
-        <Text style={styles.cardValue}>Lat: 13.7563, Long: 100.5018</Text>
+        <View style={styles.positionHeader}>
+          <Text style={styles.cardLabel}>Position & Pressure Map</Text>
+          {isHumidHigh && <Text style={styles.humidBadge}>💧 Humid High</Text>}
+        </View>
+
+        {/* ตัวเบาะนั่ง (ถ้า Humid สูง จะมีขอบสีฟ้าล้อมรอบตามรูปที่ 3) */}
+        <View style={[styles.cushionContainer, isHumidHigh && styles.humidBorder]}>
+          {/* ฝั่งซ้าย */}
+          <View
+            style={[
+              styles.cushionHalf,
+              styles.leftHalf,
+              (pressureSide === 'left' || pressureSide === 'both') && styles.activePressureHalf,
+            ]}
+          >
+            {(pressureSide === 'left' || pressureSide === 'both') && <View style={styles.heatSpot} />}
+          </View>
+
+          {/* ฝั่งขวา */}
+          <View
+            style={[
+              styles.cushionHalf,
+              styles.rightHalf,
+              (pressureSide === 'right' || pressureSide === 'both') && styles.activePressureHalf,
+            ]}
+          >
+            {(pressureSide === 'right' || pressureSide === 'both') && <View style={styles.heatSpot} />}
+          </View>
+        </View>
       </View>
 
       {/* กล่องแบบคู่ (Pressure & Humid) */}
@@ -99,15 +131,21 @@ export default function HomeScreen() {
           <Text style={styles.cardLabel}>Pressure</Text>
           <Text style={styles.cardValue}>1013 hPa</Text>
         </View>
+        
+        {/* 5. กล่อง Temp */}
+        <View style={[styles.card, styles.halfCard]}>
+          <Text style={styles.cardLabel}>Temperature</Text>
+          <Text style={styles.cardValue}>25</Text>
+        </View> 
 
-        {/* 5. กล่อง Humid */}
+        {/* 6. กล่อง Humid */}
         <View style={[styles.card, styles.halfCard]}>
           <Text style={styles.cardLabel}>Humid</Text>
-          <Text style={styles.cardValue}>65 %</Text>
+          <Text style={styles.cardValue}>{isHumidHigh ? '85 % (สูง)' : '65 %'}</Text>
         </View>
       </View>
-    
-    {/* ----------------- ส่วนสำหรับทดสอบเปลี่ยนสถานะ (Test Controls) ----------------- */}
+
+      {/* ----------------- ส่วนสำหรับทดสอบเปลี่ยนสถานะ (Test Controls) ----------------- */}
       <View style={testStyles.testContainer}>
         <Text style={testStyles.testTitle}>🧪 Test Device Status:</Text>
         <View style={testStyles.buttonGroup}>
@@ -137,6 +175,32 @@ export default function HomeScreen() {
             onPress={() => setStatus('critical')}
           >
             <Text style={{ color: '#FF3B30', fontWeight: 'bold' }}>Critical</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={[testStyles.testTitle, { marginTop: 16 }]}>🧪 Test Pressure & Humid Position:</Text>
+        <View style={testStyles.buttonGroup}>
+          <TouchableOpacity 
+            style={[testStyles.btn, pressureSide === 'left' && testStyles.btnActive]} 
+            onPress={() => setPressureSide('left')}
+          >
+            <Text style={testStyles.btnText}>กดซ้าย (รูป 1)</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[testStyles.btn, pressureSide === 'right' && testStyles.btnActive]} 
+            onPress={() => setPressureSide('right')}
+          >
+            <Text style={testStyles.btnText}>กดขวา (รูป 2)</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[testStyles.btn, isHumidHigh ? testStyles.btnHumidActive : testStyles.btnHumid]} 
+            onPress={() => setIsHumidHigh(!isHumidHigh)}
+          >
+            <Text style={{ color: isHumidHigh ? '#FFFFFF' : '#0288D1', fontWeight: 'bold' }}>
+              {isHumidHigh ? 'ปิด Humid สูง' : 'เปิด Humid สูง (รูป 3)'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -196,14 +260,69 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 10,
   },
   halfCard: {
-    width: '48%',
+    width: '32.5%',
+  },
+
+  /* ---------- ส่วนของภาพจำลอง Position / Cushion ---------- */
+  positionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  humidBadge: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#0288D1',
+    backgroundColor: '#E0F7FA',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  cushionContainer: {
+    height: 150,
+    flexDirection: 'row',
+    borderWidth: 2,
+    borderColor: '#333333',
+    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
+    overflow: 'hidden',
+    padding: 2,
+  },
+  /* เพิ่มเส้นขอบสีฟ้าเมื่อความชื้นสูงตามรูปที่ 3 */
+  humidBorder: {
+    borderColor: '#29B6F6',
+    borderWidth: 5,
+  },
+  cushionHalf: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F1F3F5',
+  },
+  leftHalf: {
+    borderRightWidth: 1,
+    borderRightColor: '#333333',
+  },
+  rightHalf: {},
+  /* เมื่อฝั่งนั้นมีแรงกดสูง เปลี่ยนพื้นหลังเป็นสีพาสเทลส้ม/แดง */
+  activePressureHalf: {
+    backgroundColor: '#FFD8D8',
+  },
+  /* จุดความร้อนสีแดงตรงกลางฝั่งเบาะ */
+  heatSpot: {
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
+    backgroundColor: '#FF8A80',
+    opacity: 0.85,
   },
 });
 
-{/* ----------------- ส่วนสำหรับทดสอบเปลี่ยนสถานะ (Test Controls) ----------------- */}
+/* ----------------- ส่วนสำหรับทดสอบเปลี่ยนสถานะ (Test Controls) ----------------- */
 const testStyles = StyleSheet.create({
   testContainer: {
     marginTop: 20,
@@ -214,10 +333,10 @@ const testStyles = StyleSheet.create({
     borderColor: '#E5E5EA',
   },
   testTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
     color: '#8E8E93',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   buttonGroup: {
     flexDirection: 'row',
@@ -229,8 +348,23 @@ const testStyles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 8,
-    minWidth: '45%',
+    minWidth: '48%',
     alignItems: 'center',
+    backgroundColor: '#F2F2F7',
+  },
+  btnActive: {
+    backgroundColor: '#4464d0',
+  },
+  btnText: {
+    fontWeight: 'bold',
+    color: '#212529',
+  },
+  btnHumid: {
+    backgroundColor: '#E0F7FA',
+    width: '100%',
+  },
+  btnHumidActive: {
+    backgroundColor: '#0288D1',
+    width: '100%',
   },
 });
-{/* ---------------------------------------------------------------------------- */}

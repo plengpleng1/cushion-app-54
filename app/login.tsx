@@ -23,7 +23,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // ฟังก์ชันตรวจสอบเงื่อนไขความปลอดภัยของ Password (อย่างน้อย 8 ตัว มีทั้งอักษรและตัวเลข)
+  // ฟังก์ชันตรวจสอบเงื่อนไขความปลอดภัยของ Password (อย่างน้อย 8 ตัวอักษร มีทั้งอักษรและตัวเลข)
   const validatePassword = (pass: string) => {
     const hasMinLength = pass.length >= 8;
     const hasLetter = /[a-zA-Z]/.test(pass);
@@ -33,13 +33,16 @@ export default function LoginScreen() {
 
   // 1. ฟังก์ชันสมัครสมาชิก (Sign Up)
   const handleSignUp = async () => {
-    if (!username.trim() || !password.trim()) {
+    const trimmedUsername = username.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedUsername || !trimmedPassword) {
       Alert.alert('กรอกข้อมูลไม่ครบ', 'กรุณากรอก Username และ Password ให้ครบถ้วน');
       return;
     }
 
-    // ตรวจสอบเงื่อนไขรหัสผ่าน 8 ตัวขึ้นไป + มีอักษรและตัวเลข
-    if (!validatePassword(password)) {
+    // ตรวจสอบความปลอดภัยของรหัสผ่าน
+    if (!validatePassword(trimmedPassword)) {
       Alert.alert(
         'รหัสผ่านไม่ปลอดภัย',
         'Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องประกอบด้วยทั้งตัวอักษรและตัวเลข'
@@ -47,30 +50,33 @@ export default function LoginScreen() {
       return;
     }
 
-    if (password !== confirmPassword) {
+    // เช็ค Confirm Password ให้ตรงกันเป๊ะๆ (แยกตัวเล็ก/ตัวใหญ่)
+    if (trimmedPassword !== confirmPassword.trim()) {
       Alert.alert('รหัสผ่านไม่ตรงกัน', 'กรุณายืนยัน Password ให้ตรงกัน');
       return;
     }
 
     try {
-      // ดึงรายชื่อผู้ใช้ที่เคยสมัครไว้ใน AsyncStorage
       const existingUsersJson = await AsyncStorage.getItem('@user_accounts');
       const users = existingUsersJson ? JSON.parse(existingUsersJson) : [];
 
-      // เช็คว่า Username ซ้ำหรือไม่
-      const isExist = users.some((u: any) => u.username === username);
+      // เช็ค Username ซ้ำแบบแยกตัวพิมพ์เล็ก/ใหญ่ (User123 กับ user123 จะไม่ซ้ำกัน)
+      const isExist = users.some((u: any) => u.username === trimmedUsername);
       if (isExist) {
         Alert.alert('สมัครไม่สำเร็จ', 'Username นี้ถูกใช้งานแล้ว');
         return;
       }
 
-      // บันทึกผู้ใช้ใหม่ลงใน Array
-      users.push({ username, password });
+      // บันทึก Username และ Password ตามค่าจริงที่พิมพ์เข้ามา
+      users.push({
+        username: trimmedUsername,
+        password: trimmedPassword,
+      });
+
       await AsyncStorage.setItem('@user_accounts', JSON.stringify(users));
 
       Alert.alert('สำเร็จ', 'สมัครสมาชิกเรียบร้อยแล้ว กรุณาเข้าสู่ระบบ');
 
-      // ล้างช่อง Password และสลับกลับมาโหมด Sign In อัตโนมัติ
       setPassword('');
       setConfirmPassword('');
       setIsSignUp(false);
@@ -81,7 +87,10 @@ export default function LoginScreen() {
 
   // 2. ฟังก์ชันเข้าสู่ระบบ (Sign In)
   const handleSignIn = async () => {
-    if (!username.trim() || !password.trim()) {
+    const trimmedUsername = username.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedUsername || !trimmedPassword) {
       Alert.alert('กรอกข้อมูลไม่ครบ', 'กรุณากรอก Username และ Password');
       return;
     }
@@ -90,14 +99,19 @@ export default function LoginScreen() {
       const existingUsersJson = await AsyncStorage.getItem('@user_accounts');
       const users = existingUsersJson ? JSON.parse(existingUsersJson) : [];
 
-      // ตรวจสอบ Username และ Password กับข้อมูลที่เคย Sign Up ไว้
+      // ค้นหาผู้ใช้โดยเช็คทั้ง Username และ Password ให้ตรงตามตัวอักษรจริงทุกตัว
       const foundUser = users.find(
-        (u: any) => u.username === username && u.password === password
+        (u: any) => u.username === trimmedUsername && u.password === trimmedPassword
       );
 
       if (foundUser) {
-        // บันทึก session ผู้ใช้ปัจจุบันแล้วข้ามไปหน้า Patient Info
-        await AsyncStorage.setItem('@current_user', JSON.stringify(foundUser));
+        // บันทึก Session ผู้ใช้ปัจจุบัน
+        await AsyncStorage.setItem(
+          '@current_user',
+          JSON.stringify({
+            username: foundUser.username,
+          })
+        );
         router.push('/patient-info');
       } else {
         Alert.alert('เข้าสู่ระบบไม่สำเร็จ', 'Username หรือ Password ไม่ถูกต้อง');
@@ -138,15 +152,20 @@ export default function LoginScreen() {
               <Text style={styles.label}>Password</Text>
               <TextInput
                 style={styles.input}
-                placeholder={isSignUp ? "At least 8 chars (letters & numbers)" : "Enter your password"}
+                placeholder={
+                  isSignUp
+                    ? 'At least 8 chars (letters & numbers)'
+                    : 'Enter your password'
+                }
                 placeholderTextColor="#A0A0A0"
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
+                autoCapitalize="none"
               />
             </View>
 
-            {/* Confirm Password (แสดงเฉพาะโหมด Sign Up) */}
+            {/* Confirm Password (โหมด Sign Up) */}
             {isSignUp && (
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Confirm Password</Text>
@@ -157,6 +176,7 @@ export default function LoginScreen() {
                   secureTextEntry
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
+                  autoCapitalize="none"
                 />
               </View>
             )}
@@ -174,7 +194,9 @@ export default function LoginScreen() {
             {/* Switch Mode Button */}
             <View style={styles.toggleContainer}>
               <Text style={styles.toggleText}>
-                {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+                {isSignUp
+                  ? 'Already have an account? '
+                  : "Don't have an account? "}
               </Text>
               <TouchableOpacity
                 onPress={() => {
