@@ -421,6 +421,7 @@ const styles = StyleSheet.create({
 
   logo: {
     fontSize: 32,
+    fontStyle: "italic",
     fontWeight: "700",
     color: BLUE,
   },
