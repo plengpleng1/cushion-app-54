@@ -1,4 +1,4 @@
-// 1. กำหนด Interface โครงสร้างข้อมูล เพื่อให้ VS Code มี Auto-complete และตรวจจับ Type ได้ถูกต้อง
+// 1. กำหนด Interface โครงสร้างข้อมูล
 export interface SensorData {
   date: string;
   time: string;
@@ -11,13 +11,19 @@ export interface SensorData {
   pressure: "HIGH" | "LOW";
 }
 
-// 2. API URL จาก Google Apps Script ที่ต่อท้าย ?action=read เรียบร้อยแล้ว
+// 2. API URL หลักจาก Google Apps Script
 const API_URL = "https://script.google.com/macros/s/AKfycby9UFBh-2Ct06oGaexrTMqUSGXFjHHAtI67AtrToOXwr1EBl_HztFRzSliLDk2iPQuzYg/exec?action=read";
 
-// 3. ฟังก์ชันสำหรับดึงข้อมูลล่าสุดจาก Google Sheets
+// 3. ฟังก์ชันสำหรับดึงข้อมูลล่าสุด (ป้องกัน Cache เพื่อความ Real-time)
 export const fetchSensorData = async (): Promise<SensorData | null> => {
   try {
-    const response = await fetch(API_URL);
+    // เติม &_t=${Date.now()} ต่อท้าย เพื่อบังคับดึงข้อมูลสดใหม่ทุกรอบ
+    const cacheBusterUrl = `${API_URL}&_t=${Date.now()}`;
+
+    const response = await fetch(cacheBusterUrl, {
+      cache: 'no-store' // สั่งไม่ให้เก็บ Cache ในอุปกรณ์
+    });
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
