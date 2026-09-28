@@ -238,7 +238,10 @@ const formatUpdateTime = (time?: string) => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Header */}
-      <Text style={styles.headerTitle}>Cushion Sense</Text>
+      <Text style={styles.logo}>
+  Cushion{" "}
+  <Text style={styles.sense}>Sense</Text>
+</Text>
       <Text style={styles.lastUpdateText}>
         อัปเดตล่าสุด: {formatUpdateTime(sensorData?.time)}
       </Text>
@@ -470,11 +473,22 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#8E8E93',
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
+header: {
+    justifyContent: 'center',
+    alignItems: "center",
+    marginBottom: 35,
+  },
+  logo: {
+    fontSize: 32,
+    fontStyle: "italic",
+    fontWeight: "700",
     color: '#4464D0',
+    textAlign: 'center',
+  },
+  // Sense เอียงและบาง
+  sense: {
+    fontStyle: "italic",
+    fontWeight: "400",
   },
   lastUpdateText: {
     fontSize: 12,
