@@ -259,13 +259,13 @@ const styles = StyleSheet.create({
   brandBold: {
     fontSize: 42,
     fontStyle: 'italic',
-    fontWeight: '800', // ตัวหนา
+    fontWeight: '700', // ตัวหนา
     color: '#4464D0',
   },
   brandLight: {
     fontSize: 42,
     fontStyle: 'italic',
-    fontWeight: '300', // ตัวบาง
+    fontWeight: '400', // ตัวบาง
     color: '#4464D0',
   },
   formContainer: {
