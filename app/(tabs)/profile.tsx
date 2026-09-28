@@ -30,7 +30,7 @@ export default function ProfileScreen() {
           setIdCard(patientData.idCard || '');
         }
 
-        // 2. ดึง Username จาก @current_user (หน้าที่ล็อกอินเข้ามา)
+        // 2. ดึง Username จาก @current_user
         const currentUserJson = await AsyncStorage.getItem('@current_user');
         if (currentUserJson) {
           const currentUser = JSON.parse(currentUserJson);
@@ -44,7 +44,7 @@ export default function ProfileScreen() {
     loadProfileData();
   }, []);
 
-  // ฟังก์ชัน Log out
+  // ฟังก์ชัน Log out และเปลี่ยนกลับไปหน้า Login
   const handleLogout = () => {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
@@ -53,12 +53,17 @@ export default function ProfileScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            // ลบ Session ผู้ใช้ปัจจุบันออก
+            // 1. ลบ Session ผู้ใช้ปัจจุบันออก
             await AsyncStorage.removeItem('@current_user');
-            // นำทางกลับไปหน้า Login
+            
+            // 2. เคลียร์ History Stack แล้วนำทางกลับไปหน้า /login
+            if (router.canDismiss()) {
+              router.dismissAll();
+            }
             router.replace('/login');
           } catch (error) {
-            Alert.alert('Error', 'Failed to log out.');
+            // กรณีรันบนเว็บหรือ Alert มีปัญหา ให้บังคับย้ายหน้าทันที
+            router.replace('/login');
           }
         },
       },
@@ -82,9 +87,11 @@ export default function ProfileScreen() {
             <Text style={styles.infoText}>{idCard || 'เลขประชาชน'}</Text>
           </View>
 
-          {/* ช่องที่ 3: Username */}
+          {/* ช่องที่ 3: Username : <ชื่อผู้ใช้> */}
           <View style={styles.infoBox}>
-            <Text style={styles.infoText}>{username || 'Username'}</Text>
+            <Text style={styles.infoText}>
+              {username ? `Username : ${username}` : 'Username'}
+            </Text>
           </View>
 
           {/* ปุ่ม Log out สีแดง */}
