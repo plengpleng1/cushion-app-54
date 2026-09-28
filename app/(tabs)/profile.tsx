@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
   Alert,
+  Platform,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -13,88 +14,96 @@ import {
 export default function ProfileScreen() {
   const router = useRouter();
 
-  // State สำหรับเก็บข้อมูลที่จะแสดงผล
   const [fullName, setFullName] = useState('');
   const [idCard, setIdCard] = useState('');
   const [username, setUsername] = useState('');
 
-  // ดึงข้อมูลเมื่อเข้าสู่หน้า Profile
-  useEffect(() => {
-    const loadProfileData = async () => {
-      try {
-        // 1. ดึง ชื่อ - นามสกุล และ เลขบัตรประชาชน จาก @patient_info
-        const patientDataJson = await AsyncStorage.getItem('@patient_info');
-        if (patientDataJson) {
-          const patientData = JSON.parse(patientDataJson);
-          setFullName(patientData.fullName || '');
-          setIdCard(patientData.idCard || '');
-        }
-
-        // 2. ดึง Username จาก @current_user
-        const currentUserJson = await AsyncStorage.getItem('@current_user');
-        if (currentUserJson) {
-          const currentUser = JSON.parse(currentUserJson);
-          setUsername(currentUser.username || '');
-        }
-      } catch (error) {
-        console.error('Failed to load profile data:', error);
-      }
-    };
-
-    loadProfileData();
-  }, []);
-
-  // ฟังก์ชัน Log out และเปลี่ยนกลับไปหน้า Login
-  const handleLogout = () => {
-    Alert.alert('Log Out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log Out',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            // 1. ลบ Session ผู้ใช้ปัจจุบันออก
-            await AsyncStorage.removeItem('@current_user');
-            
-            // 2. เคลียร์ History Stack แล้วนำทางกลับไปหน้า /login
-            if (router.canDismiss()) {
-              router.dismissAll();
-            }
-            router.replace('/login');
-          } catch (error) {
-            // กรณีรันบนเว็บหรือ Alert มีปัญหา ให้บังคับย้ายหน้าทันที
-            router.replace('/login');
+  // ดึงข้อมูลผู้ใช้เมื่อสลับมาหน้านี้
+  useFocusEffect(
+    useCallback(() => {
+      const loadProfileData = async () => {
+        try {
+          const patientDataJson = await AsyncStorage.getItem('@patient_info');
+          if (patientDataJson) {
+            const patientData = JSON.parse(patientDataJson);
+            setFullName(patientData.fullName || '');
+            setIdCard(patientData.idCard || '');
           }
+
+          const currentUserJson = await AsyncStorage.getItem('@current_user');
+          if (currentUserJson) {
+            const currentUser = JSON.parse(currentUserJson);
+            setUsername(currentUser.username || '');
+          }
+        } catch (error) {
+          console.error('Failed to load profile data:', error);
+        }
+      };
+
+      loadProfileData();
+    }, [])
+  );
+
+  // ฟังก์ชันบังคับออกจากระบบและกลับหน้า Login
+  const performLogout = async () => {
+    try {
+      // 1. ลบข้อมูลผู้ใช้ปัจจุบัน
+      await AsyncStorage.removeItem('@current_user');
+    } catch (error) {
+      console.error('Logout storage error:', error);
+    } finally {
+      // 2. เคลียร์ Stack และบังคับย้ายไปหน้า Login ทันที
+      if (router.canDismiss()) {
+        router.dismissAll();
+      }
+      router.replace('/login');
+    }
+  };
+
+  // ฟังก์ชันกด Log out
+  const handleLogout = () => {
+    if (Platform.OS === 'web') {
+      // บน Web ใช้ confirm ของ browser
+      if (window.confirm('Are you sure you want to log out?')) {
+        performLogout();
+      }
+    } else {
+      // บน Mobile ใช้ Alert
+      Alert.alert('Log Out', 'Are you sure you want to log out?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: performLogout,
         },
-      },
-    ]);
+      ]);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* หัวข้อ Cushion Sense */}
         <Text style={styles.brandTitle}>Cushion Sense</Text>
 
         <View style={styles.cardContainer}>
-          {/* ช่องที่ 1: ชื่อ - นามสกุล */}
+          {/* ชื่อ - นามสกุล */}
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>{fullName || 'ชื่อ - นามสกุล'}</Text>
           </View>
 
-          {/* ช่องที่ 2: เลขบัตรประจำตัวประชาชน */}
+          {/* เลขบัตรประชาชน */}
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>{idCard || 'เลขประชาชน'}</Text>
           </View>
 
-          {/* ช่องที่ 3: Username : <ชื่อผู้ใช้> */}
+          {/* Username */}
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>
               {username ? `Username : ${username}` : 'Username'}
             </Text>
           </View>
 
-          {/* ปุ่ม Log out สีแดง */}
+          {/* ปุ่ม Log out */}
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Text style={styles.logoutButtonText}>Log out</Text>
           </TouchableOpacity>
