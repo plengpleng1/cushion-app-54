@@ -23,11 +23,10 @@ export default function ProfileScreen() {
     useCallback(() => {
       const loadProfileData = async () => {
         try {
-          // 1. ดึงข้อมูลผู้ป่วยจากคีย์ "patientInfo" ตามโค้ดของเพื่อน
+          // 1. ดึงข้อมูลผู้ป่วยจากคีย์ "patientInfo"
           const patientDataJson = await AsyncStorage.getItem('patientInfo');
           if (patientDataJson) {
             const patientData = JSON.parse(patientDataJson);
-            // ดึงฟิลด์ name และ citizenId จากโค้ดของเพื่อน
             setFullName(patientData.name || '');
             setIdCard(patientData.citizenId || '');
           }
@@ -78,7 +77,11 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.brandTitle}>Cushion Sense</Text>
+        {/* แยกสไตล์ Cushion (หนา) และ Sense (บาง) */}
+        <Text style={styles.brandTitle}>
+          <Text style={styles.brandBold}>Cushion </Text>
+          <Text style={styles.brandLight}>Sense</Text>
+        </Text>
 
         <View style={styles.cardContainer}>
           {/* ช่องที่ 1: ชื่อ - นามสกุล */}
@@ -120,11 +123,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   brandTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#4464D0',
     marginBottom: 32,
     textAlign: 'center',
+  },
+  brandBold: {
+    fontSize: 28,
+    fontStyle: 'italic',
+    fontWeight: '800', // ตัวหนา
+    color: '#4464D0',
+  },
+  brandLight: {
+    fontSize: 28,
+    fontStyle: 'italic',
+    fontWeight: '300', // ตัวบาง
+    color: '#4464D0',
   },
   cardContainer: {
     width: '100%',
