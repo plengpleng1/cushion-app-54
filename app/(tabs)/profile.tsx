@@ -127,15 +127,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   brandBold: {
-    fontSize: 28,
+    fontSize: 33,
     fontStyle: 'italic',
-    fontWeight: '800', // ตัวหนา
+    fontWeight: '700', // ตัวหนา
     color: '#4464D0',
   },
   brandLight: {
-    fontSize: 28,
+    fontSize: 33,
     fontStyle: 'italic',
-    fontWeight: '300', // ตัวบาง
+    fontWeight: '400', // ตัวบาง
     color: '#4464D0',
   },
   cardContainer: {
