@@ -23,10 +23,27 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // ฟังก์ชันตรวจสอบเงื่อนไขความปลอดภัยของ Password (อย่างน้อย 8 ตัว มีทั้งอักษรและตัวเลข)
+  const validatePassword = (pass: string) => {
+    const hasMinLength = pass.length >= 8;
+    const hasLetter = /[a-zA-Z]/.test(pass);
+    const hasNumber = /[0-9]/.test(pass);
+    return hasMinLength && hasLetter && hasNumber;
+  };
+
   // 1. ฟังก์ชันสมัครสมาชิก (Sign Up)
   const handleSignUp = async () => {
     if (!username.trim() || !password.trim()) {
       Alert.alert('กรอกข้อมูลไม่ครบ', 'กรุณากรอก Username และ Password ให้ครบถ้วน');
+      return;
+    }
+
+    // ตรวจสอบเงื่อนไขรหัสผ่าน 8 ตัวขึ้นไป + มีอักษรและตัวเลข
+    if (!validatePassword(password)) {
+      Alert.alert(
+        'รหัสผ่านไม่ปลอดภัย',
+        'Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องประกอบด้วยทั้งตัวอักษรและตัวเลข'
+      );
       return;
     }
 
@@ -121,7 +138,7 @@ export default function LoginScreen() {
               <Text style={styles.label}>Password</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Enter your password"
+                placeholder={isSignUp ? "At least 8 chars (letters & numbers)" : "Enter your password"}
                 placeholderTextColor="#A0A0A0"
                 secureTextEntry
                 value={password}
