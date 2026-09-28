@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
     KeyboardAvoidingView,
     Platform,
@@ -17,6 +17,10 @@ import {
 export default function LoginScreen() {
   const router = useRouter();
   const [isSignUp, setIsSignUp] = useState(false);
+
+  // useRef สำหรับอ้างอิงช่องอินพุตเพื่อสั่ง focus()
+  const passwordInputRef = useRef<TextInput>(null);
+  const confirmPasswordInputRef = useRef<TextInput>(null);
 
   // Form States
   const [username, setUsername] = useState('');
@@ -56,7 +60,7 @@ export default function LoginScreen() {
     }
 
     if (!validatePassword(trimmedPassword)) {
-      showError('Password ต้องมีอย่างน้อย 8 ตัว (ต้องประกอบด้วยตัวอักษรและตัวเลข)');
+      showError('Password ต้องมีอย่างน้อย 8 ตัว (ตัวอักษรและตัวเลข)');
       return;
     }
 
@@ -179,6 +183,7 @@ export default function LoginScreen() {
                 }}
                 autoCapitalize="none"
                 returnKeyType="next"
+                onSubmitEditing={() => passwordInputRef.current?.focus()}
               />
             </View>
 
@@ -187,6 +192,7 @@ export default function LoginScreen() {
               <Text style={styles.label}>Password</Text>
               <View style={styles.passwordWrapper}>
                 <TextInput
+                  ref={passwordInputRef}
                   style={[styles.input, styles.passwordInput]}
                   placeholder={
                     isSignUp
@@ -202,7 +208,13 @@ export default function LoginScreen() {
                   }}
                   autoCapitalize="none"
                   returnKeyType={isSignUp ? 'next' : 'done'}
-                  onSubmitEditing={isSignUp ? undefined : handleSubmit}
+                  onSubmitEditing={() => {
+                    if (isSignUp) {
+                      confirmPasswordInputRef.current?.focus();
+                    } else {
+                      handleSubmit();
+                    }
+                  }}
                 />
                 <TouchableOpacity
                   style={styles.eyeIcon}
@@ -223,6 +235,7 @@ export default function LoginScreen() {
                 <Text style={styles.label}>Confirm Password</Text>
                 <View style={styles.passwordWrapper}>
                   <TextInput
+                    ref={confirmPasswordInputRef}
                     style={[styles.input, styles.passwordInput]}
                     placeholder="Confirm your password"
                     placeholderTextColor="#A0A0A0"
