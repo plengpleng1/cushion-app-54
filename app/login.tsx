@@ -1,17 +1,17 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 export default function LoginScreen() {
@@ -23,16 +23,19 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // ฟังก์ชันแสดงข้อความแจ้งเตือน (รองรับทั้ง Web และ Mobile)
-  const showAlert = (title: string, message: string) => {
-    if (Platform.OS === 'web') {
-      window.alert(`${title}: ${message}`);
-    } else {
-      Alert.alert(title, message);
-    }
+  // States สำหรับซ่อน/แสดง Password
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // State สำหรับเก็บข้อความแจ้งเตือนสีแดง
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // ฟังก์ชันตั้งค่าข้อความเตือน
+  const showError = (message: string) => {
+    setErrorMessage(message);
   };
 
-  // ตรวจสอบความปลอดภัย Password (อย่างน้อย 8 ตัวอักษร มีทั้งตัวอักษรและตัวเลข)
+  // ตรวจสอบความปลอดภัย Password
   const validatePassword = (pass: string) => {
     const hasMinLength = pass.length >= 8;
     const hasLetter = /[a-zA-Z]/.test(pass);
@@ -42,27 +45,23 @@ export default function LoginScreen() {
 
   // 1. ฟังก์ชันสมัครสมาชิก (Sign Up)
   const handleSignUp = async () => {
+    setErrorMessage(''); // ล้างข้อความเตือนเก่า
     const trimmedUsername = username.trim();
     const trimmedPassword = password.trim();
     const trimmedConfirm = confirmPassword.trim();
 
     if (!trimmedUsername || !trimmedPassword || !trimmedConfirm) {
-      showAlert('กรอกข้อมูลไม่ครบ', 'กรุณากรอก Username, Password และ Confirm Password ให้ครบถ้วน');
+      showError('กรุณากรอกข้อมูลให้ครบถ้วน');
       return;
     }
 
-    // ตรวจสอบความปลอดภัยรหัสผ่าน
     if (!validatePassword(trimmedPassword)) {
-      showAlert(
-        'รหัสผ่านไม่ปลอดภัย',
-        'Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องประกอบด้วยทั้งตัวอักษรและตัวเลข'
-      );
+      showError('Password ต้องมีอย่างน้อย 8 ตัว (ตัวอักษร + ตัวเลข)');
       return;
     }
 
-    // ตรวจสอบการยืนยันรหัสผ่าน (Case-Sensitive ตรงกันทุกตัวอักษร)
     if (trimmedPassword !== trimmedConfirm) {
-      showAlert('รหัสผ่านไม่ตรงกัน', 'กรุณายืนยัน Password ให้ตรงกันเป๊ะๆ');
+      showError('Password และ Confirm Password ไม่ตรงกัน');
       return;
     }
 
@@ -70,14 +69,12 @@ export default function LoginScreen() {
       const existingUsersJson = await AsyncStorage.getItem('@user_accounts');
       const users = existingUsersJson ? JSON.parse(existingUsersJson) : [];
 
-      // ตรวจสอบ Username ซ้ำ
       const isExist = users.some((u: any) => u.username === trimmedUsername);
       if (isExist) {
-        showAlert('สมัครไม่สำเร็จ', 'Username นี้ถูกใช้งานแล้ว');
+        showError('สมัครไม่สำเร็จ: Username นี้ถูกใช้งานแล้ว');
         return;
       }
 
-      // บันทึกเข้า AsyncStorage
       users.push({
         username: trimmedUsername,
         password: trimmedPassword,
@@ -85,23 +82,23 @@ export default function LoginScreen() {
 
       await AsyncStorage.setItem('@user_accounts', JSON.stringify(users));
 
-      showAlert('สำเร็จ', 'สมัครสมาชิกเรียบร้อยแล้ว กรุณาเข้าสู่ระบบ');
-
       setPassword('');
       setConfirmPassword('');
       setIsSignUp(false);
+      setErrorMessage(''); // สำเร็จ ล้างข้อความเตือน
     } catch (error) {
-      showAlert('ข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้');
+      showError('ข้อผิดพลาด: ไม่สามารถบันทึกข้อมูลได้');
     }
   };
 
   // 2. ฟังก์ชันเข้าสู่ระบบ (Sign In)
   const handleSignIn = async () => {
+    setErrorMessage(''); // ล้างข้อความเตือนเก่า
     const trimmedUsername = username.trim();
     const trimmedPassword = password.trim();
 
     if (!trimmedUsername || !trimmedPassword) {
-      showAlert('กรอกข้อมูลไม่ครบ', 'กรุณากรอก Username และ Password');
+      showError('กรุณากรอก Username และ Password');
       return;
     }
 
@@ -120,17 +117,38 @@ export default function LoginScreen() {
             username: foundUser.username,
           })
         );
-        router.push("/(patient-info)"as any);
+        router.push('/patient-info' as any);
       } else {
-        showAlert('เข้าสู่ระบบไม่สำเร็จ', 'Username หรือ Password ไม่ถูกต้อง');
+        showError('เข้าสู่ระบบไม่สำเร็จ: Username หรือ Password ไม่ถูกต้อง');
       }
     } catch (error) {
-      showAlert('ข้อผิดพลาด', 'เกิดปัญหาในการตรวจสอบข้อมูล');
+      showError('ข้อผิดพลาด: เกิดปัญหาในการตรวจสอบข้อมูล');
+    }
+  };
+
+  // ฟังก์ชันรองรับการกด Enter บนคีย์บอร์ด
+  const handleSubmit = () => {
+    if (isSignUp) {
+      handleSignUp();
+    } else {
+      handleSignIn();
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* ซ่อนลูกกะตาของ Web Browser */}
+      {Platform.OS === 'web' && (
+        <style>
+          {`
+            input::-ms-reveal,
+            input::-ms-clear {
+              display: none !important;
+            }
+          `}
+        </style>
+      )}
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -139,8 +157,7 @@ export default function LoginScreen() {
           {/* Header ด้านบน */}
           <View style={styles.headerContainer}>
             <Text style={styles.welcomeText}>Welcome</Text>
-            
-            {/* แยกสไตล์ Cushion (หนา) และ Sense (บาง) */}
+
             <Text style={styles.brandContainer}>
               <Text style={styles.brandBold}>Cushion </Text>
               <Text style={styles.brandLight}>Sense</Text>
@@ -156,49 +173,92 @@ export default function LoginScreen() {
                 placeholder="Enter your username"
                 placeholderTextColor="#A0A0A0"
                 value={username}
-                onChangeText={setUsername}
+                onChangeText={(text) => {
+                  setUsername(text);
+                  if (errorMessage) setErrorMessage('');
+                }}
                 autoCapitalize="none"
+                returnKeyType="next"
               />
             </View>
 
             {/* Password */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={styles.input}
-                placeholder={
-                  isSignUp
-                    ? 'At least 8 chars (letters & numbers)'
-                    : 'Enter your password'
-                }
-                placeholderTextColor="#A0A0A0"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-                autoCapitalize="none"
-              />
+              <View style={styles.passwordWrapper}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput]}
+                  placeholder={
+                    isSignUp
+                      ? 'At least 8 chars (letters & numbers)'
+                      : 'Enter your password'
+                  }
+                  placeholderTextColor="#A0A0A0"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (errorMessage) setErrorMessage('');
+                  }}
+                  autoCapitalize="none"
+                  returnKeyType={isSignUp ? 'next' : 'done'}
+                  onSubmitEditing={isSignUp ? undefined : handleSubmit}
+                />
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                    size={22}
+                    color="#666666"
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
 
-            {/* Confirm Password */}
+            {/* Confirm Password (เฉพาะ Sign Up) */}
             {isSignUp && (
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Confirm Password</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Confirm your password"
-                  placeholderTextColor="#A0A0A0"
-                  secureTextEntry
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  autoCapitalize="none"
-                />
+                <View style={styles.passwordWrapper}>
+                  <TextInput
+                    style={[styles.input, styles.passwordInput]}
+                    placeholder="Confirm your password"
+                    placeholderTextColor="#A0A0A0"
+                    secureTextEntry={!showConfirmPassword}
+                    value={confirmPassword}
+                    onChangeText={(text) => {
+                      setConfirmPassword(text);
+                      if (errorMessage) setErrorMessage('');
+                    }}
+                    autoCapitalize="none"
+                    returnKeyType="done"
+                    onSubmitEditing={handleSubmit}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeIcon}
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    <Ionicons
+                      name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'}
+                      size={22}
+                      color="#666666"
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
+
+            {/* ข้อความแจ้งเตือนสีแดง เหนือปุ่ม Sign In / Sign Up */}
+            {errorMessage ? (
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            ) : null}
 
             {/* Submit Button */}
             <TouchableOpacity
               style={styles.primaryButton}
-              onPress={isSignUp ? handleSignUp : handleSignIn}
+              onPress={handleSubmit}
             >
               <Text style={styles.primaryButtonText}>
                 {isSignUp ? 'Sign Up' : 'Sign In'}
@@ -217,6 +277,9 @@ export default function LoginScreen() {
                   setIsSignUp(!isSignUp);
                   setPassword('');
                   setConfirmPassword('');
+                  setShowPassword(false);
+                  setShowConfirmPassword(false);
+                  setErrorMessage(''); // ล้างข้อความเตือนเมื่อสลับโหมด
                 }}
               >
                 <Text style={styles.toggleLink}>
@@ -259,13 +322,13 @@ const styles = StyleSheet.create({
   brandBold: {
     fontSize: 42,
     fontStyle: 'italic',
-    fontWeight: '700', // ตัวหนา
+    fontWeight: '700',
     color: '#4464D0',
   },
   brandLight: {
     fontSize: 42,
     fontStyle: 'italic',
-    fontWeight: '400', // ตัวบาง
+    fontWeight: '400',
     color: '#4464D0',
   },
   formContainer: {
@@ -296,13 +359,34 @@ const styles = StyleSheet.create({
     fontSize: 15,
     backgroundColor: '#FAFAFA',
   },
+  passwordWrapper: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  passwordInput: {
+    paddingRight: 48,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 12,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    color: '#D92D20', // สีแดงเตือน
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
   primaryButton: {
     height: 48,
     backgroundColor: '#4464D0',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
-    marginTop: 8,
+    marginTop: 4,
   },
   primaryButtonText: {
     color: '#FFFFFF',
