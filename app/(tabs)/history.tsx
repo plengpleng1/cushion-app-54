@@ -10,6 +10,12 @@ import {
   Dimensions,
 } from 'react-native';
 
+import Svg, {
+  Path,
+  Circle,
+  Line,
+  Text as SvgText,
+} from 'react-native-svg';
 // ดึงข้อมูลจาก sensorService โดยไม่แก้ไขอะไรใน service
 import {
   fetchSensorData,
@@ -62,6 +68,332 @@ const formatTime = (time?: string) => {
 // =====================================================
 const clamp = (value: number) => {
   return Math.min(Math.max(value, 0), 100);
+};
+
+// =====================================================
+// Trend Chart
+// =====================================================
+
+interface TrendChartProps {
+  logs: HistoryLog[];
+}
+
+const TrendChart = ({ logs }: TrendChartProps) => {
+  const chartWidth = Math.max(screenWidth - 70, 300);
+  const chartHeight = 220;
+
+  const paddingLeft = 42;
+  const paddingRight = 15;
+  const paddingTop = 15;
+  const paddingBottom = 40;
+
+  const plotWidth =
+    chartWidth - paddingLeft - paddingRight;
+
+  const plotHeight =
+    chartHeight - paddingTop - paddingBottom;
+
+  if (logs.length === 0) {
+    return (
+      <Text style={styles.emptyGraphText}>
+        ยังไม่มีข้อมูลสำหรับแสดงกราฟ
+      </Text>
+    );
+  }
+
+  // ---------------------------------------------
+  // แปลงค่าให้อยู่ในช่วง 0 - 100
+  // ---------------------------------------------
+
+  const humidityValues = logs.map((item) =>
+    clamp(Number(item.humidity) || 0)
+  );
+
+  const pressureValues = logs.map((item) => {
+    if (item.leftPressed || item.rightPressed) {
+      return 80;
+    }
+
+    return 20;
+  });
+
+  const temperatureValues = logs.map((item) =>
+    clamp(
+      ((Number(item.temperature) || 0) / 45) * 100
+    )
+  );
+
+  // ---------------------------------------------
+  // แปลงค่าเป็นตำแหน่ง X
+  // ---------------------------------------------
+
+  const getX = (index: number) => {
+    if (logs.length === 1) {
+      return paddingLeft + plotWidth / 2;
+    }
+
+    return (
+      paddingLeft +
+      (index / (logs.length - 1)) * plotWidth
+    );
+  };
+
+  // ---------------------------------------------
+  // แปลงค่าเป็นตำแหน่ง Y
+  // ---------------------------------------------
+
+  const getY = (value: number) => {
+    return (
+      paddingTop +
+      plotHeight -
+      (value / 100) * plotHeight
+    );
+  };
+
+  // ---------------------------------------------
+  // สร้างเส้นกราฟ
+  // ---------------------------------------------
+
+  const createPath = (values: number[]) => {
+    if (values.length === 0) return '';
+
+    let path = '';
+
+    values.forEach((value, index) => {
+      const x = getX(index);
+      const y = getY(value);
+
+      if (index === 0) {
+        path += `M ${x} ${y}`;
+      } else {
+        path += ` L ${x} ${y}`;
+      }
+    });
+
+    return path;
+  };
+
+  const humidityPath =
+    createPath(humidityValues);
+
+  const pressurePath =
+    createPath(pressureValues);
+
+  const temperaturePath =
+    createPath(temperatureValues);
+
+  // ---------------------------------------------
+  // เส้น Grid
+  // ---------------------------------------------
+
+  const gridValues = [100, 75, 50, 25, 0];
+
+  return (
+    <View style={styles.chartWrapper}>
+
+      <Svg
+        width={chartWidth}
+        height={chartHeight}
+      >
+
+        {/* =====================================
+            Grid + Y Axis
+        ===================================== */}
+
+        {gridValues.map((value) => {
+
+          const y = getY(value);
+
+          return (
+            <React.Fragment key={value}>
+
+              {/* Grid line */}
+              <Line
+                x1={paddingLeft}
+                y1={y}
+                x2={chartWidth - paddingRight}
+                y2={y}
+                stroke="#E5E7EB"
+                strokeWidth={1}
+                strokeDasharray="5,5"
+              />
+
+              {/* Y label */}
+              <SvgText
+                x={paddingLeft - 8}
+                y={y + 3}
+                fontSize="10"
+                fill="#8E8E93"
+                textAnchor="end"
+              >
+                {value}
+              </SvgText>
+
+            </React.Fragment>
+          );
+        })}
+
+        {/* =====================================
+            Y Axis
+        ===================================== */}
+
+        <Line
+          x1={paddingLeft}
+          y1={paddingTop}
+          x2={paddingLeft}
+          y2={paddingTop + plotHeight}
+          stroke="#D1D1D6"
+          strokeWidth={1}
+        />
+
+        {/* =====================================
+            X Axis
+        ===================================== */}
+
+        <Line
+          x1={paddingLeft}
+          y1={paddingTop + plotHeight}
+          x2={chartWidth - paddingRight}
+          y2={paddingTop + plotHeight}
+          stroke="#D1D1D6"
+          strokeWidth={1}
+        />
+
+        {/* =====================================
+            Humidity Line
+        ===================================== */}
+
+        <Path
+          d={humidityPath}
+          fill="none"
+          stroke="#4A90E2"
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* =====================================
+            Pressure Line
+        ===================================== */}
+
+        <Path
+          d={pressurePath}
+          fill="none"
+          stroke="#F15B4A"
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* =====================================
+            Temperature Line
+        ===================================== */}
+
+        <Path
+          d={temperaturePath}
+          fill="none"
+          stroke="#FF9500"
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* =====================================
+            Humidity Points
+        ===================================== */}
+
+        {humidityValues.map((value, index) => {
+
+          const x = getX(index);
+          const y = getY(value);
+
+          return (
+            <Circle
+              key={`humidity-${index}`}
+              cx={x}
+              cy={y}
+              r={5}
+              fill="#4A90E2"
+            />
+          );
+        })}
+
+        {/* =====================================
+            Pressure Points
+        ===================================== */}
+
+        {pressureValues.map((value, index) => {
+
+          const x = getX(index);
+          const y = getY(value);
+
+          return (
+            <Circle
+              key={`pressure-${index}`}
+              cx={x}
+              cy={y}
+              r={5}
+              fill="#F15B4A"
+            />
+          );
+        })}
+
+        {/* =====================================
+            Temperature Points
+        ===================================== */}
+
+        {temperatureValues.map((value, index) => {
+
+          const x = getX(index);
+          const y = getY(value);
+
+          return (
+            <Circle
+              key={`temperature-${index}`}
+              cx={x}
+              cy={y}
+              r={5}
+              fill="#FF9500"
+            />
+          );
+        })}
+
+        {/* =====================================
+            X Axis เวลา
+        ===================================== */}
+
+        {logs.map((item, index) => {
+
+          const x = getX(index);
+
+          const time = formatTime(item.time);
+
+          return (
+            <SvgText
+              key={`time-${index}`}
+              x={x}
+              y={chartHeight - 12}
+              fontSize="9"
+              fill="#8E8E93"
+              textAnchor="middle"
+            >
+              {time.slice(0, 5)}
+            </SvgText>
+          );
+        })}
+
+      </Svg>
+
+      {/* =====================================
+          แกน X
+      ===================================== */}
+
+      <Text style={styles.xAxisTitle}>
+        เวลา
+      </Text>
+
+    </View>
+  );
 };
 
 export default function HistoryScreen() {
@@ -485,293 +817,90 @@ const loadHistoryData = async () => {
 
       </View>
 
-      {/* ==========================================
-          Daily Trend Graph
-      ========================================== */}
-      <View style={styles.cardSection}>
+{/* ==========================================
+    Daily Trend Graph
+========================================== */}
 
-        <Text style={styles.sectionTitle}>
-          📈 แนวโน้มข้อมูลตลอดเวลา
-        </Text>
+<View style={styles.cardSection}>
 
-        {/* Legend */}
-        <View style={styles.legendRow}>
+  <Text style={styles.sectionTitle}>
+    📈 ภาพรวมวันนี้ (Daily Trend)
+  </Text>
 
-          <View style={styles.legendItem}>
-            <View
-              style={[
-                styles.dot,
-                { backgroundColor: '#0288D1' },
-              ]}
-            />
+  <Text style={styles.graphSubTitle}>
+    แนวโน้มความชื้น อุณหภูมิ และแรงกดตามเวลา
+  </Text>
 
-            <Text style={styles.legendText}>
-              ความชื้น
-            </Text>
-          </View>
+  {/* ========================================
+      Legend
+  ======================================== */}
 
-          <View style={styles.legendItem}>
-            <View
-              style={[
-                styles.dot,
-                { backgroundColor: '#FF3B30' },
-              ]}
-            />
+  <View style={styles.chartLegend}>
 
-            <Text style={styles.legendText}>
-              แรงกด
-            </Text>
-          </View>
+    <View style={styles.chartLegendItem}>
 
-          <View style={styles.legendItem}>
-            <View
-              style={[
-                styles.dot,
-                { backgroundColor: '#FF9500' },
-              ]}
-            />
+      <View
+        style={[
+          styles.legendCircle,
+          {
+            backgroundColor: '#4A90E2',
+          },
+        ]}
+      />
 
-            <Text style={styles.legendText}>
-              อุณหภูมิ
-            </Text>
-          </View>
+      <Text style={styles.chartLegendText}>
+        ความชื้น (%)
+      </Text>
 
-        </View>
+    </View>
 
-        {/* Graph */}
-        {graphLogs.length === 0 ? (
+    <View style={styles.chartLegendItem}>
 
-          <Text style={styles.emptyGraphText}>
-            ยังไม่มีข้อมูลสำหรับแสดงกราฟ
-          </Text>
+      <View
+        style={[
+          styles.legendCircle,
+          {
+            backgroundColor: '#F15B4A',
+          },
+        ]}
+      />
 
-        ) : (
+      <Text style={styles.chartLegendText}>
+        แรงกด
+      </Text>
 
-          <View style={styles.trendGraph}>
+    </View>
 
-            {/* Y Axis */}
-            <View style={styles.yAxis}>
+    <View style={styles.chartLegendItem}>
 
-              <Text style={styles.axisText}>
-                100
-              </Text>
+      <View
+        style={[
+          styles.legendCircle,
+          {
+            backgroundColor: '#FF9500',
+          },
+        ]}
+      />
 
-              <Text style={styles.axisText}>
-                75
-              </Text>
+      <Text style={styles.chartLegendText}>
+        อุณหภูมิ
+      </Text>
 
-              <Text style={styles.axisText}>
-                50
-              </Text>
+    </View>
 
-              <Text style={styles.axisText}>
-                25
-              </Text>
+  </View>
 
-              <Text style={styles.axisText}>
-                0
-              </Text>
+  {/* ========================================
+      Graph
+  ======================================== */}
 
-            </View>
+  <TrendChart logs={graphLogs} />
 
-            {/* Graph Area */}
-            <View style={styles.graphArea}>
+  <Text style={styles.graphDescription}>
+    แสดงแนวโน้มจากข้อมูลล่าสุด {graphLogs.length} รายการ
+  </Text>
 
-              {/* Grid */}
-              <View
-                style={[
-                  styles.gridLine,
-                  { top: '0%' },
-                ]}
-              />
-
-              <View
-                style={[
-                  styles.gridLine,
-                  { top: '25%' },
-                ]}
-              />
-
-              <View
-                style={[
-                  styles.gridLine,
-                  { top: '50%' },
-                ]}
-              />
-
-              <View
-                style={[
-                  styles.gridLine,
-                  { top: '75%' },
-                ]}
-              />
-
-              <View
-                style={[
-                  styles.gridLine,
-                  { top: '100%' },
-                ]}
-              />
-
-              {/* เส้นแนวโน้ม */}
-              <View style={styles.dataRow}>
-
-                {graphLogs.map(
-                  (item, index) => {
-
-                    const humidity =
-                      clamp(
-                        Number(
-                          item.humidity
-                        ) || 0
-                      );
-
-                    const pressure =
-                      item.leftPressed ||
-                      item.rightPressed
-                        ? 80
-                        : 20;
-
-                    const temperature =
-                      clamp(
-                        ((Number(
-                          item.temperature
-                        ) || 0) /
-                          45) *
-                          100
-                      );
-
-                    return (
-                      <View
-                        key={item.id}
-                        style={styles.dataColumn}
-                      >
-
-                        {/* เส้นก่อนหน้า */}
-                        {index > 0 && (
-                          <>
-                            {/* Humidity line */}
-                            <View
-                              style={[
-                                styles.connectLine,
-                                {
-                                  backgroundColor:
-                                    '#0288D1',
-                                  bottom:
-                                    `${Math.min(
-                                      humidity,
-                                      100
-                                    )}%`,
-                                },
-                              ]}
-                            />
-
-                            {/* Pressure line */}
-                            <View
-                              style={[
-                                styles.connectLine,
-                                {
-                                  backgroundColor:
-                                    '#FF3B30',
-                                  bottom:
-                                    `${Math.min(
-                                      pressure,
-                                      100
-                                    )}%`,
-                                },
-                              ]}
-                            />
-
-                            {/* Temperature line */}
-                            <View
-                              style={[
-                                styles.connectLine,
-                                {
-                                  backgroundColor:
-                                    '#FF9500',
-                                  bottom:
-                                    `${Math.min(
-                                      temperature,
-                                      100
-                                    )}%`,
-                                },
-                              ]}
-                            />
-                          </>
-                        )}
-
-                        {/* Humidity Point */}
-                        <View
-                          style={[
-                            styles.dataPoint,
-                            {
-                              bottom:
-                                `${humidity}%`,
-                              backgroundColor:
-                                '#0288D1',
-                            },
-                          ]}
-                        />
-
-                        {/* Pressure Point */}
-                        <View
-                          style={[
-                            styles.dataPoint,
-                            {
-                              bottom:
-                                `${pressure}%`,
-                              backgroundColor:
-                                '#FF3B30',
-                            },
-                          ]}
-                        />
-
-                        {/* Temperature Point */}
-                        <View
-                          style={[
-                            styles.dataPoint,
-                            {
-                              bottom:
-                                `${temperature}%`,
-                              backgroundColor:
-                                '#FF9500',
-                            },
-                          ]}
-                        />
-
-                        {/* เวลา */}
-                        <Text
-                          style={
-                            styles.xAxisText
-                          }
-                        >
-                          {formatTime(
-                            item.time
-                          ).slice(0, 5)}
-                        </Text>
-
-                      </View>
-                    );
-                  }
-                )}
-
-              </View>
-
-            </View>
-
-          </View>
-
-        )}
-
-        <Text style={styles.xAxisTitle}>
-          เวลา
-        </Text>
-
-        <Text style={styles.graphDescription}>
-          แสดงแนวโน้มจากข้อมูลล่าสุด
-        </Text>
-
-      </View>
+</View>
 
       {/* ==========================================
           Recent Logs
@@ -1346,4 +1475,46 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
+  // ==========================================
+// Trend Chart
+// ==========================================
+
+chartWrapper: {
+  width: '100%',
+  alignItems: 'center',
+  marginTop: 8,
+},
+
+graphSubTitle: {
+  fontSize: 11,
+  color: '#8E8E93',
+  marginTop: -6,
+  marginBottom: 8,
+},
+
+chartLegend: {
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: 16,
+  marginBottom: 8,
+},
+
+chartLegendItem: {
+  flexDirection: 'row',
+  alignItems: 'center',
+},
+
+legendCircle: {
+  width: 10,
+  height: 10,
+  borderRadius: 5,
+  marginRight: 5,
+},
+
+chartLegendText: {
+  fontSize: 10,
+  color: '#8E8E93',
+},
 });
