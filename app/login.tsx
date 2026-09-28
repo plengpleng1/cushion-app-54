@@ -136,9 +136,15 @@ export default function LoginScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* Header ด้านบน */}
           <View style={styles.headerContainer}>
             <Text style={styles.welcomeText}>Welcome</Text>
-            <Text style={styles.brandText}>Cushion Sense</Text>
+            
+            {/* แยกสไตล์ Cushion (หนา) และ Sense (บาง) */}
+            <Text style={styles.brandContainer}>
+              <Text style={styles.brandBold}>Cushion </Text>
+              <Text style={styles.brandLight}>Sense</Text>
+            </Text>
           </View>
 
           <View style={styles.formContainer}>
@@ -246,12 +252,21 @@ const styles = StyleSheet.create({
     color: '#4464D0',
     textAlign: 'center',
   },
-  brandText: {
+  brandContainer: {
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  brandBold: {
     fontSize: 42,
     fontStyle: 'italic',
-    fontWeight: '500',
+    fontWeight: '800', // ตัวหนา
     color: '#4464D0',
-    textAlign: 'center',
+  },
+  brandLight: {
+    fontSize: 42,
+    fontStyle: 'italic',
+    fontWeight: '300', // ตัวบาง
+    color: '#4464D0',
   },
   formContainer: {
     width: '100%',
