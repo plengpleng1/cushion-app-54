@@ -56,7 +56,7 @@ export default function LoginScreen() {
     }
 
     if (!validatePassword(trimmedPassword)) {
-      showError('Password ต้องมีอย่างน้อย 8 ตัว (ตัวอักษร + ตัวเลข)');
+      showError('Password ต้องมีอย่างน้อย 8 ตัว (ต้องประกอบด้วยตัวอักษรและตัวเลข)');
       return;
     }
 
