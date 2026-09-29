@@ -1537,11 +1537,11 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
   },
 
-  headerTitle: {
+  headerTitle: {             // Clinical Dashboard
     fontSize: 26,
     fontWeight: '800',
     textAlign: 'center',
-    color: '#3B5998',
+    color: '#4464D0',
   },
 
   subHeaderTitle: {
@@ -1582,8 +1582,8 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
   },
 
-  activeTabText: {
-    color: '#3B5998',
+  activeTabText: {          // แถบวันนี้, สัปดาห์นี้
+    color: '#4464D0',
   },
 
   // ===================================================
@@ -1673,6 +1673,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
+  // แถบสัดส่วนการพบแรงกด
   leftBar: {
     backgroundColor: '#FF3B30',
   },
@@ -1761,7 +1762,7 @@ const styles = StyleSheet.create({
   },
 
   exportBadge: {
-    backgroundColor: '#3B5998',
+    backgroundColor: '#4464D0',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1856,7 +1857,7 @@ const styles = StyleSheet.create({
   },
 
   textBlue: {
-    color: '#0288D1',
+    color: '#4464D0',
     fontWeight: 'bold',
   },
 

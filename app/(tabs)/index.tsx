@@ -244,9 +244,6 @@ const formatUpdateTime = (time?: string) => {
       <Text style={styles.lastUpdateText}>
         อัปเดตล่าสุด: {formatUpdateTime(sensorData?.time)}
       </Text>
-      <Text style={styles.notMedicalInformation}>
-        ต้องได้รับการยืนยันทางการแพทย์อีกครั้ง
-        </Text>
 
       {/* Alarm Alerts */}
       {(isHumidHigh || isTempHigh || seconds >= 120) && (
@@ -342,6 +339,9 @@ const formatUpdateTime = (time?: string) => {
           </View>
         </View>
 
+        <Text style={styles.notMedicalInformation}>
+        หมายเหตุ: ผลประเมินเบื้องต้น ไม่ใช่การวินิจฉัยทางการแพทย์</Text>
+
         {/* Cushion Area */}
         <View
           style={[
@@ -401,12 +401,11 @@ const formatUpdateTime = (time?: string) => {
       </View>
 
       {/* Sensor Values */}
-      <View style={styles.row}>
+      <View style={styles.sensorRow}>
         {/* Pressure */}
         {/* Pressure */}
-      <View style={[styles.card, styles.thirdCard]}>
+      <View style={[styles.card, styles.pressureCard]}>
         <Text style={styles.cardLabel}>Pressure</Text>
-
         <Text style={styles.cardValue}>
           {pressureSide === 'none' ? 'LOW' : 'HIGH'}
         </Text>
@@ -499,10 +498,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: 2,
   },
-  notMedicalInformation:{    //ข้อความต้องได้รับการยืนยันทางการแพทย์
+  notMedicalInformation:{    //หมายเหตุ: ผลประเมินเบื้องต้น ไม่ใช่การวินิจฉัยทางการแพทย์
     fontSize: 12,
     color: '#8E8E93',
-    textAlign: 'center',
     marginBottom: 16,        // marginBottom แก้ระยะห่าง
     marginTop: 2,
   },
@@ -541,7 +539,7 @@ const styles = StyleSheet.create({
     width: '40%',          // แก้ขนาดกล่อง
     alignSelf:'center',    // แก้ตำแหน่งกล่อง
   },
-  cardLabel: {
+  cardLabel: {             
     fontSize: 13,
     color: '#8E8E93',
     fontWeight: '600',
@@ -569,7 +567,19 @@ const styles = StyleSheet.create({
     width: '40%',          // แก้ขนาดกล่อง
     alignSelf:'center',    // แก้ตำแหน่งกล่อง
   },
+  sensorRow:{              // กล่อง temp+humid
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
+    width: '40%',          // แก้ขนาดกล่อง
+    alignSelf:'center',    // แก้ตำแหน่งกล่อง 
+  },
   thirdCard: {
+    flex: 1,
+    minHeight: 90,
+    justifyContent: 'center',
+  },
+  pressureCard:{           //กล่อง pressure
     flex: 1,
     minHeight: 90,
     justifyContent: 'center',
@@ -584,7 +594,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 0.5,
   },
   badgeContainer: {
     flexDirection: 'row',
