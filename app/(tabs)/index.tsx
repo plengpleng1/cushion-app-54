@@ -238,13 +238,15 @@ const formatUpdateTime = (time?: string) => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Header */}
-      <Text style={styles.logo}>
-  Cushion{" "}
-  <Text style={styles.sense}>Sense</Text>
-</Text>
+      <Text style={styles.logo}>Cushion{" "}
+      <Text style={styles.sense}>Sense</Text>
+      </Text>
       <Text style={styles.lastUpdateText}>
         อัปเดตล่าสุด: {formatUpdateTime(sensorData?.time)}
       </Text>
+      <Text style={styles.notMedicalInformation}>
+        ต้องได้รับการยืนยันทางการแพทย์อีกครั้ง
+        </Text>
 
       {/* Alarm Alerts */}
       {(isHumidHigh || isTempHigh || seconds >= 120) && (
@@ -473,8 +475,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#8E8E93',
   },
-header: {
-    justifyContent: 'center',
+  header: {
+    
     alignItems: "center",
     marginBottom: 35,
   },
@@ -494,16 +496,25 @@ header: {
     fontSize: 12,
     color: '#8E8E93',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 6,
+    marginTop: 2,
+  },
+  notMedicalInformation:{    //ข้อความต้องได้รับการยืนยันทางการแพทย์
+    fontSize: 12,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginBottom: 16,        // marginBottom แก้ระยะห่าง
     marginTop: 2,
   },
   alarmCard: {
     backgroundColor: '#FFE5E5',
     borderLeftWidth: 5,
     borderLeftColor: '#FF3B30',
-    padding: 14,
+    padding: 10,
     borderRadius: 12,
     marginBottom: 16,
+    width: '40%',          // แก้ขนาดกล่อง
+    alignSelf:'center',    // แก้ตำแหน่งกล่อง
   },
   alarmTitle: {
     fontSize: 14,
@@ -517,7 +528,7 @@ header: {
     fontWeight: '500',
     marginBottom: 3,
   },
-  card: {
+  card: {                 //กล่อง Position
     backgroundColor: '#FFFFFF',
     padding: 16,
     borderRadius: 16,
@@ -527,6 +538,8 @@ header: {
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 3,
+    width: '40%',          // แก้ขนาดกล่อง
+    alignSelf:'center',    // แก้ตำแหน่งกล่อง
   },
   cardLabel: {
     fontSize: 13,
@@ -548,17 +561,25 @@ header: {
     fontSize: 22,
     fontWeight: 'bold',
   },
-  row: {
+
+  row: {                   // กล่อง status+timer
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'space-between',
+    width: '40%',          // แก้ขนาดกล่อง
+    alignSelf:'center',    // แก้ตำแหน่งกล่อง
   },
   thirdCard: {
     flex: 1,
+    minHeight: 90,
+    justifyContent: 'center',
   },
   twoThirdsCard: {
     flex: 2,
+    minHeight: 90,
+    justifyContent: 'center',
   },
+  
   positionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -569,7 +590,7 @@ header: {
     flexDirection: 'row',
     gap: 5,
   },
-  humidBadge: {
+  humidBadge: {            // humid high ตรง Position
     fontSize: 12,
     fontWeight: 'bold',
     color: '#0288D1',
