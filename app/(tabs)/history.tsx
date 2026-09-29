@@ -1,26 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Dimensions,
-} from 'react-native';
-
-import Svg, {
-  Path,
-  Circle,
-  Line,
-  Text as SvgText,
-} from 'react-native-svg';
-
-import {
-  fetchSensorData,
-  SensorData,
-} from '../../services/sensorService';
+import {View,Text,StyleSheet,ScrollView,TouchableOpacity,ActivityIndicator,Dimensions,} from 'react-native';
+import Svg, {Path,Circle,Line,Text as SvgText,} from 'react-native-svg';
+import {fetchSensorData,SensorData,} from '../../services/sensorService';
 
 type TabType = 'today' | 'week';
 
@@ -80,7 +61,7 @@ const clamp = (value: number) => {
 };
 
 // =====================================================
-// Trend Chart
+// Trend Chart (แก้ไขการคำนวณขนาดให้อยู่ภายในกล่อง)
 // =====================================================
 
 interface TrendChartProps {
@@ -88,19 +69,17 @@ interface TrendChartProps {
 }
 
 const TrendChart = ({ logs }: TrendChartProps) => {
-  const chartWidth = Math.max(screenWidth - 70, 300);
-  const chartHeight = 220;
+  const [containerWidth, setContainerWidth] = useState(0);
 
-  const paddingLeft = 42;
+  const chartHeight = 220;
+  const paddingLeft = 35;
   const paddingRight = 15;
-  const paddingTop = 15;
+  const paddingTop = 20;
   const paddingBottom = 40;
 
-  const plotWidth =
-    chartWidth - paddingLeft - paddingRight;
-
-  const plotHeight =
-    chartHeight - paddingTop - paddingBottom;
+  // คำนวณ plotWidth Dynamic ตามขนาด container จริง
+  const plotWidth = Math.max(containerWidth - paddingLeft - paddingRight, 0);
+  const plotHeight = chartHeight - paddingTop - paddingBottom;
 
   if (logs.length === 0) {
     return (
@@ -111,289 +90,201 @@ const TrendChart = ({ logs }: TrendChartProps) => {
   }
 
   // ===================================================
-  // Humidity
+  // Humidity / Pressure / Temperature
   // ===================================================
 
   const humidityValues = logs.map((item) =>
     clamp(Number(item.humidity) || 0)
   );
 
-  // ===================================================
-  // Pressure
-  // ===================================================
-
   const pressureValues = logs.map((item) => {
     if (item.leftPressed || item.rightPressed) {
       return 80;
     }
-
     return 20;
   });
 
-  // ===================================================
-  // Temperature
-  // ===================================================
-
   const temperatureValues = logs.map((item) =>
-    clamp(
-      ((Number(item.temperature) || 0) / 45) * 100
-    )
+    clamp(((Number(item.temperature) || 0) / 45) * 100)
   );
 
   // ===================================================
-  // X
+  // X & Y Calculation
   // ===================================================
 
   const getX = (index: number) => {
-    if (logs.length === 1) {
+    if (logs.length <= 1) {
       return paddingLeft + plotWidth / 2;
     }
-
-    return (
-      paddingLeft +
-      (index / (logs.length - 1)) * plotWidth
-    );
+    return paddingLeft + (index / (logs.length - 1)) * plotWidth;
   };
-
-  // ===================================================
-  // Y
-  // ===================================================
 
   const getY = (value: number) => {
-    return (
-      paddingTop +
-      plotHeight -
-      (value / 100) * plotHeight
-    );
+    return paddingTop + plotHeight - (value / 100) * plotHeight;
   };
 
   // ===================================================
-  // Path
+  // Path Creator
   // ===================================================
 
   const createPath = (values: number[]) => {
     if (values.length === 0) return '';
-
     let path = '';
-
     values.forEach((value, index) => {
       const x = getX(index);
       const y = getY(value);
-
       if (index === 0) {
         path += `M ${x} ${y}`;
       } else {
         path += ` L ${x} ${y}`;
       }
     });
-
     return path;
   };
 
-  const humidityPath =
-    createPath(humidityValues);
-
-  const pressurePath =
-    createPath(pressureValues);
-
-  const temperaturePath =
-    createPath(temperatureValues);
+  const humidityPath = createPath(humidityValues);
+  const pressurePath = createPath(pressureValues);
+  const temperaturePath = createPath(temperatureValues);
 
   const gridValues = [100, 75, 50, 25, 0];
 
   return (
-    <View style={styles.chartWrapper}>
+    <View
+      style={styles.chartWrapper}
+      onLayout={(e) => {
+        // ดึงขนาดความกว้างจริงของกล่อง Card ออกมาโดยอัตโนมัติ
+        setContainerWidth(e.nativeEvent.layout.width);
+      }}
+    >
+      {containerWidth > 0 && (
+        <Svg width={containerWidth} height={chartHeight}>
+          {/* Grid Lines & Y Axis Labels */}
+          {gridValues.map((value) => {
+            const y = getY(value);
+            return (
+              <React.Fragment key={value}>
+                <Line
+                  x1={paddingLeft}
+                  y1={y}
+                  x2={containerWidth - paddingRight}
+                  y2={y}
+                  stroke="#E5E7EB"
+                  strokeWidth={1}
+                  strokeDasharray="4,4"
+                />
+                <SvgText
+                  x={paddingLeft - 6}
+                  y={y + 3}
+                  fontSize="10"
+                  fill="#8E8E93"
+                  textAnchor="end"
+                >
+                  {value}
+                </SvgText>
+              </React.Fragment>
+            );
+          })}
 
-      <Svg
-        width={chartWidth}
-        height={chartHeight}
-      >
+          {/* Y Axis Line */}
+          <Line
+            x1={paddingLeft}
+            y1={paddingTop}
+            x2={paddingLeft}
+            y2={paddingTop + plotHeight}
+            stroke="#D1D1D6"
+            strokeWidth={1}
+          />
 
-        {/* ================================
-            Grid
-        ================================= */}
+          {/* X Axis Line */}
+          <Line
+            x1={paddingLeft}
+            y1={paddingTop + plotHeight}
+            x2={containerWidth - paddingRight}
+            y2={paddingTop + plotHeight}
+            stroke="#D1D1D6"
+            strokeWidth={1}
+          />
 
-        {gridValues.map((value) => {
-          const y = getY(value);
+          {/* Lines */}
+          <Path
+            d={humidityPath}
+            fill="none"
+            stroke="#4A90E2"
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path
+            d={pressurePath}
+            fill="none"
+            stroke="#F15B4A"
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path
+            d={temperaturePath}
+            fill="none"
+            stroke="#FF9500"
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
 
-          return (
-            <React.Fragment key={value}>
-
-              <Line
-                x1={paddingLeft}
-                y1={y}
-                x2={chartWidth - paddingRight}
-                y2={y}
-                stroke="#E5E7EB"
-                strokeWidth={1}
-                strokeDasharray="5,5"
-              />
-
-              <SvgText
-                x={paddingLeft - 8}
-                y={y + 3}
-                fontSize="10"
-                fill="#8E8E93"
-                textAnchor="end"
-              >
-                {value}
-              </SvgText>
-
-            </React.Fragment>
-          );
-        })}
-
-        {/* ================================
-            Y Axis
-        ================================= */}
-
-        <Line
-          x1={paddingLeft}
-          y1={paddingTop}
-          x2={paddingLeft}
-          y2={paddingTop + plotHeight}
-          stroke="#D1D1D6"
-          strokeWidth={1}
-        />
-
-        {/* ================================
-            X Axis
-        ================================= */}
-
-        <Line
-          x1={paddingLeft}
-          y1={paddingTop + plotHeight}
-          x2={chartWidth - paddingRight}
-          y2={paddingTop + plotHeight}
-          stroke="#D1D1D6"
-          strokeWidth={1}
-        />
-
-        {/* ================================
-            Humidity
-        ================================= */}
-
-        <Path
-          d={humidityPath}
-          fill="none"
-          stroke="#4A90E2"
-          strokeWidth={3}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {/* ================================
-            Pressure
-        ================================= */}
-
-        <Path
-          d={pressurePath}
-          fill="none"
-          stroke="#F15B4A"
-          strokeWidth={3}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {/* ================================
-            Temperature
-        ================================= */}
-
-        <Path
-          d={temperaturePath}
-          fill="none"
-          stroke="#FF9500"
-          strokeWidth={3}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {/* ================================
-            Humidity Points
-        ================================= */}
-
-        {humidityValues.map((value, index) => {
-          const x = getX(index);
-          const y = getY(value);
-
-          return (
+          {/* Points - Humidity */}
+          {humidityValues.map((value, index) => (
             <Circle
               key={`humidity-${index}`}
-              cx={x}
-              cy={y}
-              r={5}
+              cx={getX(index)}
+              cy={getY(value)}
+              r={4}
               fill="#4A90E2"
             />
-          );
-        })}
+          ))}
 
-        {/* ================================
-            Pressure Points
-        ================================= */}
-
-        {pressureValues.map((value, index) => {
-          const x = getX(index);
-          const y = getY(value);
-
-          return (
+          {/* Points - Pressure */}
+          {pressureValues.map((value, index) => (
             <Circle
               key={`pressure-${index}`}
-              cx={x}
-              cy={y}
-              r={5}
+              cx={getX(index)}
+              cy={getY(value)}
+              r={4}
               fill="#F15B4A"
             />
-          );
-        })}
+          ))}
 
-        {/* ================================
-            Temperature Points
-        ================================= */}
-
-        {temperatureValues.map((value, index) => {
-          const x = getX(index);
-          const y = getY(value);
-
-          return (
+          {/* Points - Temperature */}
+          {temperatureValues.map((value, index) => (
             <Circle
               key={`temperature-${index}`}
-              cx={x}
-              cy={y}
-              r={5}
+              cx={getX(index)}
+              cy={getY(value)}
+              r={4}
               fill="#FF9500"
             />
-          );
-        })}
+          ))}
 
-        {/* ================================
-            X Axis Time
-        ================================= */}
+          {/* X Axis Labels (Time) */}
+          {logs.map((item, index) => {
+            const x = getX(index);
+            const time = formatTime(item.time);
+            return (
+              <SvgText
+                key={`time-${index}`}
+                x={x}
+                y={paddingTop + plotHeight + 16}
+                fontSize="9"
+                fill="#8E8E93"
+                textAnchor="middle"
+              >
+                {time.slice(0, 5)}
+              </SvgText>
+            );
+          })}
+        </Svg>
+      )}
 
-        {logs.map((item, index) => {
-          const x = getX(index);
-
-          const time = formatTime(item.time);
-
-          return (
-            <SvgText
-              key={`time-${index}`}
-              x={x}
-              y={chartHeight - 12}
-              fontSize="9"
-              fill="#8E8E93"
-              textAnchor="middle"
-            >
-              {time.slice(0, 5)}
-            </SvgText>
-          );
-        })}
-
-      </Svg>
-
-      <Text style={styles.xAxisTitle}>
-        เวลา
-      </Text>
-
+      <Text style={styles.xAxisTitle}>เวลา (น.)</Text>
     </View>
   );
 };
@@ -941,22 +832,8 @@ export default function HistoryScreen() {
             🚶
           </Text>
 
-          <Text
-            style={
-              styles.cardValueText
-            }
-          >
-            {stats.moveCount} ครั้ง
-          </Text>
-
-          <Text
-            style={
-              styles.cardLabelText
-            }
-          >
-            ขยับเปลี่ยนท่า
-          </Text>
-
+          <Text style={styles.cardValueText}>{stats.moveCount} ครั้ง</Text>
+          <Text style={styles.cardLabelText}>ขยับเปลี่ยนท่า</Text>
         </View>
 
         <View
@@ -1562,30 +1439,27 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 3,
     marginBottom: 16,
+    width: '40%',          // แก้ขนาดกล่อง
+    alignSelf:'center',    // แก้ตำแหน่งกล่อง
   },
-
   tabButton: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
     borderRadius: 6,
-  },
-
+  },  
   activeTabButton: {
     backgroundColor: '#FFFFFF',
     elevation: 2,
   },
-
   tabText: {
     fontSize: 13,
     fontWeight: '600',
     color: '#8E8E93',
   },
-
   activeTabText: {          // แถบวันนี้, สัปดาห์นี้
     color: '#4464D0',
   },
-
   // ===================================================
   // Summary
   // ===================================================
@@ -1595,8 +1469,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
     marginBottom: 16,
+    width: '40%',          // แก้ขนาดกล่อง
+    alignSelf:'center',    // แก้ตำแหน่งกล่อง
   },
-
   summaryCard: {
     width: '48.5%',
     backgroundColor: '#FFFFFF',
@@ -1605,24 +1480,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 2,
   },
-
   cardIcon: {
     fontSize: 20,
     marginBottom: 4,
   },
-
   cardValueText: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1C1C1E',
   },
-
   cardLabelText: {
     fontSize: 11,
     color: '#8E8E93',
     marginTop: 2,
   },
-
   // ===================================================
   // Section
   // ===================================================
@@ -1632,7 +1503,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    elevation: 2,
+    overflow: 'hidden',
+    width: '40%',          // แก้ขนาดกล่อง
+    alignSelf:'center',    // แก้ตำแหน่งกล่อง
   },
 
   sectionTitle: {
@@ -1694,7 +1567,8 @@ const styles = StyleSheet.create({
   chartWrapper: {
     width: '100%',
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    marginVertical: 10,
   },
 
   graphSubTitle: {
@@ -1740,15 +1614,15 @@ const styles = StyleSheet.create({
   emptyGraphText: {
     textAlign: 'center',
     color: '#8E8E93',
-    paddingVertical: 50,
+    paddingVertical: 20,
     fontSize: 12,
   },
 
   xAxisTitle: {
     fontSize: 11,
     color: '#8E8E93',
-    fontWeight: '600',
-    marginTop: -2,
+    textAlign: 'center',
+    marginTop: -4,
   },
 
   // ===================================================
