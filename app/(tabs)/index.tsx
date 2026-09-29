@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#8E8E93',
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 16,
     marginTop: 2,
   },
   notMedicalInformation:{    //หมายเหตุ: ผลประเมินเบื้องต้น ไม่ใช่การวินิจฉัยทางการแพทย์
@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 6,
   },
-  tempBadge: {
+  tempBadge: {             // temp high ตรง Position
     fontSize: 12,
     fontWeight: 'bold',
     color: '#FF3B30',
@@ -668,17 +668,20 @@ const styles = StyleSheet.create({
   tempWarningCard: {
     backgroundColor: '#FFF0F0',
   },
+
+  //ตัวอักษร temp แดง ตอน temp high
   tempWarningText: {
     color: '#FF3B30',
   },
   humidWarningCard: {
     backgroundColor: '#E0F7FA',
   },
-  // สไตล์ขอบสีฟ้าสำหรับ Humid High
   humidWarningBorder: {
-    borderColor: '#0288D1', 
+    borderColor: '#0288D1',           //ขอบตอน Humid High
     borderWidth: 3,
   },
+
+  //ตัวอักษร humid ฟ้า ตอน humod high
   humidWarningText: {
     color: '#0288D1',
   },
