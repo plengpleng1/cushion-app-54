@@ -640,7 +640,8 @@ const styles = StyleSheet.create({
   },
   leftHalf: {
     borderRightWidth: 1,
-    borderRightColor: '#333333',
+    borderRightColor: '#c3c5c9',          // เผื่อใช้เทาเดิม #c3c5c9     ฟ้าเหมือนกรอบ #0288D1
+    borderStyle: 'dashed',                  // เปลี่ยนเป็นเส้นประ
   },
   rightHalf: {},
   activePressureHalf: {

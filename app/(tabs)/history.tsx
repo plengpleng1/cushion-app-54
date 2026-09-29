@@ -27,6 +27,8 @@ interface HistoryLog extends SensorData {
   isSittingTooLong: boolean;
 }
 
+const [isExpanded, setIsExpanded] = useState<boolean>(false);
+
 const screenWidth = Dimensions.get('window').width;
 
 // =====================================================
@@ -1130,260 +1132,100 @@ export default function HistoryScreen() {
           Recent Logs
       ================================================= */}
 
-      <View
-        style={
-          styles.cardSection
-        }
-      >
-
-        <View
-          style={
-            styles.logHeaderRow
-          }
-        >
-
-          <Text
-            style={
-              styles.sectionTitle
-            }
-          >
-            📋 ประวัติบันทึกเหตุการณ์
+      <View style={styles.cardSection}>
+        <View style={styles.logHeaderRow}>
+          <Text style={styles.sectionTitle}>📋 ประวัติบันทึกเหตุการณ์
           </Text>
 
-          <TouchableOpacity
-            style={
-              styles.exportBadge
-            }
-          >
+        {/* ปุ่มสลับ ย่อลง / ดูทั้งหมด */}
+        {historyLogs.length > 3 && (
+        <TouchableOpacity
+            style={styles.exportBadge}
+            onPress={() => setIsExpanded((prev) => !prev)}
+        >
+            <Text style={styles.exportBadgeText}>
+            {isExpanded ? 'ย่อลง' : 'ดูทั้งหมด'}
+            </Text>
+        </TouchableOpacity>
+        )}
+    </View>
 
-            <Text
-              style={
-                styles.exportBadgeText
-              }
-            >
-              ย่อลง
+    {historyLogs.length === 0 ? (
+    <Text style={styles.emptyText}>ยังไม่มีข้อมูลบันทึก</Text>
+  ) : (
+    // ตัดเอาเฉพาะ 3 รายการแรกถ้ายังไม่ได้กดขยาย
+    (isExpanded ? historyLogs : historyLogs.slice(0, 3)).map((item) => (
+      <View key={item.id} style={styles.logItemCard}>
+        
+        {/* Indicator */}
+        <View
+          style={[
+            styles.sideIndicator,
+            {
+              backgroundColor: item.isTempHigh
+                ? '#FF3B30'
+                : item.isSittingTooLong
+                  ? '#FF9500'
+                  : item.isHumidHigh
+                    ? '#0288D1'
+                    : '#34C759',
+            },
+          ]}
+        />
+
+        <View style={styles.logContent}>
+          {/* Top Row */}
+          <View style={styles.logTopRow}>
+            <Text style={styles.logTimeText}>
+              {formatTime(item.time)} น.
             </Text>
 
-          </TouchableOpacity>
+            {item.isTempHigh && (
+              <Text style={styles.criticalBadge}>🚨 วิกฤต</Text>
+            )}
 
+            {!item.isTempHigh && item.isSittingTooLong && (
+              <Text style={styles.warningBadge}>⚠️ นั่งนานเกินไป</Text>
+            )}
+          </View>
+
+          {/* Pressure / Sensor */}
+          <View style={styles.logSubRow}>
+            <Text style={styles.logDetailText}>
+              แรงกด: ซ้าย{' '}
+              <Text style={item.leftPressed ? styles.textRed : styles.textGreen}>
+                {item.leftPressed ? 'High' : 'Low'}
+              </Text>
+              {' | '}ขวา{' '}
+              <Text style={item.rightPressed ? styles.textRed : styles.textGreen}>
+                {item.rightPressed ? 'High' : 'Low'}
+              </Text>
+            </Text>
+
+            <Text style={styles.logMetricText}>
+              อุณหภูมิ:{' '}
+              <Text style={item.isTempHigh ? styles.textRed : styles.textDark}>
+                {item.temperature} °C
+              </Text>
+              {'  '}
+              ชื้น:{' '}
+              <Text style={item.isHumidHigh ? styles.textBlue : styles.textDark}>
+                {item.humidity}% 💧
+              </Text>
+            </Text>
+          </View>
+
+          {/* แสดงเวลานั่ง CENTER */}
+          {item.calculatedPosition === 'CENTER' && (
+            <Text style={styles.sittingTimerText}>
+              🪑 นั่งตรงกลางต่อเนื่อง: {item.sittingSeconds} วินาที
+            </Text>
+          )}
         </View>
-
-        {historyLogs.length === 0 ? (
-
-          <Text
-            style={
-              styles.emptyText
-            }
-          >
-            ยังไม่มีข้อมูลบันทึก
-          </Text>
-
-        ) : (
-
-          historyLogs.map(
-            (item) => (
-
-              <View
-                key={item.id}
-                style={
-                  styles.logItemCard
-                }
-              >
-
-                {/* -----------------------------------------
-                    Indicator
-                ------------------------------------------ */}
-
-                <View
-                  style={[
-                    styles.sideIndicator,
-                    {
-                      backgroundColor:
-
-                        item.isTempHigh
-                          ? '#FF3B30'
-
-                          : item.isSittingTooLong
-                            ? '#FF9500'
-
-                            : item.isHumidHigh
-                              ? '#0288D1'
-
-                              : '#34C759',
-                    },
-                  ]}
-                />
-
-                <View
-                  style={
-                    styles.logContent
-                  }
-                >
-
-                  {/* ---------------------------------------
-                      Top Row
-                  ---------------------------------------- */}
-
-                  <View
-                    style={
-                      styles.logTopRow
-                    }
-                  >
-
-                    <Text
-                      style={
-                        styles.logTimeText
-                      }
-                    >
-                      {formatTime(
-                        item.time
-                      )}{' '}
-                      น.
-                    </Text>
-
-                    {/* Temperature Critical */}
-
-                    {item.isTempHigh && (
-
-                      <Text
-                        style={
-                          styles.criticalBadge
-                        }
-                      >
-                        🚨 วิกฤต
-                      </Text>
-
-                    )}
-
-                    {/* Sitting Too Long */}
-
-                    {!item.isTempHigh &&
-                      item.isSittingTooLong && (
-
-                        <Text
-                          style={
-                            styles.warningBadge
-                          }
-                        >
-                          ⚠️ นั่งนานเกินไป
-                        </Text>
-
-                    )}
-
-                  </View>
-
-                  {/* ---------------------------------------
-                      Pressure / Sensor
-                  ---------------------------------------- */}
-
-                  <View
-                    style={
-                      styles.logSubRow
-                    }
-                  >
-
-                    <Text
-                      style={
-                        styles.logDetailText
-                      }
-                    >
-
-                      แรงกด: ซ้าย{' '}
-
-                      <Text
-                        style={
-                          item.leftPressed
-                            ? styles.textRed
-                            : styles.textGreen
-                        }
-                      >
-                        {item.leftPressed
-                          ? 'High'
-                          : 'Low'}
-                      </Text>
-
-                      {' | '}ขวา{' '}
-
-                      <Text
-                        style={
-                          item.rightPressed
-                            ? styles.textRed
-                            : styles.textGreen
-                        }
-                      >
-                        {item.rightPressed
-                          ? 'High'
-                          : 'Low'}
-                      </Text>
-
-                    </Text>
-
-                    <Text
-                      style={
-                        styles.logMetricText
-                      }
-                    >
-
-                      อุณหภูมิ:{' '}
-
-                      <Text
-                        style={
-                          item.isTempHigh
-                            ? styles.textRed
-                            : styles.textDark
-                        }
-                      >
-                        {item.temperature} °C
-                      </Text>
-
-                      {'  '}
-
-                      ชื้น:{' '}
-
-                      <Text
-                        style={
-                          item.isHumidHigh
-                            ? styles.textBlue
-                            : styles.textDark
-                        }
-                      >
-                        {item.humidity}% 💧
-                      </Text>
-
-                    </Text>
-
-                  </View>
-
-                  {/* ---------------------------------------
-                      แสดงเวลานั่ง CENTER
-                      เฉพาะตอนกำลัง CENTER
-                  ---------------------------------------- */}
-
-                  {item.calculatedPosition ===
-                    'CENTER' && (
-
-                    <Text
-                      style={
-                        styles.sittingTimerText
-                      }
-                    >
-                      🪑 นั่งตรงกลางต่อเนื่อง:{' '}
-                      {item.sittingSeconds} วินาที
-
-                    </Text>
-
-                  )}
-
-                </View>
-
-              </View>
-
-            )
-          )
-
-        )}
-
       </View>
+    ))
+  )}
+</View>
 
     </ScrollView>
   );
