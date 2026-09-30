@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import { makeRedirectUri } from 'expo-auth-session';
-import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useRef, useState } from 'react';
@@ -18,7 +17,6 @@ import {
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 
-// รองรับการปิด OAuth Session บน Web Browser เมื่อทำงานเสร็จ
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
@@ -26,48 +24,48 @@ export default function LoginScreen() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // useRef สำหรับสั่ง focus ช่องถัดไป
   const passwordInputRef = useRef<TextInput>(null);
   const confirmPasswordInputRef = useRef<TextInput>(null);
 
-  // Form States
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // States แสดง/ซ่อน Password
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  // State ข้อความแจ้งเตือนสีแดง
   const [errorMessage, setErrorMessage] = useState('');
 
   const showError = (message: string) => {
     setErrorMessage(message);
   };
 
-  // ตรวจสอบเงื่อนไขความปลอดภัย Password
-  const validatePassword = (pass: string) => {
-    const hasMinLength = pass.length >= 8;
-    const hasLetter = /[a-zA-Z]/.test(pass);
-    const hasNumber = /[0-9]/.test(pass);
-    return hasMinLength && hasLetter && hasNumber;
+  // แปลง Username เป็น Email Format สำหรับ Supabase Auth
+  const getFormattedEmail = (input: string) => {
+    const trimmed = input.trim();
+    if (trimmed.includes('@')) {
+      return trimmed;
+    }
+    return `${trimmed.toLowerCase()}@cushionsense.app`;
   };
 
-  // 1. ฟังก์ชัน สมัครสมาชิก (Email/Password) ผ่าน Supabase
+  const validatePassword = (pass: string) => {
+    return pass.length >= 8;
+  };
+
+  // 1. สมัครสมาชิก
   const handleSignUp = async () => {
     setErrorMessage('');
-    const trimmedEmail = email.trim();
+    const trimmedUser = username.trim();
     const trimmedPassword = password.trim();
     const trimmedConfirm = confirmPassword.trim();
 
-    if (!trimmedEmail || !trimmedPassword || !trimmedConfirm) {
+    if (!trimmedUser || !trimmedPassword || !trimmedConfirm) {
       showError('กรุณากรอกข้อมูลให้ครบถ้วน');
       return;
     }
 
     if (!validatePassword(trimmedPassword)) {
-      showError('Password ต้องมีอย่างน้อย 8 ตัว (ตัวอักษรและตัวเลข)');
+      showError('Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร');
       return;
     }
 
@@ -78,9 +76,16 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
+      const emailToUse = getFormattedEmail(trimmedUser);
+
       const { data, error } = await supabase.auth.signUp({
-        email: trimmedEmail,
+        email: emailToUse,
         password: trimmedPassword,
+        options: {
+          data: {
+            username: trimmedUser,
+          },
+        },
       });
 
       if (error) {
@@ -89,9 +94,9 @@ export default function LoginScreen() {
       }
 
       if (data.session) {
-        router.push('/patient-info' as any);
+        router.push('/select' as any);
       } else {
-        showError('สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบ Email เพื่อยืนยันตัวตน');
+        showError('สมัครสมาชิกสำเร็จ! กรุณาล็อกอินเพื่อเข้าสู่ระบบ');
         setIsSignUp(false);
       }
     } catch (err: any) {
@@ -101,30 +106,32 @@ export default function LoginScreen() {
     }
   };
 
-  // 2. ฟังก์ชัน เข้าสู่ระบบ (Email/Password) ผ่าน Supabase
+  // 2. เข้าสู่ระบบด้วย Username/Password
   const handleSignIn = async () => {
     setErrorMessage('');
-    const trimmedEmail = email.trim();
+    const trimmedUser = username.trim();
     const trimmedPassword = password.trim();
 
-    if (!trimmedEmail || !trimmedPassword) {
-      showError('กรุณากรอก Email และ Password');
+    if (!trimmedUser || !trimmedPassword) {
+      showError('กรุณากรอก Username และ Password');
       return;
     }
 
     try {
       setLoading(true);
+      const emailToUse = getFormattedEmail(trimmedUser);
+
       const { error } = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
+        email: emailToUse,
         password: trimmedPassword,
       });
 
       if (error) {
-        showError('เข้าสู่ระบบไม่สำเร็จ: Email หรือ Password ไม่ถูกต้อง');
+        showError('เข้าสู่ระบบไม่สำเร็จ: Username หรือ Password ไม่ถูกต้อง');
         return;
       }
 
-      router.push('/patient-info' as any);
+      router.push('/select' as any);
     } catch (err: any) {
       showError('เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
     } finally {
@@ -132,19 +139,15 @@ export default function LoginScreen() {
     }
   };
 
-  // 3. ฟังก์ชัน เข้าสู่ระบบด้วย Google OAuth ผ่าน Supabase
-  const handleOAuthRedirect = async (url: string) => {
-    const { params, errorCode } = QueryParams.getQueryParams(url);
+  // 3. เข้าสู่ระบบด้วย Google OAuth
+  const createSessionFromUrl = async (url: string) => {
+    const route = url.replace('#', '?');
+    const queryParams = new URLSearchParams(route.split('?')[1]);
 
-    if (errorCode) {
-      showError(errorCode);
-      return;
-    }
-
-    const { access_token, refresh_token } = params;
+    const access_token = queryParams.get('access_token');
+    const refresh_token = queryParams.get('refresh_token');
 
     if (!access_token || !refresh_token) {
-      showError('ไม่พบโทเคนระบบเข้าสู่ระบบ');
       return;
     }
 
@@ -156,7 +159,7 @@ export default function LoginScreen() {
     if (error) {
       showError(error.message);
     } else {
-      router.push('/patient-info' as any);
+      router.push('/select' as any);
     }
   };
 
@@ -174,6 +177,9 @@ export default function LoginScreen() {
         options: {
           redirectTo,
           skipBrowserRedirect: true,
+          queryParams: {
+            prompt: 'select_account',
+          },
         },
       });
 
@@ -187,8 +193,8 @@ export default function LoginScreen() {
         redirectTo
       );
 
-      if (result.type === 'success') {
-        await handleOAuthRedirect(result.url);
+      if (result.type === 'success' && result.url) {
+        await createSessionFromUrl(result.url);
       }
     } catch (err: any) {
       showError('เกิดข้อผิดพลาดในการเปิด Google Login');
@@ -207,27 +213,14 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ซ่อนลูกกะตาของ Web Browser */}
-      {Platform.OS === 'web' && (
-        <style>
-          {`
-            input::-ms-reveal,
-            input::-ms-clear {
-              display: none !important;
-            }
-          `}
-        </style>
-      )}
-
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* Header ด้านบน */}
+          {/* Header */}
           <View style={styles.headerContainer}>
             <Text style={styles.welcomeText}>Welcome</Text>
-
             <Text style={styles.brandContainer}>
               <Text style={styles.brandBold}>Cushion </Text>
               <Text style={styles.brandLight}>Sense</Text>
@@ -235,26 +228,25 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.formContainer}>
-            {/* Email */}
+            {/* Username Field */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>Username</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Enter your email"
+                placeholder="Enter your username"
                 placeholderTextColor="#A0A0A0"
-                value={email}
+                value={username}
                 onChangeText={(text) => {
-                  setEmail(text);
+                  setUsername(text);
                   if (errorMessage) setErrorMessage('');
                 }}
                 autoCapitalize="none"
-                keyboardType="email-address"
                 returnKeyType="next"
                 onSubmitEditing={() => passwordInputRef.current?.focus()}
               />
             </View>
 
-            {/* Password */}
+            {/* Password Field */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.passwordWrapper}>
@@ -262,9 +254,7 @@ export default function LoginScreen() {
                   ref={passwordInputRef}
                   style={[styles.input, styles.passwordInput]}
                   placeholder={
-                    isSignUp
-                      ? 'At least 8 chars (letters & numbers)'
-                      : 'Enter your password'
+                    isSignUp ? 'At least 8 characters' : 'Enter your password'
                   }
                   placeholderTextColor="#A0A0A0"
                   secureTextEntry={!showPassword}
@@ -296,7 +286,7 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Confirm Password (เฉพาะตอน Sign Up) */}
+            {/* Confirm Password Field */}
             {isSignUp && (
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Confirm Password</Text>
@@ -324,7 +314,9 @@ export default function LoginScreen() {
                   >
                     <Ionicons
                       name={
-                        showConfirmPassword ? 'eye-outline' : 'eye-off-outline'
+                        showConfirmPassword
+                          ? 'eye-outline'
+                          : 'eye-off-outline'
                       }
                       size={22}
                       color="#666666"
@@ -334,7 +326,7 @@ export default function LoginScreen() {
               </View>
             )}
 
-            {/* ข้อความแจ้งเตือนสีแดง */}
+            {/* Error Message */}
             {errorMessage ? (
               <Text style={styles.errorText}>{errorMessage}</Text>
             ) : null}
@@ -377,7 +369,7 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Divider เส้นคั่น */}
+            {/* Divider */}
             <View style={styles.dividerContainer}>
               <View style={styles.dividerLine} />
               <Text style={styles.dividerText}>OR</Text>
@@ -412,7 +404,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center', // แก้ไขจุดนี้เรียบร้อยแล้ว
+    justifyContent: 'center',
     paddingHorizontal: 24,
     paddingVertical: 32,
   },
@@ -478,12 +470,12 @@ const styles = StyleSheet.create({
     paddingRight: 48,
   },
   eyeIcon: {
-    position: 'absolute',
-    right: 12,
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  position: 'absolute',
+  right: 12,
+  height: '100%',
+  justifyContent: 'center', 
+  alignItems: 'center',
+},
   errorText: {
     color: '#D92D20',
     fontSize: 13,
@@ -492,22 +484,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   primaryButton: {
-    height: 48,
-    backgroundColor: '#4464D0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-    marginTop: 4,
-  },
+  height: 48,
+  backgroundColor: '#4464D0',
+  justifyContent: 'center', 
+  alignItems: 'center',
+  borderRadius: 8,
+  marginTop: 4,
+},
   primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
   toggleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
+  flexDirection: 'row',
+  justifyContent: 'center', // 🟢 แก้จาก justify เป็น justifyContent
+  marginTop: 20,
   },
   toggleText: {
     color: '#666666',
@@ -535,15 +527,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   googleButton: {
-    height: 48,
-    borderWidth: 1,
-    borderColor: '#CCCCCC',
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
+  height: 48,
+  borderWidth: 1,
+  borderColor: '#CCCCCC',
+  borderRadius: 8,
+  flexDirection: 'row',
+  justifyContent: 'center', 
+  alignItems: 'center',
+  backgroundColor: '#FFFFFF',
+},
   googleIcon: {
     marginRight: 8,
   },
