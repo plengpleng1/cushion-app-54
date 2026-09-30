@@ -511,8 +511,6 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 12,
     marginBottom: 16,
-    width: '40%',          // แก้ขนาดกล่อง
-    alignSelf:'center',    // แก้ตำแหน่งกล่อง
   },
   alarmTitle: {
     fontSize: 14,
@@ -536,8 +534,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 3,
-    width: '40%',          // แก้ขนาดกล่อง
-    alignSelf:'center',    // แก้ตำแหน่งกล่อง
   },
   cardLabel: {             
     fontSize: 13,
@@ -564,15 +560,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'space-between',
-    width: '40%',          // แก้ขนาดกล่อง
-    alignSelf:'center',    // แก้ตำแหน่งกล่อง
   },
   sensorRow:{              // กล่อง temp+humid
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'space-between',
-    width: '40%',          // แก้ขนาดกล่อง
-    alignSelf:'center',    // แก้ตำแหน่งกล่อง 
   },
   thirdCard: {
     flex: 1,
