@@ -10,7 +10,8 @@ export function useThemeColor(
   props: { light?: string; dark?: string },
   colorName: keyof typeof Colors.light & keyof typeof Colors.dark
 ) {
-  const theme = useColorScheme() ?? 'light';
+  // บังคับ Type ของ theme ให้เป็น 'light' | 'dark'
+  const theme = (useColorScheme() ?? 'light') as 'light' | 'dark';
   const colorFromProps = props[theme];
 
   if (colorFromProps) {
