@@ -1,10 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { makeRedirectUri } from 'expo-auth-session';
-import * as QueryParams from 'expo-auth-session/build/QueryParams';
-import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import { useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { makeRedirectUri } from "expo-auth-session";
+import { useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+import { useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -16,8 +15,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { supabase } from '../lib/supabase';
+} from "react-native";
+import { supabase } from "../lib/supabase";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -28,13 +27,13 @@ export default function LoginScreen() {
   const passwordInputRef = useRef<TextInput>(null);
   const confirmPasswordInputRef = useRef<TextInput>(null);
 
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
 
   const showError = (message: string) => {
     setErrorMessage(message);
@@ -50,59 +49,63 @@ export default function LoginScreen() {
   // แปลง Username เป็น Email สำหรับ Supabase Auth
   const formatEmail = (input: string) => {
     const trimmed = input.trim();
-    return trimmed.includes('@') ? trimmed : `${trimmed}@cushionsense.local`;
+    return trimmed.includes("@") ? trimmed : `${trimmed}@cushionsense.local`;
   };
 
   // ฟังก์ชันช่วยบันทึกหรืออัปเดตลงตาราง profiles
-  const syncUserProfile = async (userId: string, email: string, defaultUsername: string) => {
+  const syncUserProfile = async (
+    userId: string,
+    email: string,
+    defaultUsername: string,
+  ) => {
     try {
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('id', userId)
-        .single();
+      const { data: existingProfile } = (await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", userId)
+        .single()) as { data: { username?: string } | null };
 
       const finalUsername = existingProfile?.username || defaultUsername;
 
-      await supabase.from('profiles').upsert({
+      await supabase.from("profiles").upsert({
         id: userId,
         email: email,
         username: finalUsername,
         updated_at: new Date(),
-      });
+      } as never);
 
       await AsyncStorage.setItem(
-        '@current_user',
+        "@current_user",
         JSON.stringify({
           id: userId,
           email: email,
           username: finalUsername,
-        })
+        }),
       );
     } catch (e) {
-      console.error('Error syncing profile:', e);
+      console.error("Error syncing profile:", e);
     }
   };
 
   // 1. สมัครสมาชิกผ่าน Supabase Auth
   const handleSignUp = async () => {
-    setErrorMessage('');
+    setErrorMessage("");
     const trimmedUsername = username.trim();
     const trimmedPassword = password.trim();
     const trimmedConfirm = confirmPassword.trim();
 
     if (!trimmedUsername || !trimmedPassword || !trimmedConfirm) {
-      showError('กรุณากรอกข้อมูลให้ครบถ้วน');
+      showError("กรุณากรอกข้อมูลให้ครบถ้วน");
       return;
     }
 
     if (!validatePassword(trimmedPassword)) {
-      showError('Password ต้องมีอย่างน้อย 8 ตัว (ตัวอักษรและตัวเลข)');
+      showError("Password ต้องมีอย่างน้อย 8 ตัว (ตัวอักษรและตัวเลข)");
       return;
     }
 
     if (trimmedPassword !== trimmedConfirm) {
-      showError('Password และ Confirm Password ไม่ตรงกัน');
+      showError("Password และ Confirm Password ไม่ตรงกัน");
       return;
     }
 
@@ -125,23 +128,23 @@ export default function LoginScreen() {
         await syncUserProfile(data.user.id, email, trimmedUsername);
       }
 
-      Alert.alert('สำเร็จ', 'สมัครสมาชิกเรียบร้อยแล้ว');
-      setPassword('');
-      setConfirmPassword('');
+      Alert.alert("สำเร็จ", "สมัครสมาชิกเรียบร้อยแล้ว");
+      setPassword("");
+      setConfirmPassword("");
       setIsSignUp(false);
     } catch (error) {
-      showError('เกิดข้อผิดพลาดในการลงทะเบียน');
+      showError("เกิดข้อผิดพลาดในการลงทะเบียน");
     }
   };
 
   // 2. เข้าสู่ระบบผ่าน Supabase Auth
   const handleSignIn = async () => {
-    setErrorMessage('');
+    setErrorMessage("");
     const trimmedUsername = username.trim();
     const trimmedPassword = password.trim();
 
     if (!trimmedUsername || !trimmedPassword) {
-      showError('กรุณากรอก Username และ Password');
+      showError("กรุณากรอก Username และ Password");
       return;
     }
 
@@ -153,24 +156,34 @@ export default function LoginScreen() {
       });
 
       if (error) {
-        showError('เข้าสู่ระบบไม่สำเร็จ: Username หรือ Password ไม่ถูกต้อง');
+        showError("เข้าสู่ระบบไม่สำเร็จ: Username หรือ Password ไม่ถูกต้อง");
         return;
       }
 
       if (data.user) {
-        const userDisplayName = data.user.user_metadata?.username || trimmedUsername;
-        await syncUserProfile(data.user.id, data.user.email || email, userDisplayName);
+        const userDisplayName =
+          data.user.user_metadata?.username || trimmedUsername;
+        await syncUserProfile(
+          data.user.id,
+          data.user.email || email,
+          userDisplayName,
+        );
       }
 
-      router.push('/patient-info' as any);
+      router.push("/patient-info" as any);
     } catch (error) {
-      showError('เกิดข้อผิดพลาดในการตรวจสอบข้อมูล');
+      showError("เกิดข้อผิดพลาดในการตรวจสอบข้อมูล");
     }
   };
 
   // 3. เข้าสู่ระบบด้วย Google Sign-In
   async function handleOAuthRedirect(url: string) {
-    const { params, errorCode } = QueryParams.getQueryParams(url);
+    const parsedUrl = new URL(url);
+    const params = Object.fromEntries([
+      ...new URLSearchParams(parsedUrl.search).entries(),
+      ...new URLSearchParams(parsedUrl.hash.slice(1)).entries(),
+    ]);
+    const errorCode = params.error_description || params.error;
     if (errorCode) {
       showError(errorCode);
       return;
@@ -178,7 +191,7 @@ export default function LoginScreen() {
 
     const { access_token, refresh_token } = params;
     if (!access_token || !refresh_token) {
-      showError('ไม่พบ Session tokens');
+      showError("ไม่พบ Session tokens");
       return;
     }
 
@@ -193,25 +206,29 @@ export default function LoginScreen() {
       const googleUsername =
         data.user.user_metadata?.full_name ||
         data.user.user_metadata?.name ||
-        data.user.email?.split('@')[0] ||
-        'User';
+        data.user.email?.split("@")[0] ||
+        "User";
 
-      await syncUserProfile(data.user.id, data.user.email || '', googleUsername);
-      router.push('/patient-info' as any);
+      await syncUserProfile(
+        data.user.id,
+        data.user.email || "",
+        googleUsername,
+      );
+      router.push("/patient-info" as any);
     }
   }
 
   async function signInWithGoogle() {
-    setErrorMessage('');
+    setErrorMessage("");
     try {
       // แก้ไข scheme ให้เป็น cushionsense
       const redirectTo = makeRedirectUri({
-        scheme: 'cushionsense',
-        path: 'auth/callback',
+        scheme: "cushionsense",
+        path: "auth/callback",
       });
 
       const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider: "google",
         options: {
           redirectTo,
           skipBrowserRedirect: true,
@@ -223,12 +240,15 @@ export default function LoginScreen() {
         return;
       }
 
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-      if (result.type === 'success') {
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.url,
+        redirectTo,
+      );
+      if (result.type === "success") {
         await handleOAuthRedirect(result.url);
       }
     } catch (err) {
-      showError('เกิดข้อผิดพลาดในการเชื่อมต่อ Google Sign-In');
+      showError("เกิดข้อผิดพลาดในการเชื่อมต่อ Google Sign-In");
     }
   }
 
@@ -239,12 +259,12 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {Platform.OS === 'web' && (
+      {Platform.OS === "web" && (
         <style>{`input::-ms-reveal, input::-ms-clear { display: none !important; }`}</style>
       )}
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -267,7 +287,7 @@ export default function LoginScreen() {
                 value={username}
                 onChangeText={(text) => {
                   setUsername(text);
-                  if (errorMessage) setErrorMessage('');
+                  if (errorMessage) setErrorMessage("");
                 }}
                 autoCapitalize="none"
                 returnKeyType="next"
@@ -284,18 +304,18 @@ export default function LoginScreen() {
                   style={[styles.input, styles.passwordInput]}
                   placeholder={
                     isSignUp
-                      ? 'At least 8 chars (letters & numbers)'
-                      : 'Enter your password'
+                      ? "At least 8 chars (letters & numbers)"
+                      : "Enter your password"
                   }
                   placeholderTextColor="#A0A0A0"
                   secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={(text) => {
                     setPassword(text);
-                    if (errorMessage) setErrorMessage('');
+                    if (errorMessage) setErrorMessage("");
                   }}
                   autoCapitalize="none"
-                  returnKeyType={isSignUp ? 'next' : 'done'}
+                  returnKeyType={isSignUp ? "next" : "done"}
                   onSubmitEditing={() => {
                     if (isSignUp) confirmPasswordInputRef.current?.focus();
                     else handleSubmit();
@@ -306,7 +326,7 @@ export default function LoginScreen() {
                   onPress={() => setShowPassword(!showPassword)}
                 >
                   <Ionicons
-                    name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                    name={showPassword ? "eye-outline" : "eye-off-outline"}
                     size={22}
                     color="#666666"
                   />
@@ -328,7 +348,7 @@ export default function LoginScreen() {
                     value={confirmPassword}
                     onChangeText={(text) => {
                       setConfirmPassword(text);
-                      if (errorMessage) setErrorMessage('');
+                      if (errorMessage) setErrorMessage("");
                     }}
                     autoCapitalize="none"
                     returnKeyType="done"
@@ -339,7 +359,9 @@ export default function LoginScreen() {
                     onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
                     <Ionicons
-                      name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'}
+                      name={
+                        showConfirmPassword ? "eye-outline" : "eye-off-outline"
+                      }
                       size={22}
                       color="#666666"
                     />
@@ -354,29 +376,34 @@ export default function LoginScreen() {
             ) : null}
 
             {/* Submit Button */}
-            <TouchableOpacity style={styles.primaryButton} onPress={handleSubmit}>
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={handleSubmit}
+            >
               <Text style={styles.primaryButtonText}>
-                {isSignUp ? 'Sign Up' : 'Sign In'}
+                {isSignUp ? "Sign Up" : "Sign In"}
               </Text>
             </TouchableOpacity>
 
             {/* Toggle Mode */}
             <View style={styles.toggleContainer}>
               <Text style={styles.toggleText}>
-                {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+                {isSignUp
+                  ? "Already have an account? "
+                  : "Don't have an account? "}
               </Text>
               <TouchableOpacity
                 onPress={() => {
                   setIsSignUp(!isSignUp);
-                  setPassword('');
-                  setConfirmPassword('');
+                  setPassword("");
+                  setConfirmPassword("");
                   setShowPassword(false);
                   setShowConfirmPassword(false);
-                  setErrorMessage('');
+                  setErrorMessage("");
                 }}
               >
                 <Text style={styles.toggleLink}>
-                  {isSignUp ? 'Sign In' : 'Sign Up'}
+                  {isSignUp ? "Sign In" : "Sign Up"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -389,7 +416,10 @@ export default function LoginScreen() {
             </View>
 
             {/* ปุ่ม Sign in with Google */}
-            <TouchableOpacity style={styles.googleButton} onPress={signInWithGoogle}>
+            <TouchableOpacity
+              style={styles.googleButton}
+              onPress={signInWithGoogle}
+            >
               <Ionicons name="logo-google" size={20} color="#DB4437" />
               <Text style={styles.googleButtonText}>Sign in with Google</Text>
             </TouchableOpacity>
@@ -403,145 +433,145 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: "#F5F5F5",
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 24,
     paddingVertical: 32,
   },
   headerContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 32,
   },
   welcomeText: {
     fontSize: 58,
-    fontWeight: '900',
-    color: '#4464D0',
-    textAlign: 'center',
+    fontWeight: "900",
+    color: "#4464D0",
+    textAlign: "center",
   },
   brandContainer: {
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 4,
   },
   brandBold: {
     fontSize: 42,
-    fontStyle: 'italic',
-    fontWeight: '700',
-    color: '#4464D0',
+    fontStyle: "italic",
+    fontWeight: "700",
+    color: "#4464D0",
   },
   brandLight: {
     fontSize: 42,
-    fontStyle: 'italic',
-    fontWeight: '400',
-    color: '#4464D0',
+    fontStyle: "italic",
+    fontWeight: "400",
+    color: "#4464D0",
   },
   formContainer: {
-    width: '100%',
+    width: "100%",
     maxWidth: 380,
-    alignSelf: 'center',
-    backgroundColor: '#FFFFFF',
+    alignSelf: "center",
+    backgroundColor: "#FFFFFF",
     padding: 24,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: "#E0E0E0",
   },
   inputGroup: {
     marginBottom: 16,
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#444444',
+    fontWeight: "600",
+    color: "#444444",
     marginBottom: 6,
   },
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: '#CCCCCC',
+    borderColor: "#CCCCCC",
     borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 15,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: "#FAFAFA",
   },
   passwordWrapper: {
-    position: 'relative',
-    justifyContent: 'center',
+    position: "relative",
+    justifyContent: "center",
   },
   passwordInput: {
     paddingRight: 48,
   },
   eyeIcon: {
-    position: 'absolute',
+    position: "absolute",
     right: 12,
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorText: {
-    color: '#D92D20',
+    color: "#D92D20",
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   primaryButton: {
     height: 48,
-    backgroundColor: '#4464D0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#4464D0",
+    justifyContent: "center",
+    alignItems: "center",
     borderRadius: 8,
     marginTop: 4,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   toggleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginTop: 16,
   },
   toggleText: {
-    color: '#666666',
+    color: "#666666",
     fontSize: 14,
   },
   toggleLink: {
-    color: '#4464D0',
+    color: "#4464D0",
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginVertical: 18,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: "#E0E0E0",
   },
   dividerText: {
     marginHorizontal: 12,
     fontSize: 13,
-    color: '#888888',
+    color: "#888888",
   },
   googleButton: {
     height: 48,
     borderWidth: 1,
-    borderColor: '#CCCCCC',
+    borderColor: "#CCCCCC",
     borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
     gap: 10,
   },
   googleButtonText: {
-    color: '#333333',
+    color: "#333333",
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
