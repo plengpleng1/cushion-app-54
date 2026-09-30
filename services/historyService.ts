@@ -1,6 +1,6 @@
 // services/dashboardService.ts
 
-// ⚠️ วาง Web App URL ที่เพิ่งก๊อปปี้มาจาก Apps Script ตรงนี้
+// ⚠️ Web App URL จาก Google Apps Script
 const HISTORY_API_URL = 'https://script.google.com/macros/s/AKfycbzxUxMi5NecassCT-EwLgo5sFroDvkCOnGZXRcRGAMZWgD_vl2mY45ANcLuG8ACKIJ4/exec';
 
 export interface DashboardSummary {
@@ -24,12 +24,10 @@ export const fetchDashboardSummary = async (): Promise<DashboardSummary | null> 
     // เติม Timestamp เพื่อป้องกันการดึงข้อมูลแคชเก่า (Cache-busting)
     const cacheBusterUrl = `${HISTORY_API_URL}${separator}_t=${Date.now()}`;
 
+    // ลบ headers ป้องกันการติด CORS บน Web Browser และใส่ redirect: 'follow'
     const response = await fetch(cacheBusterUrl, {
       method: 'GET',
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-      },
+      redirect: 'follow',
     });
 
     if (!response.ok) {
@@ -41,6 +39,21 @@ export const fetchDashboardSummary = async (): Promise<DashboardSummary | null> 
   } catch (error) {
     // ใช้ console.warn เพื่อป้องกัน UI เกิด Crash สีแดงเวลาหลุดการเชื่อมต่อ
     console.warn('Error fetching dashboard summary:', error);
-    return null; // คืนค่า null เพื่อให้ UI ยังคงแสดง "ค่าเดิม" ล่าสุดไว้
+    
+    // คืนค่า Mock Data สำรอง หรือ null เพื่อไม่ให้หน้าแอปค้าง
+    return {
+      today: {
+        sitMinutes: 0,
+        moves: 0,
+        avgTemp: '36.5',
+        alerts: 0,
+      },
+      week: {
+        sitMinutes: 0,
+        moves: 0,
+        avgTemp: '36.5',
+        alerts: 0,
+      },
+    };
   }
 };

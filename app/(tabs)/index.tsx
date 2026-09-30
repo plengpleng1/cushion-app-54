@@ -62,67 +62,66 @@ export default function HomeScreen() {
   // =========================
   // ดึงข้อมูล Sensor ทุก 2 วินาที
   // =========================
-  useEffect(() => {
-    let isMounted = true;
-    let timerId: ReturnType<typeof setTimeout>;
+useEffect(() => {
+  let isMounted = true; // 1. กำหนดตัวแปรติดตามสถานะ Component
 
-    const loadData = async () => {
-      try {
-        const data = await fetchSensorData();
+  const loadData = async () => {
+    try {
+      const data = await fetchSensorData();
 
-        // ถ้ารอบนี้ดึงข้อมูลสำเร็จ (data ไม่เป็น null) ถึงจะอัปเดต State
-        // แต่ถ้าดึงไม่ทัน (data เป็น null) มันจะไม่เข้าเงื่อนไขนี้ ทำให้หน้าจอยังคงแสดง "ค่าเดิม" ล่าสุดไว้
+      // เช็กว่า Component ยังอยู่หรือไม่ ถ้าไม่อยู่แล้วให้หยุดทำงาน
+      if (!isMounted) return;
 
-        if (data && isMounted) {
-          setSensorData(data);
-          setLoading(false);
-           
-          // 1. เช็คความชื้นสูง > 75%
-          const humidHigh = (data.humidity || 0) > 75;
-          setIsHumidHigh(humidHigh);
+      if (data) {
+        // 1. อัปเดตข้อมูล Sensor หลัก
+        setSensorData(data);
 
-          // 2. เช็คตำแหน่งแรงกด
-          const isLeftPressed = (data.sensor1 ?? 4095) < 500;
-          const isRightPressed = (data.sensor2 ?? 4095) < 500;
+        // 2. เช็คความชื้นสูง > 75%
+        const humidHigh = (data.humidity || 0) > 75;
+        setIsHumidHigh(humidHigh);
 
-          if (isLeftPressed && isRightPressed) {
-            setPressureSide('both');
-          } else if (isLeftPressed) {
-            setPressureSide('left');
-          } else if (isRightPressed) {
-            setPressureSide('right');
-          } else {
-            setPressureSide('none');
-          }
+        // 3. เช็คตำแหน่งแรงกด
+        const isLeftPressed = (data.sensor1 ?? 4095) < 500;
+        const isRightPressed = (data.sensor2 ?? 4095) < 500;
 
-          // 3. เช็คอุณหภูมิสูง > 28°C
-          const tempHigh = (data.temperature || 0) > 28;
-          setIsTempHigh(tempHigh);
-
-          // 4. เช็คสถานะ ACTIVE / STANDBY
-          if (data.status === 'ACTIVE') {
-            setMainStatus('ACTIVE');
-          } else {
-            setMainStatus('STANDBY');
-          }
+        if (isLeftPressed && isRightPressed) {
+          setPressureSide('both');
+        } else if (isLeftPressed) {
+          setPressureSide('left');
+        } else if (isRightPressed) {
+          setPressureSide('right');
+        } else {
+          setPressureSide('none');
         }
-      } catch (err) {
-      // ดักจับข้อยกเว้นไว้ ไม่ให้แอปค้าง
-      } finally {
-      // เมื่อทำงานเสร็จ (ไม่ว่าจะสำเร็จหรือล้มเหลว) ให้ตั้งเวลารอดึงรอบถัดไปอีก 5 วินาที (5000ms)
-        if (isMounted) {
-          timerId = setTimeout(loadData, 5000); // ใช้ 5 วิ
+
+        // 4. เช็คอุณหภูมิสูง > 28°C
+        const tempHigh = (data.temperature || 0) > 28;
+        setIsTempHigh(tempHigh);
+
+        // 5. เช็คสถานะ ACTIVE / STANDBY
+        if (data.status === 'ACTIVE') {
+          setMainStatus('ACTIVE');
+        } else {
+          setMainStatus('STANDBY');
         }
       }
-    };
+    } catch (error) {
+      console.warn("Failed to load data:", error);
+    } finally {
+      // 💡 สำคัญ: ปิด Loading เสมอถ้า Component ยังแสดงอยู่
+      if (isMounted) {
+        setLoading(false);
+      }
+    }
+  };
 
-    loadData();             // เริ่มดึงครั้งแรก
+  loadData(); // เรียกทำงานครั้งแรก
 
-    return () => {
-      isMounted = false;
-      clearTimeout(timerId);          // ล้าง Timer เมื่อปิดหน้าจอ
-    };
-  }, []);
+  // Cleanup Function เมื่อ Unmount หน้าจอ
+  return () => {
+    isMounted = false;
+  };
+}, []);
 
   // =========================
   // แก้ไขข้อความแสดง Position ให้ตรงตาม pressureSide เสมอ
