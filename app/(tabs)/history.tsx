@@ -6,7 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { fetchSensorData, SensorData } from '../../services/sensorService';
@@ -24,8 +24,6 @@ interface HistoryLog extends SensorData {
   sittingSeconds: number;
   isSittingTooLong: boolean;
 }
-
-const screenWidth = Dimensions.get('window').width;
 
 // =====================================================
 // Format Time
@@ -51,15 +49,16 @@ const clamp = (value: number) => {
 };
 
 // =====================================================
-// Dynamic Trend Chart (แยกทีละกราฟ + แกน X/Y ชัดเจน)
+// Dynamic Trend Chart
 // =====================================================
 interface TrendChartProps {
   logs: HistoryLog[];
   selectedMetric: MetricType;
+  containerWidth: number;
 }
 
-const TrendChart = ({ logs, selectedMetric }: TrendChartProps) => {
-  const chartWidth = Math.max(screenWidth - 70, 300);
+const TrendChart = ({ logs, selectedMetric, containerWidth }: TrendChartProps) => {
+  const chartWidth = Math.max(containerWidth - 32, 280);
   const chartHeight = 220;
 
   const paddingLeft = 45;
@@ -78,7 +77,6 @@ const TrendChart = ({ logs, selectedMetric }: TrendChartProps) => {
     );
   }
 
-  // Config สเกลและสีสำหรับแต่ละ Metric
   const metricConfig = {
     humidity: {
       color: '#4A90E2',
@@ -135,7 +133,6 @@ const TrendChart = ({ logs, selectedMetric }: TrendChartProps) => {
   return (
     <View style={styles.chartWrapper}>
       <Svg width={chartWidth} height={chartHeight}>
-        {/* Grid Lines & Y Axis Labels */}
         {currentConfig.gridValues.map((val) => {
           const y = getY(val);
           return (
@@ -162,7 +159,6 @@ const TrendChart = ({ logs, selectedMetric }: TrendChartProps) => {
           );
         })}
 
-        {/* Axes Lines */}
         <Line
           x1={paddingLeft}
           y1={paddingTop}
@@ -180,7 +176,6 @@ const TrendChart = ({ logs, selectedMetric }: TrendChartProps) => {
           strokeWidth={1}
         />
 
-        {/* Data Line */}
         <Path
           d={linePath}
           fill="none"
@@ -190,7 +185,6 @@ const TrendChart = ({ logs, selectedMetric }: TrendChartProps) => {
           strokeLinejoin="round"
         />
 
-        {/* Data Points */}
         {rawValues.map((val, index) => {
           const x = getX(index);
           const y = getY(val);
@@ -205,7 +199,6 @@ const TrendChart = ({ logs, selectedMetric }: TrendChartProps) => {
           );
         })}
 
-        {/* X Axis Time Labels */}
         {logs.map((item, index) => {
           const x = getX(index);
           const time = formatTime(item.time);
@@ -232,6 +225,12 @@ const TrendChart = ({ logs, selectedMetric }: TrendChartProps) => {
 // History Screen
 // =====================================================
 export default function HistoryScreen() {
+  const { width: windowWidth } = useWindowDimensions();
+
+  // คำนวณ responsive container และ card width
+  const maxContainerWidth = Math.min(windowWidth - 32, 480);
+  const cardWidth = (maxContainerWidth - 12) / 2;
+
   const [activeTab, setActiveTab] = useState<TabType>('today');
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('humidity');
   const [loading, setLoading] = useState<boolean>(true);
@@ -372,215 +371,225 @@ export default function HistoryScreen() {
   const displayedLogs = isExpanded ? historyLogs : historyLogs.slice(0, 3);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {/* Header */}
-      <Text style={styles.headerTitle}>Clinical Dashboard</Text>
-      <Text style={styles.subHeaderTitle}>รายงานวิเคราะห์พฤติกรรมทางการแพทย์</Text>
+    <ScrollView 
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={[styles.mainWrapper, { width: maxContainerWidth }]}>
+        {/* Header */}
+        <Text style={styles.headerTitle}>Clinical Dashboard</Text>
+        <Text style={styles.subHeaderTitle}>รายงานวิเคราะห์พฤติกรรมทางการแพทย์</Text>
 
-      {/* Tab */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'today' && styles.activeTabButton]}
-          onPress={() => setActiveTab('today')}
-        >
-          <Text style={[styles.tabText, activeTab === 'today' && styles.activeTabText]}>
-            วันนี้
+        {/* Tab */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'today' && styles.activeTabButton]}
+            onPress={() => setActiveTab('today')}
+          >
+            <Text style={[styles.tabText, activeTab === 'today' && styles.activeTabText]}>
+              วันนี้
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'week' && styles.activeTabButton]}
+            onPress={() => setActiveTab('week')}
+          >
+            <Text style={[styles.tabText, activeTab === 'week' && styles.activeTabText]}>
+              สัปดาห์นี้
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Summary Cards - แสดง 2x2 ตลอดเวลา */}
+        <View style={styles.gridContainer}>
+          <View style={[styles.summaryCard, { width: cardWidth }]}>
+            <Text style={styles.cardIcon}>⏱️</Text>
+            <Text style={styles.cardValueText}>{stats.sittingTimeStr}</Text>
+            <Text style={styles.cardLabelText}>เวลานั่งรวม</Text>
+          </View>
+          <View style={[styles.summaryCard, { width: cardWidth }]}>
+            <Text style={styles.cardIcon}>🚶</Text>
+            <Text style={styles.cardValueText}>{stats.moveCount} ครั้ง</Text>
+            <Text style={styles.cardLabelText}>ขยับเปลี่ยนท่า</Text>
+          </View>
+          <View style={[styles.summaryCard, { width: cardWidth }]}>
+            <Text style={styles.cardIcon}>🌡️</Text>
+            <Text style={[styles.cardValueText, { color: '#FF9500' }]}>{stats.avgTemp} °C</Text>
+            <Text style={styles.cardLabelText}>อุณหภูมิเฉลี่ย</Text>
+          </View>
+          <View style={[styles.summaryCard, { width: cardWidth }]}>
+            <Text style={styles.cardIcon}>🚨</Text>
+            <Text style={[styles.cardValueText, { color: '#FF3B30' }]}>{stats.alertCount} ครั้ง</Text>
+            <Text style={styles.cardLabelText}>เตือนวิกฤต/ชื้น</Text>
+          </View>
+        </View>
+
+        {/* Pressure Balance */}
+        <View style={styles.cardSection}>
+          <Text style={styles.sectionTitle}>⚖ สัดส่วนการพบแรงกดสูง</Text>
+          <View style={styles.balanceHeader}>
+            <Text style={styles.leftPercentText}>ซ้าย {stats.leftPercent}%</Text>
+            <Text style={styles.rightPercentText}>ขวา {stats.rightPercent}%</Text>
+          </View>
+          <View style={styles.balanceBarContainer}>
+            <View style={[styles.leftBar, { flex: stats.leftPercent || 1 }]} />
+            <View style={[styles.rightBar, { flex: stats.rightPercent || 1 }]} />
+          </View>
+          <Text style={styles.evalText}>
+            💡 ประเมิน:{' '}
+            {Math.abs(stats.leftPercent - stats.rightPercent) < 20
+              ? 'การลงน้ำหนักซ้าย-ขวาอยู่ในเกณฑ์สมดุล'
+              : 'ตรวจพบการลงน้ำหนักเอียงไปฝั่งใดฝั่งหนึ่งมากเกินไป'}
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'week' && styles.activeTabButton]}
-          onPress={() => setActiveTab('week')}
-        >
-          <Text style={[styles.tabText, activeTab === 'week' && styles.activeTabText]}>
-            สัปดาห์นี้
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Summary Cards */}
-      <View style={styles.gridContainer}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.cardIcon}>⏱️</Text>
-          <Text style={styles.cardValueText}>{stats.sittingTimeStr}</Text>
-          <Text style={styles.cardLabelText}>เวลานั่งรวม</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.cardIcon}>🚶</Text>
-          <Text style={styles.cardValueText}>{stats.moveCount} ครั้ง</Text>
-          <Text style={styles.cardLabelText}>ขยับเปลี่ยนท่า</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.cardIcon}>🌡️</Text>
-          <Text style={[styles.cardValueText, { color: '#FF9500' }]}>{stats.avgTemp} °C</Text>
-          <Text style={styles.cardLabelText}>อุณหภูมิเฉลี่ย</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.cardIcon}>🚨</Text>
-          <Text style={[styles.cardValueText, { color: '#FF3B30' }]}>{stats.alertCount} ครั้ง</Text>
-          <Text style={styles.cardLabelText}>เตือนวิกฤต/ชื้น</Text>
-        </View>
-      </View>
-
-      {/* Pressure Balance */}
-      <View style={styles.cardSection}>
-        <Text style={styles.sectionTitle}>⚖️ สัดส่วนการพบแรงกดสูง</Text>
-        <View style={styles.balanceHeader}>
-          <Text style={styles.leftPercentText}>ซ้าย {stats.leftPercent}%</Text>
-          <Text style={styles.rightPercentText}>ขวา {stats.rightPercent}%</Text>
-        </View>
-        <View style={styles.balanceBarContainer}>
-          <View style={[styles.leftBar, { flex: stats.leftPercent || 1 }]} />
-          <View style={[styles.rightBar, { flex: stats.rightPercent || 1 }]} />
-        </View>
-        <Text style={styles.evalText}>
-          💡 ประเมิน:{' '}
-          {Math.abs(stats.leftPercent - stats.rightPercent) < 20
-            ? 'การลงน้ำหนักซ้าย-ขวาอยู่ในเกณฑ์สมดุล'
-            : 'ตรวจพบการลงน้ำหนักเอียงไปฝั่งใดฝั่งหนึ่งมากเกินไป'}
-        </Text>
-      </View>
-
-      {/* Daily Trend (ปรับปรุงใหม่) */}
-      <View style={styles.cardSection}>
-        <Text style={styles.sectionTitle}>📈 ภาพรวมวันนี้ (Daily Trend)</Text>
-        <Text style={styles.graphSubTitle}>เลือกกดเลือกระบุตัวแปรที่ต้องการดูแนวโน้ม</Text>
-
-        {/* ปุ่มสลับ Metric */}
-        <View style={styles.metricToggleContainer}>
-          <TouchableOpacity
-            style={[
-              styles.metricButton,
-              selectedMetric === 'humidity' && styles.humidityActiveBtn,
-            ]}
-            onPress={() => setSelectedMetric('humidity')}
-          >
-            <Text
-              style={[
-                styles.metricButtonText,
-                selectedMetric === 'humidity' && styles.activeMetricText,
-              ]}
-            >
-              💧 ความชื้น
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.metricButton,
-              selectedMetric === 'pressure' && styles.pressureActiveBtn,
-            ]}
-            onPress={() => setSelectedMetric('pressure')}
-          >
-            <Text
-              style={[
-                styles.metricButtonText,
-                selectedMetric === 'pressure' && styles.activeMetricText,
-              ]}
-            >
-              🎈 แรงกด
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.metricButton,
-              selectedMetric === 'temperature' && styles.tempActiveBtn,
-            ]}
-            onPress={() => setSelectedMetric('temperature')}
-          >
-            <Text
-              style={[
-                styles.metricButtonText,
-                selectedMetric === 'temperature' && styles.activeMetricText,
-              ]}
-            >
-              🌡️ อุณหภูมิ
-            </Text>
-          </TouchableOpacity>
         </View>
 
-        <TrendChart logs={graphLogs} selectedMetric={selectedMetric} />
+        {/* Daily Trend */}
+        <View style={styles.cardSection}>
+          <Text style={styles.sectionTitle}>📈 ภาพรวมวันนี้ (Daily Trend)</Text>
+          <Text style={styles.graphSubTitle}>เลือกกดเลือกระบุตัวแปรที่ต้องการดูแนวโน้ม</Text>
 
-        <Text style={styles.graphDescription}>
-          แสดงแนวโน้มจากข้อมูลล่าสุด {graphLogs.length} รายการ
-        </Text>
-      </View>
-
-      {/* Recent Logs */}
-      <View style={styles.cardSection}>
-        <View style={styles.logHeaderRow}>
-          <Text style={styles.sectionTitle}>📋 ประวัติบันทึกเหตุการณ์</Text>
-          {historyLogs.length > 3 && (
+          <View style={styles.metricToggleContainer}>
             <TouchableOpacity
-              style={styles.exportBadge}
-              onPress={() => setIsExpanded((prev) => !prev)}
+              style={[
+                styles.metricButton,
+                selectedMetric === 'humidity' && styles.humidityActiveBtn,
+              ]}
+              onPress={() => setSelectedMetric('humidity')}
             >
-              <Text style={styles.exportBadgeText}>{isExpanded ? 'ย่อลง' : 'ดูทั้งหมด'}</Text>
+              <Text
+                style={[
+                  styles.metricButtonText,
+                  selectedMetric === 'humidity' && styles.activeMetricText,
+                ]}
+              >
+                💧 ความชื้น
+              </Text>
             </TouchableOpacity>
-          )}
+
+            <TouchableOpacity
+              style={[
+                styles.metricButton,
+                selectedMetric === 'pressure' && styles.pressureActiveBtn,
+              ]}
+              onPress={() => setSelectedMetric('pressure')}
+            >
+              <Text
+                style={[
+                  styles.metricButtonText,
+                  selectedMetric === 'pressure' && styles.activeMetricText,
+                ]}
+              >
+                🎈 แรงกด
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.metricButton,
+                selectedMetric === 'temperature' && styles.tempActiveBtn,
+              ]}
+              onPress={() => setSelectedMetric('temperature')}
+            >
+              <Text
+                style={[
+                  styles.metricButtonText,
+                  selectedMetric === 'temperature' && styles.activeMetricText,
+                ]}
+              >
+                🌡️ อุณหภูมิ
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <TrendChart
+            logs={graphLogs}
+            selectedMetric={selectedMetric}
+            containerWidth={maxContainerWidth}
+          />
+
+          <Text style={styles.graphDescription}>
+            แสดงแนวโน้มจากข้อมูลล่าสุด {graphLogs.length} รายการ
+          </Text>
         </View>
 
-        {historyLogs.length === 0 ? (
-          <Text style={styles.emptyText}>ยังไม่มีข้อมูลบันทึก</Text>
-        ) : (
-          displayedLogs.map((item) => (
-            <View key={item.id} style={styles.logItemCard}>
-              <View
-                style={[
-                  styles.sideIndicator,
-                  {
-                    backgroundColor: item.isTempHigh
-                      ? '#FF3B30'
-                      : item.isSittingTooLong
-                      ? '#FF9500'
-                      : item.isHumidHigh
-                      ? '#0288D1'
-                      : '#34C759',
-                  },
-                ]}
-              />
-              <View style={styles.logContent}>
-                <View style={styles.logTopRow}>
-                  <Text style={styles.logTimeText}>{formatTime(item.time)} น.</Text>
-                  {item.isTempHigh && <Text style={styles.criticalBadge}>🚨 วิกฤต</Text>}
-                  {!item.isTempHigh && item.isSittingTooLong && (
-                    <Text style={styles.warningBadge}>⚠️ นั่งนานเกินไป</Text>
+        {/* Recent Logs */}
+        <View style={styles.cardSection}>
+          <View style={styles.logHeaderRow}>
+            <Text style={styles.sectionTitle}>📋 ประวัติบันทึกเหตุการณ์</Text>
+            
+              <TouchableOpacity                        //show the button 
+                style={styles.exportBadge}
+                onPress={() => setIsExpanded((prev) => !prev)}
+              >
+                <Text style={styles.exportBadgeText}>
+                  {isExpanded ? 'ย่อลง' : 'ดูทั้งหมด'}
+                  </Text>
+              </TouchableOpacity>
+          </View>
+
+          {historyLogs.length === 0 ? (
+            <Text style={styles.emptyText}>ยังไม่มีข้อมูลบันทึก</Text>
+          ) : (
+            // ปรับตรงนี้: ถ้าไม่ขยาย (isExpanded = false) จะตัดแสดงแค่ 3 รายการล่าสุด!
+            (isExpanded ? historyLogs : historyLogs.slice(0, 3)).map((item) => (
+              <View key={item.id} style={styles.logItemCard}>
+                <View
+                  style={[
+                    styles.sideIndicator,
+                    {
+                      backgroundColor: item.isTempHigh
+                        ? '#FF3B30'
+                        : item.isSittingTooLong
+                        ? '#FF9500'
+                        : item.isHumidHigh
+                        ? '#0288D1'
+                        : '#34C759',
+                    },
+                  ]}
+                />
+                <View style={styles.logContent}>
+                  <View style={styles.logTopRow}>
+                    <Text style={styles.logTimeText}>{formatTime(item.time)} น.</Text>
+                    {item.isTempHigh && <Text style={styles.criticalBadge}>🚨 วิกฤต</Text>}
+                    {!item.isTempHigh && item.isSittingTooLong && (
+                      <Text style={styles.warningBadge}>⚠️ นั่งนานเกินไป</Text>
+                    )}
+                  </View>
+
+                  <View style={styles.logSubRow}>
+                    <Text style={styles.logDetailText}>
+                      แรงกด: ซ้าย{' '}
+                      <Text style={item.leftPressed ? styles.textRed : styles.textGreen}>
+                        {item.leftPressed ? 'High' : 'Low'}
+                      </Text>
+                      {' | '}ขวา{' '}
+                      <Text style={item.rightPressed ? styles.textRed : styles.textGreen}>
+                        {item.rightPressed ? 'High' : 'Low'}
+                      </Text>
+                    </Text>
+                    <Text style={styles.logMetricText}>
+                      อุณหภูมิ:{' '}
+                      <Text style={item.isTempHigh ? styles.textRed : styles.textDark}>
+                        {item.temperature} °C
+                      </Text>
+                      {'  '}
+                      ชื้น:{' '}
+                      <Text style={item.isHumidHigh ? styles.textBlue : styles.textDark}>
+                        {item.humidity}% 💧
+                      </Text>
+                    </Text>
+                  </View>
+
+                  {item.calculatedPosition === 'CENTER' && (
+                    <Text style={styles.sittingTimerText}>
+                      🪑 นั่งตรงกลางต่อเนื่อง: {item.sittingSeconds} วินาที
+                    </Text>
                   )}
                 </View>
-
-                <View style={styles.logSubRow}>
-                  <Text style={styles.logDetailText}>
-                    แรงกด: ซ้าย{' '}
-                    <Text style={item.leftPressed ? styles.textRed : styles.textGreen}>
-                      {item.leftPressed ? 'High' : 'Low'}
-                    </Text>
-                    {' | '}ขวา{' '}
-                    <Text style={item.rightPressed ? styles.textRed : styles.textGreen}>
-                      {item.rightPressed ? 'High' : 'Low'}
-                    </Text>
-                  </Text>
-                  <Text style={styles.logMetricText}>
-                    อุณหภูมิ:{' '}
-                    <Text style={item.isTempHigh ? styles.textRed : styles.textDark}>
-                      {item.temperature} °C
-                    </Text>
-                    {'  '}
-                    ชื้น:{' '}
-                    <Text style={item.isHumidHigh ? styles.textBlue : styles.textDark}>
-                      {item.humidity}% 💧
-                    </Text>
-                  </Text>
-                </View>
-
-                {item.calculatedPosition === 'CENTER' && (
-                  <Text style={styles.sittingTimerText}>
-                    🪑 นั่งตรงกลางต่อเนื่อง: {item.sittingSeconds} วินาที
-                  </Text>
-                )}
               </View>
-            </View>
-          ))
-        )}
+            ))
+          )}
+        </View>
       </View>
     </ScrollView>
   );
@@ -591,10 +600,14 @@ export default function HistoryScreen() {
 // =====================================================
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    paddingTop: 50,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
     backgroundColor: '#F4F6F9',
     flexGrow: 1,
+    alignItems: 'center',
+  },
+  mainWrapper: {
+    alignSelf: 'center',
   },
   loadingContainer: {
     flex: 1,
@@ -651,29 +664,36 @@ const styles = StyleSheet.create({
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    justifyContent: 'space-between',
+    gap: 12,
     marginBottom: 16,
   },
   summaryCard: {
-    width: (screenWidth - 42) / 2,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   cardIcon: {
-    fontSize: 22,
-    marginBottom: 4,
+    fontSize: 28,
+    marginBottom: 6,
   },
   cardValueText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: '#1C1C1E',
   },
   cardLabelText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#8E8E93',
-    marginTop: 2,
+    marginTop: 4,
   },
 
   // Pressure Balance
