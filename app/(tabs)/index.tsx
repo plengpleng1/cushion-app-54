@@ -84,7 +84,7 @@ export default function HomeScreen() {
           }
 
           // 3. เช็คอุณหภูมิสูง > 38°C
-          const tempHigh = (data.temperature || 0) > 38;
+          const tempHigh = (data.temperature || 0) > 28;
           setIsTempHigh(tempHigh);
 
           // 4. เช็คสถานะ ACTIVE / STANDBY
