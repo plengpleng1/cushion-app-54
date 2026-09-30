@@ -64,15 +64,19 @@ export default function HomeScreen() {
   // =========================
   useEffect(() => {
     let isMounted = true;
+    let timerId: ReturnType<typeof setTimeout>;
 
     const loadData = async () => {
       try {
         const data = await fetchSensorData();
 
+        // ถ้ารอบนี้ดึงข้อมูลสำเร็จ (data ไม่เป็น null) ถึงจะอัปเดต State
+        // แต่ถ้าดึงไม่ทัน (data เป็น null) มันจะไม่เข้าเงื่อนไขนี้ ทำให้หน้าจอยังคงแสดง "ค่าเดิม" ล่าสุดไว้
+
         if (data && isMounted) {
           setSensorData(data);
           setLoading(false);
-
+           
           // 1. เช็คความชื้นสูง > 75%
           const humidHigh = (data.humidity || 0) > 75;
           setIsHumidHigh(humidHigh);
@@ -102,17 +106,21 @@ export default function HomeScreen() {
             setMainStatus('STANDBY');
           }
         }
-      } catch (error) {
-        console.error('โหลดข้อมูล Sensor ไม่สำเร็จ:', error);
+      } catch (err) {
+      // ดักจับข้อยกเว้นไว้ ไม่ให้แอปค้าง
+      } finally {
+      // เมื่อทำงานเสร็จ (ไม่ว่าจะสำเร็จหรือล้มเหลว) ให้ตั้งเวลารอดึงรอบถัดไปอีก 5 วินาที (5000ms)
+        if (isMounted) {
+          timerId = setTimeout(loadData, 5000); // ใช้ 5 วิ
+        }
       }
     };
 
-    loadData();
-    const interval = setInterval(loadData, 2000);
+    loadData();             // เริ่มดึงครั้งแรก
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      clearTimeout(timerId);          // ล้าง Timer เมื่อปิดหน้าจอ
     };
   }, []);
 

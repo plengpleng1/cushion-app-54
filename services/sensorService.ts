@@ -17,20 +17,26 @@ const API_URL = "https://script.google.com/macros/s/AKfycby9UFBh-2Ct06oGaexrTMqU
 // 3. ฟังก์ชันสำหรับดึงข้อมูลล่าสุด (ป้องกัน Cache เพื่อความ Real-time)
 export const fetchSensorData = async (): Promise<SensorData | null> => {
   try {
-    // เติม &_t=${Date.now()} ต่อท้าย เพื่อบังคับดึงข้อมูลสดใหม่ทุกรอบ
-    const cacheBusterUrl = `${API_URL}&_t=${Date.now()}`;
+    const separator = API_URL.includes('?') ? '&' : '?';
+    const cacheBusterUrl = `${API_URL}${separator}_t=${Date.now()}`;
 
     const response = await fetch(cacheBusterUrl, {
-      cache: 'no-store' // สั่งไม่ให้เก็บ Cache ในอุปกรณ์
+      method: 'GET',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+      },
     });
-
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const data: SensorData = await response.json();
+
+    const data = (await response.json()) as SensorData;
     return data;
   } catch (error) {
-    console.error("Error fetching sensor data:", error);
+    console.warn("Error fetching sensor data:", error);
+
+    // คืนค่า null เพื่อบอกฝั่ง UI ว่ารอบนี้ดึงไม่ได้
     return null;
   }
 };
