@@ -7,10 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "cushionsense",
     "userInterfaceStyle": "automatic",
-<<<<<<< HEAD
-
-=======
->>>>>>> 8816fe842701a35a2973052c8f6a8bf9209492db
     "ios": {
       "supportsTablet": true
     },
@@ -21,10 +17,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-<<<<<<< HEAD
 
-=======
->>>>>>> 8816fe842701a35a2973052c8f6a8bf9209492db
       "predictiveBackGestureEnabled": false
     },
     "web": {
