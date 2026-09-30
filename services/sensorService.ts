@@ -33,10 +33,11 @@ export const fetchSensorData = async (): Promise<SensorData | null> => {
 
     const data = (await response.json()) as SensorData;
     return data;
-  } catch (error) {
-    console.warn("Error fetching sensor data:", error);
-
-    // คืนค่า null เพื่อบอกฝั่ง UI ว่ารอบนี้ดึงไม่ได้
-    return null;
+} catch (error) {
+  // ซ่อน log ใน terminal หรือแสดงเฉพาะตอน debug
+  if (__DEV__) {
+    // ใช้ console.log หรือซ่อนไว้เพื่อไม่ให้ขึ้นเป็น Warning สีเหลืองใน Terminal
   }
+  return null;
+}
 };
