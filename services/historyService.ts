@@ -1,7 +1,7 @@
 // services/dashboardService.ts
 
 // ⚠️ วาง Web App URL ที่เพิ่งก๊อปปี้มาจาก Apps Script ตรงนี้
-const DASHBOARD_API_URL = 'https://script.google.com/macros/s/AKfycbzxUxMi5NecassCT-EwLgo5sFroDvkCOnGZXRcRGAMZWgD_vl2mY45ANcLuG8ACKIJ4/exec';
+const HISTORY_API_URL = 'https://script.google.com/macros/s/AKfycbzxUxMi5NecassCT-EwLgo5sFroDvkCOnGZXRcRGAMZWgD_vl2mY45ANcLuG8ACKIJ4/exec';
 
 export interface DashboardSummary {
   today: {
@@ -20,9 +20,9 @@ export interface DashboardSummary {
 
 export const fetchDashboardSummary = async (): Promise<DashboardSummary | null> => {
   try {
-    const separator = DASHBOARD_API_URL.includes('?') ? '&' : '?';
+    const separator = HISTORY_API_URL.includes('?') ? '&' : '?';
     // เติม Timestamp เพื่อป้องกันการดึงข้อมูลแคชเก่า (Cache-busting)
-    const cacheBusterUrl = `${DASHBOARD_API_URL}${separator}_t=${Date.now()}`;
+    const cacheBusterUrl = `${HISTORY_API_URL}${separator}_t=${Date.now()}`;
 
     const response = await fetch(cacheBusterUrl, {
       method: 'GET',
