@@ -33,8 +33,7 @@ export const fetchSensorData = async (): Promise<SensorData | null> => {
    }
    const data: SensorData = await response.json();
    return data;
- } catch (error) {
-   console.warn("Error fetching sensor data:", error);
-   return null;
- }
+} catch (error) {
+  return null;
+}
 };
