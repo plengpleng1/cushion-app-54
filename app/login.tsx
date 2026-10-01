@@ -96,7 +96,7 @@ export default function LoginScreen() {
       setPassword('');
       setConfirmPassword('');
       setShowPassword(false);
-      showError('สมัครสมาชิกสำเร็จ! กรุณาใส่ Password เพื่อเข้าสู่ระบบ');
+      showError('');
     } catch (err: any) {
       showError('เกิดข้อผิดพลาดในการลงทะเบียน');
     } finally {
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   successText: {
-    color: '#079455',
+    color: '#e04320',
   },
   primaryButton: {
     height: 48,
