@@ -283,20 +283,17 @@ export default function HistoryScreen() {
   const cardWidth =
     (maxContainerWidth - 12) / 2;
 
-  const [activeTab, setActiveTab] =
-    useState<TabType>('today');
+  const [activeTab, setActiveTab] = useState<TabType>('today');
+  const [selectedMetric, setSelectedMetric] = useState<MetricType>('humidity');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [historyLogs, setHistoryLogs] = useState<HistoryLog[]>([]);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
-  const [selectedMetric, setSelectedMetric] =
-    useState<MetricType>('humidity');
-
-  const [loading, setLoading] =
-    useState<boolean>(true);
-
-  const [historyLogs, setHistoryLogs] =
-    useState<HistoryLog[]>([]);
-
-  const [isExpanded, setIsExpanded] =
-    useState<boolean>(false);
+// วันที่ปัจจุบัน
+  const [currentDate, setCurrentDate] = useState(() => {
+  const now = new Date();
+  return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+});
 
   // =====================================================
   // ใช้สำหรับคำนวณเวลานั่งต่อเนื่อง
@@ -324,13 +321,92 @@ export default function HistoryScreen() {
     useRef<string | null>(null);
 
   // =====================================================
-  // สร้าง Storage Key
-  // =====================================================
-  const getHistoryStorageKey = (
-    patientId: string
-  ) => {
-    return `history_${patientId}`;
+// สร้าง Storage Key
+// =====================================================
+
+const getHistoryStorageKey = (patientId: string) =>
+  `history_${patientId}`;
+
+// =====================================================
+// จัดรูปแบบวันที่สำหรับเปรียบเทียบ
+// =====================================================
+
+const getLogDateKey = (dateString: string) => {
+  if (!dateString) return '';
+
+  // กรณีเป็นรูปแบบ d/M/yyyy
+  // เช่น 30/9/2026
+  const slashMatch = dateString.match(
+  /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+  if (slashMatch) {
+    const [, day, month, year] = slashMatch;
+
+    return `${year}-${Number(month)}-${Number(day)}`;
+  }
+
+  // กรณีเป็น ISO Date
+  // เช่น 2026-09-30T00:00:00.000Z
+  const date = new Date(dateString);
+
+  if (isNaN(date.getTime())) {
+    return '';
+  }
+
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+};
+
+// =====================================================
+// ตรวจว่าเป็นข้อมูลของวันนี้หรือไม่
+// =====================================================
+
+const isToday = (dateString: string) => {
+  return getLogDateKey(dateString) === currentDate;
+};
+
+// =====================================================
+// ตรวจวันใหม่ทุก 1 นาที
+// =====================================================
+
+useEffect(() => {
+  const checkDate = () => {
+    const today = new Date();
+
+    const todayKey =
+      `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+
+    setCurrentDate((prevDate) => {
+      if (prevDate !== todayKey) {
+        return todayKey;
+      }
+
+      return prevDate;
+    });
   };
+
+  // เช็กทันทีตอนเปิดหน้า
+  checkDate();
+
+  // เช็กทุก 1 นาที
+  const interval = setInterval(checkDate, 60 * 1000);
+
+  return () => {
+    clearInterval(interval);
+  };
+}, []);
+
+// =====================================================
+// ข้อมูลที่จะแสดงตาม Tab
+// =====================================================
+
+const filteredLogs = historyLogs.filter((log) => {
+  if (activeTab === 'today') {
+    return isToday(log.date);
+  }
+
+  // ตอนนี้ Week ใช้ข้อมูลทั้งหมดเหมือนเดิม
+  return true;
+});
 
   // =====================================================
   // โหลด History ของ Patient ปัจจุบัน
@@ -430,10 +506,6 @@ export default function HistoryScreen() {
         await fetchSensorData();
 
       if (!data) {
-        console.log(
-          'ยังรับค่าประวัติใหม่ไม่ทัน คงค่าเดิมไว้ก่อน'
-        );
-
         setLoading(false);
         return;
       }
@@ -723,91 +795,88 @@ export default function HistoryScreen() {
   // Dashboard Stats
   // =====================================================
   const getDashboardStats = () => {
-    const total =
-      historyLogs.length || 1;
 
-    let leftCount = 0;
-    let rightCount = 0;
-    let tempSum = 0;
-    let alertCount = 0;
-    let moveCount = 0;
+  const total =
+    filteredLogs.length || 1;
 
-    historyLogs.forEach(
-      (log, idx) => {
-        if (log.leftPressed) {
-          leftCount++;
-        }
+  let leftCount = 0;
+  let rightCount = 0;
+  let tempSum = 0;
+  let alertCount = 0;
+  let moveCount = 0;
 
-        if (log.rightPressed) {
-          rightCount++;
-        }
+  filteredLogs.forEach(
+    (log, idx) => {
 
-        tempSum +=
-          log.temperature || 0;
-
-        if (
-          log.isTempHigh ||
-          log.isHumidHigh ||
-          log.isSittingTooLong
-        ) {
-          alertCount++;
-        }
-
-        if (
-          idx > 0 &&
-          log.calculatedPosition !==
-            historyLogs[idx - 1]
-              .calculatedPosition
-        ) {
-          moveCount++;
-        }
+      if (log.leftPressed) {
+        leftCount++;
       }
+
+      if (log.rightPressed) {
+        rightCount++;
+      }
+
+      tempSum +=
+        log.temperature || 0;
+
+      if (
+        log.isTempHigh ||
+        log.isHumidHigh ||
+        log.isSittingTooLong
+      ) {
+        alertCount++;
+      }
+
+      if (
+        idx > 0 &&
+        log.calculatedPosition !==
+          filteredLogs[idx - 1]
+            .calculatedPosition
+      ) {
+        moveCount++;
+      }
+    }
+  );
+
+  const totalPressureSide =
+    leftCount + rightCount || 1;
+
+  const leftPercent =
+    Math.round(
+      (leftCount / totalPressureSide) * 100
     );
 
-    const totalPressureSide =
-      leftCount + rightCount || 1;
+  const rightPercent =
+    100 - leftPercent;
 
-    const leftPercent =
-      Math.round(
-        (leftCount /
-          totalPressureSide) *
-          100
-      );
+  const avgTemp =
+    (tempSum / total).toFixed(1);
 
-    const rightPercent =
-      100 - leftPercent;
+  const totalMinutes =
+    Math.floor(
+      (filteredLogs.length * 3) / 60
+    );
 
-    const avgTemp =
-      (tempSum / total).toFixed(1);
+  const hours =
+    Math.floor(totalMinutes / 60);
 
-    const totalMinutes =
-      Math.floor(
-        (historyLogs.length * 3) /
-          60
-      );
+  const mins =
+    totalMinutes % 60;
 
-    const hours =
-      Math.floor(
-        totalMinutes / 60
-      );
+  const sittingTimeStr =
+    hours > 0
+      ? `${hours} ชม. ${mins} นาที`
+      : `${mins} นาที`;
 
-    const mins =
-      totalMinutes % 60;
-
-    const sittingTimeStr =
-      hours > 0
-        ? `${hours} ชม. ${mins} นาที`
-        : `${mins} นาที`;
-
-    return {
-      sittingTimeStr,
-      moveCount,
-      avgTemp,
-      alertCount,
-      leftPercent,
-      rightPercent,
-    };
+  return {
+    sittingTimeStr,
+    moveCount,
+    avgTemp,
+    alertCount,
+    leftPercent,
+    rightPercent,
   };
+};
 
   const stats =
     getDashboardStats();
@@ -838,14 +907,14 @@ export default function HistoryScreen() {
   }
 
   const graphLogs =
-    historyLogs
-      .slice(0, 10)
-      .reverse();
+  filteredLogs
+    .slice(0, 10)
+    .reverse();
 
-  const displayedLogs =
-    isExpanded
-      ? historyLogs
-      : historyLogs.slice(0, 3);
+const displayedLogs =
+  isExpanded
+    ? filteredLogs
+    : filteredLogs.slice(0, 3);
 
   return (
     <ScrollView
@@ -1251,7 +1320,7 @@ export default function HistoryScreen() {
             </TouchableOpacity>
           </View>
 
-          {historyLogs.length === 0 ? (
+          {displayedLogs.length === 0 ? (
             <Text
               style={styles.emptyText}
             >
