@@ -45,69 +45,97 @@ export default function HomeScreen() {
   }, [pressureSide]);
 
   useEffect(() => {
-    let isMounted = true;
-    let lastFetchedTime: string | null = null;
+  let isMounted = true;
+  let lastFetchedTime: string | null = null;
 
-    const loadData = async () => {
-  try {
-    const data = await fetchSensorData();
+  const loadData = async () => {
+    try {
+      const data = await fetchSensorData();
 
-    // ถ้าดึงข้อมูลมาไม่ได้ (รับไม่ทัน / ได้ null) ให้จบฟังก์ชันทันที 
-    // โดยที่ React ยังคงจำค่า sensorData ชุดเดิมไว้โชว์บนจอต่อไป
-    if (!data || !isMounted) return; 
+      // ถ้าดึงข้อมูลไม่ได้ เช่น 404
+      // ไม่ต้อง reset ค่าเดิม
+      if (!data || !isMounted) {
+        return;
+      }
 
-    const isNewData = data.time && data.time !== lastFetchedTime;
+      // เช็กว่ามีข้อมูลใหม่เข้ามาหรือไม่
+      const isNewData =
+        !!data.time && data.time !== lastFetchedTime;
 
-    if (isNewData) {
-      lastFetchedTime = data.time;
-    }
+      if (isNewData) {
+        lastFetchedTime = data.time;
+      }
 
-    setSensorData(data);
-    setLoading(false);
+      // -----------------------------
+      // เก็บข้อมูล Sensor ล่าสุด
+      // -----------------------------
+      setSensorData(data);
+      setLoading(false);
 
-    const humidHigh = (data.humidity || 0) > 75;
-    setIsHumidHigh(humidHigh);
+      // -----------------------------
+      // Humidity
+      // -----------------------------
+      const humidHigh = (data.humidity || 0) > 75;
+      setIsHumidHigh(humidHigh);
 
-    if (!isNewData) {
-      setPressureSide('none');
-    } else {
+      // -----------------------------
+      // อ่านแรงกดจาก Sensor
+      // สำคัญ: ต้องคำนวณทุกครั้งที่ fetch สำเร็จ
+      // ไม่ใช่เฉพาะตอนที่เป็นข้อมูลใหม่
+      // -----------------------------
       const isLeftPressed = (data.sensor1 ?? 4095) < 500;
       const isRightPressed = (data.sensor2 ?? 4095) < 500;
 
       if (isLeftPressed && isRightPressed) {
+        // กดทั้งสองข้าง = Center
         setPressureSide('both');
       } else if (isLeftPressed) {
+        // กดด้านซ้าย
         setPressureSide('left');
       } else if (isRightPressed) {
+        // กดด้านขวา
         setPressureSide('right');
       } else {
+        // ไม่มีแรงกด
         setPressureSide('none');
       }
+
+      // -----------------------------
+      // Temperature
+      // -----------------------------
+      const tempHigh = (data.temperature || 0) > 28;
+      setIsTempHigh(tempHigh);
+
+      // -----------------------------
+      // Status
+      // -----------------------------
+      // ใช้แรงกดจริงเป็นตัวบอก ACTIVE
+      // เพื่อไม่ให้ ACTIVE กลายเป็น STANDBY
+      // เพียงเพราะข้อมูลจาก Sheet ยังไม่ใช่แถวใหม่
+      const isSitting = isLeftPressed || isRightPressed;
+
+      if (isSitting && data.status === 'ACTIVE') {
+        setMainStatus('ACTIVE');
+      } else {
+        setMainStatus('STANDBY');
+      }
+
+    } catch (error) {
+      console.error('โหลดข้อมูล Sensor ไม่สำเร็จ:', error);
     }
+  };
 
-    const tempHigh = (data.temperature || 0) > 28;
-    setIsTempHigh(tempHigh);
+  // โหลดครั้งแรกทันที
+  loadData();
 
-    if (isNewData && data.status === 'ACTIVE') {
-      setMainStatus('ACTIVE');
-    } else {
-      setMainStatus('STANDBY');
-    }
+  // โหลดข้อมูลทุก 2 วินาที
+  const interval = setInterval(loadData, 2000);
 
-  } catch (error) {
-    console.error('โหลดข้อมูล Sensor ไม่สำเร็จ:', error);
-    // ตรงนี้ปล่อยให้ Catch ดัก Error ไว้เฉยๆ หน้าจอจะไม่พังและแสดงค่าเดิมค้างไว้ครับ
-  }
-};
-
-    loadData();
-    const interval = setInterval(loadData, 2000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, []);
+  return () => {
+    isMounted = false;
+    clearInterval(interval);
+  };
+}, []);
 
   const getDisplayPosition = () => {
     switch (pressureSide) {
