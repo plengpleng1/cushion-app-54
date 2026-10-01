@@ -136,7 +136,7 @@ export default function LoginScreen() {
     const rawPassword = password;
 
     if (!rawInput || !rawPassword) {
-      showError('กรุณากรอก Username/Email และ Password');
+      showError('กรุณากรอก Username และ Password');
       return;
     }
 
@@ -168,7 +168,7 @@ export default function LoginScreen() {
       });
 
       if (error) {
-        showError('เข้าสู่ระบบไม่สำเร็จ: Username หรือ Password ไม่ถูกต้อง');
+        showError('เข้าสู่ระบบไม่สำเร็จ: Username/Password ไม่ถูกต้อง');
         return;
       }
 
