@@ -1,19 +1,21 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
+import { supabase } from "../lib/supabase";
 
 const BLUE = "#4966D5";
 
 type Patient = {
-  patientId: string;
+  id: string;
+  patientId: string | null;
   name: string;
   citizenId: string;
   gender: string;
@@ -29,76 +31,104 @@ export default function ExistingPatientScreen() {
   const [loading, setLoading] = useState(true);
 
   // =========================================================
-  // โหลด Patient List
+  // โหลด Patient ของ User ที่ Login อยู่
   // =========================================================
 
   const loadPatients = async () => {
     try {
-      const data = await AsyncStorage.getItem("patientList");
+      setLoading(true);
 
-      if (!data) {
+      // =====================================================
+      // Get Current User
+      // =====================================================
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        Alert.alert("ไม่พบผู้ใช้งาน", "กรุณา Login ใหม่");
+
+        router.replace("/login");
+        return;
+      }
+
+      // =====================================================
+      // Load Patients
+      // =====================================================
+
+      const { data, error } = await supabase
+        .from("user_patients")
+        .select("id, patient_id, name, citizen_id, gender, age, phone")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Load patients error:", error);
+
+        Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถโหลดข้อมูลผู้ป่วยได้");
+
         setPatients([]);
         return;
       }
 
-      const patientData = JSON.parse(data);
+      const formattedPatients: Patient[] = (
+        (data ?? []) as unknown as {
+          id: string;
+          patient_id: string | null;
+          name: string | null;
+          citizen_id: string | null;
+          gender: string | null;
+          age: string | null;
+          phone: string | null;
+        }[]
+      ).map((patient) => ({
+        id: patient.id,
+        patientId: patient.patient_id,
+        name: patient.name ?? "",
+        citizenId: patient.citizen_id ?? "",
+        gender: patient.gender ?? "",
+        age: patient.age ?? "",
+        phone: patient.phone ?? "",
+      }));
 
-      if (Array.isArray(patientData)) {
-        setPatients(patientData);
-      } else {
-        setPatients([]);
-      }
+      setPatients(formattedPatients);
     } catch (error) {
-      console.error("ไม่สามารถโหลดข้อมูลผู้ป่วยได้:", error);
+      console.error("Load patients error:", error);
 
       setPatients([]);
+
+      Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถโหลดข้อมูลผู้ป่วยได้");
     } finally {
       setLoading(false);
     }
   };
 
   // =========================================================
-  // โหลดใหม่ทุกครั้งที่กลับเข้าหน้านี้
+  // โหลดใหม่ทุกครั้งที่กลับเข้าหน้า
   // =========================================================
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
       loadPatients();
     }, []),
   );
 
   // =========================================================
-  // เลือกผู้ป่วย
+  // เลือก Patient
   // =========================================================
 
-  const selectPatient = async (patient: Patient) => {
-    // ใช้ Citizen ID เป็นตัวระบุผู้ป่วย
-    // เพราะ Patient ID สามารถว่างได้
+  const selectPatient = (patient: Patient) => {
     setSelectedId(patient.citizenId);
 
-    try {
-      // บันทึกผู้ป่วยที่กำลังเลือก
-      await AsyncStorage.setItem("selectedPatientId", patient.citizenId);
-
-      // เก็บข้อมูลผู้ป่วยปัจจุบัน
-      await AsyncStorage.setItem("patientInfo", JSON.stringify(patient));
-
-      // รอเล็กน้อยเพื่อให้เห็นขอบสีฟ้า
-      setTimeout(() => {
-        router.replace({
-          pathname: "/patient-info",
-
-          // สำคัญมาก:
-          // patient-info รับค่าเป็น citizenId
-          params: {
-            citizenId: patient.citizenId,
-          },
-        });
-      }, 150);
-    } catch (error) {
-      console.error("ไม่สามารถเลือกผู้ป่วยได้:", error);
-    }
+    // ใช้ citizenId ต่อกับ patient-info.tsx
+    router.replace({
+      pathname: "/patient-info",
+      params: {
+        citizenId: patient.citizenId,
+      },
+    });
   };
 
   // =========================================================
@@ -139,45 +169,30 @@ export default function ExistingPatientScreen() {
             <Text style={styles.emptyText}>ไม่พบข้อมูลผู้ป่วย</Text>
           </View>
         ) : (
-          patients.map((patient, index) => {
-            // ใช้ Citizen ID เป็นตัวตรวจว่ากำลังเลือกใคร
+          patients.map((patient) => {
             const isSelected = selectedId === patient.citizenId;
 
             return (
               <TouchableOpacity
-                key={`${patient.citizenId}-${index}`}
+                key={patient.id}
                 activeOpacity={0.8}
                 onPress={() => selectPatient(patient)}
                 style={[styles.patientCard, isSelected && styles.selectedCard]}
               >
-                {/* Patient Information */}
-
                 <View style={styles.patientInfo}>
-                  {/* Name */}
-
                   <Text style={styles.patientName}>{patient.name}</Text>
-
-                  {/* Patient ID */}
 
                   <Text style={styles.patientText}>
                     Patient ID: {patient.patientId || "-"}
                   </Text>
 
-                  {/* Citizen ID */}
-
                   <Text style={styles.patientText}>
                     เลขบัตรประชาชน: {patient.citizenId}
                   </Text>
 
-                  {/* Gender */}
-
                   <Text style={styles.patientText}>เพศ: {patient.gender}</Text>
 
-                  {/* Age */}
-
                   <Text style={styles.patientText}>อายุ: {patient.age} ปี</Text>
-
-                  {/* Phone */}
 
                   <Text style={styles.patientText}>
                     เบอร์โทรศัพท์: {patient.phone}
@@ -246,10 +261,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: "#888",
   },
-
-  // ============================
-  // Patient Card
-  // ============================
 
   patientCard: {
     width: "100%",

@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
@@ -8,6 +7,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { supabase } from "../lib/supabase";
 
 const BLUE = "#4966D5";
 
@@ -19,18 +19,46 @@ export default function SelectScreen() {
 
   const checkPatients = async () => {
     try {
-      const data = await AsyncStorage.getItem("patientList");
+      setLoading(true);
 
-      if (!data) {
+      // =====================================================
+      // Get Current User
+      // =====================================================
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.error("ไม่พบ User ที่ Login อยู่:", userError);
+
         setHasPatients(false);
         return;
       }
 
-      const patients = JSON.parse(data);
+      // =====================================================
+      // ตรวจ Patient ของ User นี้
+      // =====================================================
 
-      setHasPatients(Array.isArray(patients) && patients.length > 0);
+      const { count, error } = await supabase
+        .from("user_patients")
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("ไม่สามารถตรวจสอบ Patient List ได้:", error);
+
+        setHasPatients(false);
+        return;
+      }
+
+      setHasPatients((count ?? 0) > 0);
     } catch (error) {
-      console.error("ไม่สามารถโหลด Patient List ได้:", error);
+      console.error("เกิดข้อผิดพลาด:", error);
 
       setHasPatients(false);
     } finally {
@@ -38,21 +66,37 @@ export default function SelectScreen() {
     }
   };
 
+  // =========================================================
+  // โหลดใหม่ทุกครั้งที่กลับเข้าหน้า
+  // =========================================================
+
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
       checkPatients();
     }, []),
   );
+
+  // =========================================================
+  // New Patient
+  // =========================================================
 
   const goToNewPatient = () => {
     router.push("/patient-info");
   };
 
-  // เปลี่ยนตรงนี้
+  // =========================================================
+  // Existing Patient
+  // =========================================================
+
   const goToExistingPatient = () => {
+    if (!hasPatients) return;
+
     router.push("/existing-patient");
   };
+
+  // =========================================================
+  // Loading
+  // =========================================================
 
   if (loading) {
     return (
@@ -61,6 +105,10 @@ export default function SelectScreen() {
       </View>
     );
   }
+
+  // =========================================================
+  // UI
+  // =========================================================
 
   return (
     <View style={styles.container}>
@@ -74,6 +122,7 @@ export default function SelectScreen() {
 
       <View style={styles.card}>
         {/* Existing Patient */}
+
         <TouchableOpacity
           style={[styles.button, !hasPatients && styles.disabledButton]}
           disabled={!hasPatients}
@@ -87,6 +136,7 @@ export default function SelectScreen() {
         </TouchableOpacity>
 
         {/* New Patient */}
+
         <TouchableOpacity style={styles.button} onPress={goToNewPatient}>
           <Text style={styles.buttonText}>New Patient</Text>
         </TouchableOpacity>

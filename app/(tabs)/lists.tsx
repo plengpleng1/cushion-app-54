@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
@@ -12,11 +11,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { supabase } from "../../lib/supabase";
 
 const BLUE = "#4966D5";
 
 type Patient = {
-  patientId: string;
+  id: string;
+  patientId: string | null;
   name: string;
   citizenId: string;
   gender: string;
@@ -31,7 +32,7 @@ export default function PatientListScreen() {
   const [selectedPatientId, setSelectedPatientId] = useState("");
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [patientId, setPatientId] = useState("");
   const [name, setName] = useState("");
@@ -43,7 +44,7 @@ export default function PatientListScreen() {
   const [genderOpen, setGenderOpen] = useState(false);
 
   // =========================================================
-  // Ref สำหรับกด Enter
+  // Refs
   // =========================================================
 
   const patientIdRef = useRef<TextInput>(null);
@@ -53,7 +54,7 @@ export default function PatientListScreen() {
   const phoneRef = useRef<TextInput>(null);
 
   // =========================================================
-  // Error
+  // Errors
   // =========================================================
 
   const [errors, setErrors] = useState({
@@ -71,33 +72,64 @@ export default function PatientListScreen() {
 
   const loadPatients = async () => {
     try {
-      const data = await AsyncStorage.getItem("patientList");
+      // =====================================================
+      // Current User
+      // =====================================================
 
-      if (data) {
-        const patientData = JSON.parse(data);
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-        if (Array.isArray(patientData)) {
-          setPatients(patientData);
-        } else {
-          setPatients([]);
-        }
-      } else {
+      if (userError || !user) {
+        console.error("ไม่พบ User:", userError);
+
         setPatients([]);
+        return;
       }
 
       // =====================================================
-      // selectedPatientId เก็บค่า citizenId
+      // Load Patients ของ User นี้
       // =====================================================
 
-      const selected = await AsyncStorage.getItem("selectedPatientId");
+      const { data, error } = await supabase
+        .from("user_patients")
+        .select("id, patient_id, name, citizen_id, gender, age, phone")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
-      if (selected) {
-        setSelectedPatientId(selected);
-      } else {
-        setSelectedPatientId("");
+      if (error) {
+        console.error("Load Patient List error:", error);
+
+        setPatients([]);
+        return;
       }
+
+      const formattedPatients: Patient[] = (data ?? []).map(
+        (patient: {
+          id: string;
+          patient_id: string;
+          name: string | null;
+          citizen_id: string | null;
+          gender: string | null;
+          age: string | number | null;
+          phone: string | null;
+        }) => ({
+          id: patient.id,
+          patientId: patient.patient_id,
+          name: patient.name ?? "",
+          citizenId: patient.citizen_id ?? "",
+          gender: patient.gender ?? "",
+          age: patient.age == null ? "" : String(patient.age),
+          phone: patient.phone ?? "",
+        }),
+      );
+
+      setPatients(formattedPatients);
     } catch (error) {
       console.error("ไม่สามารถโหลด Patient List ได้:", error);
+
+      setPatients([]);
     }
   };
 
@@ -118,8 +150,9 @@ export default function PatientListScreen() {
     setGender("");
     setAge("");
     setPhone("");
+
     setGenderOpen(false);
-    setEditingIndex(null);
+    setEditingId(null);
 
     setErrors({
       name: "",
@@ -132,7 +165,7 @@ export default function PatientListScreen() {
   };
 
   // =========================================================
-  // Open Add Patient
+  // Add
   // =========================================================
 
   const openAddPatient = () => {
@@ -141,11 +174,11 @@ export default function PatientListScreen() {
   };
 
   // =========================================================
-  // Open Edit Patient
+  // Edit
   // =========================================================
 
-  const openEditPatient = (patient: Patient, index: number) => {
-    setEditingIndex(index);
+  const openEditPatient = (patient: Patient) => {
+    setEditingId(patient.id);
 
     setPatientId(patient.patientId || "");
     setName(patient.name || "");
@@ -242,110 +275,168 @@ export default function PatientListScreen() {
   };
 
   // =========================================================
-  // Save / Update Patient
+  // Save
   // =========================================================
 
   const savePatient = async () => {
-    const isValid = validateAll();
-
-    if (!isValid) {
+    if (!validateAll()) {
       return;
     }
 
-    // =======================================================
-    // ตรวจ Patient ID ซ้ำ
-    // =======================================================
+    try {
+      // =====================================================
+      // Current User
+      // =====================================================
 
-    if (patientId.trim()) {
-      const duplicate = patients.some(
-        (patient, index) =>
-          patient.patientId.toLowerCase() === patientId.trim().toLowerCase() &&
-          index !== editingIndex,
-      );
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      if (duplicate) {
+      if (userError || !user) {
+        Alert.alert("ไม่พบผู้ใช้งาน", "กรุณา Login ใหม่");
+
+        router.replace("/login");
+        return;
+      }
+
+      const trimmedPatientId = patientId.trim() || null;
+
+      const trimmedCitizenId = citizenId.trim();
+
+      // =====================================================
+      // ตรวจ Citizen ID ซ้ำ
+      // =====================================================
+
+      let citizenQuery = supabase
+        .from("user_patients")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("citizen_id", trimmedCitizenId);
+
+      if (editingId) {
+        citizenQuery = citizenQuery.neq("id", editingId);
+      }
+
+      const { data: duplicateCitizen, error: citizenError } =
+        await citizenQuery.maybeSingle();
+
+      if (citizenError) {
+        console.error("Check citizen ID error:", citizenError);
+
+        Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถตรวจสอบเลขบัตรประชาชนได้");
+
+        return;
+      }
+
+      if (duplicateCitizen) {
         setErrors((prev) => ({
           ...prev,
-          patientId: "Patient ID นี้มีอยู่แล้ว",
+          citizenId: "เลขบัตรประชาชนนี้มีอยู่แล้ว",
         }));
 
         return;
       }
-    }
 
-    // =======================================================
-    // ตรวจ Citizen ID ซ้ำ
-    // =======================================================
+      // =====================================================
+      // ตรวจ Patient ID ซ้ำ
+      // =====================================================
 
-    const duplicateCitizenId = patients.some(
-      (patient, index) =>
-        patient.citizenId === citizenId.trim() && index !== editingIndex,
-    );
+      if (trimmedPatientId) {
+        let patientIdQuery = supabase
+          .from("user_patients")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("patient_id", trimmedPatientId);
 
-    if (duplicateCitizenId) {
-      setErrors((prev) => ({
-        ...prev,
-        citizenId: "เลขบัตรประชาชนนี้มีอยู่แล้ว",
-      }));
+        if (editingId) {
+          patientIdQuery = patientIdQuery.neq("id", editingId);
+        }
 
-      return;
-    }
+        const { data: duplicatePatientId, error: patientIdError } =
+          await patientIdQuery.maybeSingle();
 
-    const newPatient: Patient = {
-      patientId: patientId.trim(),
-      name: name.trim(),
-      citizenId: citizenId.trim(),
-      gender,
-      age,
-      phone,
-    };
+        if (patientIdError) {
+          console.error("Check Patient ID error:", patientIdError);
 
-    try {
-      let updatedPatients: Patient[];
+          Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถตรวจสอบ Patient ID ได้");
+
+          return;
+        }
+
+        if (duplicatePatientId) {
+          setErrors((prev) => ({
+            ...prev,
+            patientId: "Patient ID นี้มีอยู่แล้ว",
+          }));
+
+          return;
+        }
+      }
+
+      // =====================================================
+      // ข้อมูลที่จะบันทึก
+      // =====================================================
+
+      const patientData = {
+        patient_id: trimmedPatientId,
+        name: name.trim(),
+        citizen_id: trimmedCitizenId,
+        gender,
+        age,
+        phone: phone.trim(),
+      };
 
       // =====================================================
       // EDIT
       // =====================================================
 
-      if (editingIndex !== null) {
-        updatedPatients = [...patients];
-        updatedPatients[editingIndex] = newPatient;
+      if (editingId) {
+        const { error: updateError } = await supabase
+          .from("user_patients")
+          .update(patientData as never)
+          .eq("id", editingId)
+          .eq("user_id", user.id);
+
+        if (updateError) {
+          console.error("Update patient error:", updateError);
+
+          Alert.alert("บันทึกไม่สำเร็จ", updateError.message);
+
+          return;
+        }
       }
 
       // =====================================================
       // ADD
       // =====================================================
       else {
-        updatedPatients = [...patients, newPatient];
+        const { error: insertError } = await supabase
+          .from("user_patients")
+          .insert({
+            user_id: user.id,
+            ...patientData,
+          } as never);
+
+        if (insertError) {
+          console.error("Insert patient error:", insertError);
+
+          Alert.alert("บันทึกไม่สำเร็จ", insertError.message);
+
+          return;
+        }
       }
 
-      await AsyncStorage.setItem(
-        "patientList",
-        JSON.stringify(updatedPatients),
-      );
-
-      setPatients(updatedPatients);
-
       // =====================================================
-      // ถ้ากำลังแก้ไขผู้ป่วยที่ถูกเลือกอยู่
+      // Reload
       // =====================================================
 
-      if (
-        editingIndex !== null &&
-        selectedPatientId === patients[editingIndex]?.citizenId
-      ) {
-        await AsyncStorage.setItem("patientInfo", JSON.stringify(newPatient));
-
-        // ใช้ citizenId เป็นตัวอ้างอิง
-        await AsyncStorage.setItem("selectedPatientId", newPatient.citizenId);
-
-        setSelectedPatientId(newPatient.citizenId);
-      }
+      await loadPatients();
 
       setModalVisible(false);
       clearForm();
     } catch (error) {
-      console.error("ไม่สามารถบันทึกข้อมูลผู้ป่วยได้:", error);
+      console.error("Save patient error:", error);
 
       if (Platform.OS === "web") {
         window.alert("ไม่สามารถบันทึกข้อมูลได้");
@@ -360,28 +451,15 @@ export default function PatientListScreen() {
   // =========================================================
 
   const selectPatient = (patient: Patient) => {
-    const confirmSelect = async () => {
-      try {
-        // ===================================================
-        // สำคัญ:
-        // ใช้ citizenId เป็นตัวระบุผู้ป่วยที่ถูกเลือก
-        // ===================================================
+    const confirmSelect = () => {
+      setSelectedPatientId(patient.citizenId);
 
-        setSelectedPatientId(patient.citizenId);
-
-        await AsyncStorage.setItem("selectedPatientId", patient.citizenId);
-
-        await AsyncStorage.setItem("patientInfo", JSON.stringify(patient));
-
-        router.push({
-          pathname: "/patient-info",
-          params: {
-            citizenId: patient.citizenId,
-          },
-        });
-      } catch (error) {
-        console.error("ไม่สามารถเลือกผู้ป่วยได้:", error);
-      }
+      router.push({
+        pathname: "/patient-info",
+        params: {
+          citizenId: patient.citizenId,
+        },
+      });
     };
 
     if (Platform.OS === "web") {
@@ -410,28 +488,48 @@ export default function PatientListScreen() {
   // Delete Patient
   // =========================================================
 
-  const deletePatient = (patient: Patient, index: number) => {
+  const deletePatient = (patient: Patient) => {
     const performDelete = async () => {
       try {
-        const updatedPatients = patients.filter((_, i) => i !== index);
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-        await AsyncStorage.setItem(
-          "patientList",
-          JSON.stringify(updatedPatients),
-        );
+        if (userError || !user) {
+          Alert.alert("ไม่พบผู้ใช้งาน", "กรุณา Login ใหม่");
 
-        // ใช้ citizenId ตรวจผู้ป่วยที่ถูกเลือก
+          return;
+        }
+
+        // ===================================================
+        // Delete เฉพาะ row ของ User นี้
+        // ===================================================
+
+        const { error } = await supabase
+          .from("user_patients")
+          .delete()
+          .eq("id", patient.id)
+          .eq("user_id", user.id);
+
+        if (error) {
+          console.error("Delete patient error:", error);
+
+          Alert.alert("ลบไม่สำเร็จ", error.message);
+
+          return;
+        }
+
+        // ถ้าลบ Patient ที่กำลังเลือกอยู่
         if (selectedPatientId === patient.citizenId) {
-          await AsyncStorage.removeItem("selectedPatientId");
-
-          await AsyncStorage.removeItem("patientInfo");
-
           setSelectedPatientId("");
         }
 
-        setPatients(updatedPatients);
+        await loadPatients();
       } catch (error) {
-        console.error("ไม่สามารถลบผู้ป่วยได้:", error);
+        console.error("Delete patient error:", error);
+
+        Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถลบผู้ป่วยได้");
       }
     };
 
@@ -456,21 +554,17 @@ export default function PatientListScreen() {
     }
   };
 
+  // =========================================================
+  // UI
+  // =========================================================
+
   return (
     <View style={styles.container}>
-      {/* =====================================================
-          HEADER
-          ===================================================== */}
-
       <View style={styles.header}>
         <Text style={styles.title}>Patient Lists</Text>
 
         <Text style={styles.subtitle}>รายการผู้ป่วย</Text>
       </View>
-
-      {/* =====================================================
-          PATIENT LIST
-          ===================================================== */}
 
       <ScrollView
         style={styles.list}
@@ -482,23 +576,14 @@ export default function PatientListScreen() {
             <Text style={styles.emptyText}>ไม่พบข้อมูลผู้ป่วย</Text>
           </View>
         ) : (
-          patients.map((patient, index) => {
-            // =================================================
-            // สำคัญที่สุด:
-            // เปรียบเทียบ citizenId
-            // =================================================
-
+          patients.map((patient) => {
             const isSelected = selectedPatientId === patient.citizenId;
 
             return (
               <View
-                key={`${index}-${patient.citizenId}`}
+                key={patient.id}
                 style={[styles.patientCard, isSelected && styles.selectedCard]}
               >
-                {/* ==========================================
-                    ข้อมูลผู้ป่วย
-                    ========================================== */}
-
                 <View style={styles.patientInfo}>
                   <Text style={styles.patientName}>{patient.name}</Text>
 
@@ -519,13 +604,7 @@ export default function PatientListScreen() {
                   </Text>
                 </View>
 
-                {/* ==========================================
-                    ปุ่มด้านขวา
-                    ========================================== */}
-
                 <View style={styles.cardButtons}>
-                  {/* Select */}
-
                   <TouchableOpacity
                     style={[
                       styles.selectButton,
@@ -538,23 +617,17 @@ export default function PatientListScreen() {
                     </Text>
                   </TouchableOpacity>
 
-                  {/* Edit + Delete */}
-
                   <View style={styles.smallButtonsRow}>
-                    {/* Edit */}
-
                     <TouchableOpacity
                       style={styles.editButton}
-                      onPress={() => openEditPatient(patient, index)}
+                      onPress={() => openEditPatient(patient)}
                     >
                       <Text style={styles.editText}>✎</Text>
                     </TouchableOpacity>
 
-                    {/* Delete */}
-
                     <TouchableOpacity
                       style={styles.deleteButton}
-                      onPress={() => deletePatient(patient, index)}
+                      onPress={() => deletePatient(patient)}
                     >
                       <Text style={styles.deleteButtonText}>🗑</Text>
                     </TouchableOpacity>
@@ -566,28 +639,27 @@ export default function PatientListScreen() {
         )}
       </ScrollView>
 
-      {/* =====================================================
-          ADD BUTTON
-          ===================================================== */}
+      {/* ADD BUTTON */}
 
       <TouchableOpacity style={styles.addButton} onPress={openAddPatient}>
         <Text style={styles.plus}>+</Text>
       </TouchableOpacity>
 
-      {/* =====================================================
-          ADD / EDIT MODAL
-          ===================================================== */}
+      {/* MODAL */}
 
       <Modal
         visible={modalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => {
+          setModalVisible(false);
+          clearForm();
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>
-              {editingIndex !== null ? "Edit Patient" : "Add Patient"}
+              {editingId ? "Edit Patient" : "Add Patient"}
             </Text>
 
             <ScrollView
@@ -616,9 +688,7 @@ export default function PatientListScreen() {
                   }
                 }}
                 returnKeyType="next"
-                onSubmitEditing={() => {
-                  nameRef.current?.focus();
-                }}
+                onSubmitEditing={() => nameRef.current?.focus()}
                 blurOnSubmit={false}
               />
 
@@ -656,9 +726,7 @@ export default function PatientListScreen() {
                   }));
                 }}
                 returnKeyType="next"
-                onSubmitEditing={() => {
-                  citizenIdRef.current?.focus();
-                }}
+                onSubmitEditing={() => citizenIdRef.current?.focus()}
                 blurOnSubmit={false}
               />
 
@@ -698,9 +766,7 @@ export default function PatientListScreen() {
                   }));
                 }}
                 returnKeyType="next"
-                onSubmitEditing={() => {
-                  ageRef.current?.focus();
-                }}
+                onSubmitEditing={() => ageRef.current?.focus()}
                 blurOnSubmit={false}
               />
 
@@ -711,8 +777,6 @@ export default function PatientListScreen() {
               {/* Gender + Age */}
 
               <View style={styles.row}>
-                {/* Gender */}
-
                 <View style={styles.halfContainer}>
                   <TouchableOpacity
                     style={[
@@ -776,8 +840,6 @@ export default function PatientListScreen() {
                   )}
                 </View>
 
-                {/* Age */}
-
                 <View style={styles.halfContainer}>
                   <TextInput
                     ref={ageRef}
@@ -811,9 +873,7 @@ export default function PatientListScreen() {
                       }));
                     }}
                     returnKeyType="next"
-                    onSubmitEditing={() => {
-                      phoneRef.current?.focus();
-                    }}
+                    onSubmitEditing={() => phoneRef.current?.focus()}
                     blurOnSubmit={false}
                   />
 
@@ -889,6 +949,10 @@ export default function PatientListScreen() {
     </View>
   );
 }
+
+// =========================================================
+// Styles
+// =========================================================
 
 const styles = StyleSheet.create({
   container: {

@@ -1,7 +1,7 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,24 +9,22 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { supabase } from "../lib/supabase";
 
 const BLUE = "#4464D0";
 
-type Patient = {
-  patientId: string;
-  name: string;
-  citizenId: string;
-  gender: string;
-  age: string;
-  phone: string;
+type UserPatientRow = {
+  id: string;
+  patient_id: string | null;
+  name: string | null;
+  citizen_id: string | null;
+  gender: string | null;
+  age: string | null;
+  phone: string | null;
 };
 
 export default function PatientInfo() {
   const router = useRouter();
-
-  // =========================================================
-  // รับ Citizen ID จาก Existing Patient
-  // =========================================================
 
   const { citizenId: selectedCitizenId } = useLocalSearchParams<{
     citizenId?: string;
@@ -37,13 +35,9 @@ export default function PatientInfo() {
   // =========================================================
 
   const patientIdRef = useRef<TextInput>(null);
-
   const nameRef = useRef<TextInput>(null);
-
   const citizenIdRef = useRef<TextInput>(null);
-
   const ageRef = useRef<TextInput>(null);
-
   const phoneRef = useRef<TextInput>(null);
 
   // =========================================================
@@ -51,15 +45,10 @@ export default function PatientInfo() {
   // =========================================================
 
   const [patientId, setPatientId] = useState("");
-
   const [name, setName] = useState("");
-
   const [citizenId, setCitizenId] = useState("");
-
   const [gender, setGender] = useState("");
-
   const [age, setAge] = useState("");
-
   const [phone, setPhone] = useState("");
 
   const [genderOpen, setGenderOpen] = useState(false);
@@ -74,87 +63,73 @@ export default function PatientInfo() {
   });
 
   // =========================================================
-  // Existing Patient
-  // โหลดข้อมูลจาก Patient List
+  // Load Existing Patient
   // =========================================================
 
   useEffect(() => {
     const loadPatient = async () => {
+      // ถ้าเป็น New Patient ไม่ต้องโหลดข้อมูล
+      if (!selectedCitizenId) {
+        setPatientId("");
+        setName("");
+        setCitizenId("");
+        setGender("");
+        setAge("");
+        setPhone("");
+
+        setErrors({
+          patientId: "",
+          name: "",
+          citizenId: "",
+          gender: "",
+          age: "",
+          phone: "",
+        });
+
+        return;
+      }
+
       try {
-        // =====================================================
-        // ถ้าไม่มี Citizen ID
-        // แปลว่าเป็น New Patient
-        // =====================================================
+        // ตรวจสอบคนที่ Login
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-        if (!selectedCitizenId) {
-          setPatientId("");
-          setName("");
-          setCitizenId("");
-          setGender("");
-          setAge("");
-          setPhone("");
-
-          setErrors({
-            patientId: "",
-            name: "",
-            citizenId: "",
-            gender: "",
-            age: "",
-            phone: "",
-          });
-
+        if (userError || !user) {
+          Alert.alert("ไม่พบผู้ใช้งาน", "กรุณา Login ใหม่");
+          router.replace("/login");
           return;
         }
 
-        // =====================================================
-        // โหลด Patient List
-        // =====================================================
+        // โหลด Patient ของ User นี้เท่านั้น
+        const { data, error } = await supabase
+          .from("user_patients")
+          .select("id, patient_id, name, citizen_id, gender, age, phone")
+          .eq("user_id", user.id)
+          .eq("citizen_id", String(selectedCitizenId))
+          .maybeSingle<UserPatientRow>();
 
-        const data = await AsyncStorage.getItem("patientList");
+        if (error) {
+          console.error("Load patient error:", error);
+
+          Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถโหลดข้อมูลผู้ป่วยได้");
+          return;
+        }
 
         if (!data) {
-          console.log("ไม่พบ patientList");
+          Alert.alert("ไม่พบข้อมูล", "ไม่พบข้อมูลผู้ป่วยในระบบ");
           return;
         }
 
-        const patients: Patient[] = JSON.parse(data);
+        // เติมข้อมูลลง Form
+        setPatientId(data.patient_id ?? "");
+        setName(data.name ?? "");
+        setCitizenId(data.citizen_id ?? "");
+        setGender(data.gender ?? "");
+        setAge(data.age ?? "");
+        setPhone(data.phone ?? "");
 
-        // =====================================================
-        // ค้นหาผู้ป่วยด้วย Citizen ID
-        // =====================================================
-
-        const patient = patients.find(
-          (item) => String(item.citizenId) === String(selectedCitizenId),
-        );
-
-        // =====================================================
-        // ไม่พบผู้ป่วย
-        // =====================================================
-
-        if (!patient) {
-          console.log("ไม่พบผู้ป่วย Citizen ID:", selectedCitizenId);
-
-          return;
-        }
-
-        // =====================================================
-        // พบผู้ป่วย
-        // เติมข้อมูลลงในช่องทั้งหมด
-        // =====================================================
-
-        setPatientId(patient.patientId || "");
-
-        setName(patient.name || "");
-
-        setCitizenId(patient.citizenId || "");
-
-        setGender(patient.gender || "");
-
-        setAge(patient.age || "");
-
-        setPhone(patient.phone || "");
-
-        // ล้าง Error
         setErrors({
           patientId: "",
           name: "",
@@ -164,7 +139,9 @@ export default function PatientInfo() {
           phone: "",
         });
       } catch (error) {
-        console.error("ไม่สามารถโหลดข้อมูลผู้ป่วยได้:", error);
+        console.error("Load patient error:", error);
+
+        Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถโหลดข้อมูลผู้ป่วยได้");
       }
     };
 
@@ -175,8 +152,8 @@ export default function PatientInfo() {
   // Validation
   // =========================================================
 
-  // Patient ID ไม่บังคับ
-  const validatePatientId = (value: string) => {
+  const validatePatientId = (_value: string) => {
+    // Patient ID ไม่บังคับ
     return "";
   };
 
@@ -235,21 +212,16 @@ export default function PatientInfo() {
   };
 
   // =========================================================
-  // Next
+  // Save
   // =========================================================
 
   const handleNext = async () => {
     const newErrors = {
       patientId: validatePatientId(patientId),
-
       name: validateName(name),
-
       citizenId: validateCitizenId(citizenId),
-
       gender: validateGender(gender),
-
       age: validateAge(age),
-
       phone: validatePhone(phone),
     };
 
@@ -263,134 +235,181 @@ export default function PatientInfo() {
 
     try {
       // =====================================================
-      // โหลด Patient List
+      // Get Current User
       // =====================================================
 
-      const storedData = await AsyncStorage.getItem("patientList");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      let patients: Patient[] = storedData ? JSON.parse(storedData) : [];
+      if (userError || !user) {
+        Alert.alert("ไม่พบผู้ใช้งาน", "กรุณา Login ใหม่");
+
+        router.replace("/login");
+        return;
+      }
 
       // =====================================================
-      // ข้อมูลผู้ป่วยใหม่
+      // เตรียมข้อมูล
       // =====================================================
 
-      const newPatient: Patient = {
-        patientId: patientId.trim(),
-
+      const patientData = {
+        patient_id: patientId.trim() || null,
         name: name.trim(),
-
-        citizenId: citizenId.trim(),
-
+        citizen_id: citizenId.trim(),
         gender,
-
         age,
-
         phone: phone.trim(),
       };
 
       // =====================================================
-      // New Patient
+      // NEW PATIENT
       // =====================================================
 
       if (!selectedCitizenId) {
-        // ตรวจ Citizen ID ซ้ำ
-        const duplicateCitizenId = patients.some(
-          (patient) => patient.citizenId === newPatient.citizenId,
-        );
+        // ตรวจ Citizen ID ซ้ำใน Patient ของ User นี้
+        const { data: citizenExists, error: citizenError } = await supabase
+          .from("user_patients")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("citizen_id", patientData.citizen_id)
+          .maybeSingle();
 
-        if (duplicateCitizenId) {
-          setErrors({
-            ...newErrors,
+        if (citizenError) {
+          console.error("Check citizen ID error:", citizenError);
 
-            citizenId: "เลขบัตรประชาชนนี้มีอยู่แล้ว",
-          });
-
+          Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถตรวจสอบเลขบัตรประชาชนได้");
           return;
         }
 
-        // =================================================
+        if (citizenExists) {
+          setErrors({
+            ...newErrors,
+            citizenId: "เลขบัตรประชาชนนี้มีอยู่แล้ว",
+          });
+          return;
+        }
+
+        // ===================================================
         // ตรวจ Patient ID ซ้ำ
-        // เฉพาะกรณีที่ผู้ใช้กรอก
-        // =================================================
+        // ===================================================
 
-        if (newPatient.patientId) {
-          const duplicatePatientId = patients.some(
-            (patient) =>
-              patient.patientId &&
-              patient.patientId.toLowerCase() ===
-                newPatient.patientId.toLowerCase(),
-          );
+        if (patientData.patient_id) {
+          const { data: patientIdExists, error: patientIdError } =
+            await supabase
+              .from("user_patients")
+              .select("id")
+              .eq("user_id", user.id)
+              .eq("patient_id", patientData.patient_id)
+              .maybeSingle();
 
-          if (duplicatePatientId) {
+          if (patientIdError) {
+            console.error("Check patient ID error:", patientIdError);
+
+            Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถตรวจสอบ Patient ID ได้");
+            return;
+          }
+
+          if (patientIdExists) {
             setErrors({
               ...newErrors,
-
               patientId: "Patient ID นี้มีอยู่แล้ว",
             });
-
             return;
           }
         }
 
-        // เพิ่มผู้ป่วยใหม่
-        patients.push(newPatient);
-      }
+        // ===================================================
+        // INSERT
+        // ===================================================
 
-      // =====================================================
-      // Existing Patient
-      // =====================================================
-      else {
-        const index = patients.findIndex(
-          (patient) => patient.citizenId === selectedCitizenId,
-        );
+        const { error: insertError } = await supabase
+          .from("user_patients")
+          .insert({
+            user_id: user.id,
+            ...patientData,
+          } as never);
 
-        if (index !== -1) {
-          // =================================================
-          // ตรวจ Patient ID ซ้ำ
-          // =================================================
+        if (insertError) {
+          console.error("Insert patient error:", insertError);
 
-          if (newPatient.patientId) {
-            const duplicatePatientId = patients.some(
-              (patient, patientIndex) =>
-                patientIndex !== index &&
-                patient.patientId &&
-                patient.patientId.toLowerCase() ===
-                  newPatient.patientId.toLowerCase(),
-            );
-
-            if (duplicatePatientId) {
-              setErrors({
-                ...newErrors,
-
-                patientId: "Patient ID นี้มีอยู่แล้ว",
-              });
-
-              return;
-            }
-          }
-
-          // อัปเดตข้อมูลผู้ป่วยเดิม
-          patients[index] = newPatient;
+          Alert.alert("บันทึกไม่สำเร็จ", insertError.message);
+          return;
         }
       }
 
       // =====================================================
-      // บันทึก Patient List
+      // EXISTING PATIENT
       // =====================================================
+      else {
+        // หา Patient เดิม
+        const { data: existingPatient, error: findError } = await supabase
+          .from("user_patients")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("citizen_id", String(selectedCitizenId))
+          .maybeSingle();
 
-      await AsyncStorage.setItem("patientList", JSON.stringify(patients));
+        if (findError) {
+          console.error("Find patient error:", findError);
 
-      // =====================================================
-      // บันทึกผู้ป่วยที่เลือก
-      // =====================================================
+          Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถค้นหาผู้ป่วยได้");
+          return;
+        }
 
-      await AsyncStorage.setItem("selectedPatientId", newPatient.citizenId);
+        if (!existingPatient) {
+          Alert.alert("ไม่พบผู้ป่วย", "ไม่พบข้อมูลผู้ป่วยในระบบ");
+          return;
+        }
 
-      // =====================================================
-      // บันทึก Patient Info
-      // =====================================================
+        // ===================================================
+        // ตรวจ Patient ID ซ้ำกับคนอื่น
+        // ===================================================
 
-      await AsyncStorage.setItem("patientInfo", JSON.stringify(newPatient));
+        if (patientData.patient_id) {
+          const { data: duplicatePatientId, error: duplicateError } =
+            await supabase
+              .from("user_patients")
+              .select("id")
+              .eq("user_id", user.id)
+              .eq("patient_id", patientData.patient_id)
+              .neq("id", (existingPatient as { id: string }).id)
+              .maybeSingle();
+
+          if (duplicateError) {
+            console.error("Duplicate patient ID error:", duplicateError);
+
+            Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถตรวจสอบ Patient ID ได้");
+            return;
+          }
+
+          if (duplicatePatientId) {
+            setErrors({
+              ...newErrors,
+              patientId: "Patient ID นี้มีอยู่แล้ว",
+            });
+            return;
+          }
+        }
+
+        // ===================================================
+        // UPDATE
+        // ===================================================
+
+        const { error: updateError } = await supabase
+          .from("user_patients")
+          .update(patientData as never)
+          .eq("id", (existingPatient as { id: string }).id)
+          .eq("user_id", user.id);
+
+        if (updateError) {
+          console.error("Update patient error:", updateError);
+
+          Alert.alert("บันทึกไม่สำเร็จ", updateError.message);
+          return;
+        }
+      }
 
       // =====================================================
       // ไปหน้า Main
@@ -398,9 +417,9 @@ export default function PatientInfo() {
 
       router.replace("/(tabs)");
     } catch (error) {
-      console.error("ไม่สามารถบันทึกข้อมูลได้:", error);
+      console.error("Save patient error:", error);
 
-      alert("ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่");
+      Alert.alert("ไม่สามารถบันทึกข้อมูลได้", "กรุณาลองใหม่อีกครั้ง");
     }
   };
 
@@ -427,9 +446,7 @@ export default function PatientInfo() {
       {/* Form */}
 
       <View style={styles.card}>
-        {/* ================================================= */}
         {/* Patient ID */}
-        {/* ================================================= */}
 
         <TextInput
           ref={patientIdRef}
@@ -443,7 +460,6 @@ export default function PatientInfo() {
             if (errors.patientId) {
               setErrors({
                 ...errors,
-
                 patientId: validatePatientId(text),
               });
             }
@@ -461,9 +477,7 @@ export default function PatientInfo() {
           <Text style={styles.errorText}>{errors.patientId}</Text>
         )}
 
-        {/* ================================================= */}
         {/* Name */}
-        {/* ================================================= */}
 
         <TextInput
           ref={nameRef}
@@ -477,7 +491,6 @@ export default function PatientInfo() {
             if (errors.name) {
               setErrors({
                 ...errors,
-
                 name: validateName(text),
               });
             }
@@ -485,7 +498,6 @@ export default function PatientInfo() {
           onBlur={() => {
             setErrors({
               ...errors,
-
               name: validateName(name),
             });
           }}
@@ -500,9 +512,7 @@ export default function PatientInfo() {
           <Text style={styles.errorText}>{errors.name}</Text>
         )}
 
-        {/* ================================================= */}
         {/* Citizen ID */}
-        {/* ================================================= */}
 
         <TextInput
           ref={citizenIdRef}
@@ -519,7 +529,6 @@ export default function PatientInfo() {
               if (errors.citizenId) {
                 setErrors({
                   ...errors,
-
                   citizenId: validateCitizenId(onlyNumbers),
                 });
               }
@@ -530,7 +539,6 @@ export default function PatientInfo() {
           onBlur={() => {
             setErrors({
               ...errors,
-
               citizenId: validateCitizenId(citizenId),
             });
           }}
@@ -545,9 +553,7 @@ export default function PatientInfo() {
           <Text style={styles.errorText}>{errors.citizenId}</Text>
         )}
 
-        {/* ================================================= */}
         {/* Gender + Age */}
-        {/* ================================================= */}
 
         <View style={styles.row}>
           {/* Gender */}
@@ -570,15 +576,12 @@ export default function PatientInfo() {
               <Text style={styles.arrow}>{genderOpen ? "▲" : "▼"}</Text>
             </TouchableOpacity>
 
-            {/* Dropdown */}
-
             {genderOpen && (
               <View style={styles.dropdownMenu}>
                 <TouchableOpacity
                   style={styles.option}
                   onPress={() => {
                     setGender("ชาย");
-
                     setGenderOpen(false);
 
                     setErrors({
@@ -596,7 +599,6 @@ export default function PatientInfo() {
                   style={styles.option}
                   onPress={() => {
                     setGender("หญิง");
-
                     setGenderOpen(false);
 
                     setErrors({
@@ -634,7 +636,6 @@ export default function PatientInfo() {
                 if (errors.age) {
                   setErrors({
                     ...errors,
-
                     age: validateAge(onlyNumbers),
                   });
                 }
@@ -644,7 +645,6 @@ export default function PatientInfo() {
               onBlur={() => {
                 setErrors({
                   ...errors,
-
                   age: validateAge(age),
                 });
               }}
@@ -661,9 +661,7 @@ export default function PatientInfo() {
           </View>
         </View>
 
-        {/* ================================================= */}
         {/* Phone */}
-        {/* ================================================= */}
 
         <TextInput
           ref={phoneRef}
@@ -680,7 +678,6 @@ export default function PatientInfo() {
               if (errors.phone) {
                 setErrors({
                   ...errors,
-
                   phone: validatePhone(onlyNumbers),
                 });
               }
@@ -691,7 +688,6 @@ export default function PatientInfo() {
           onBlur={() => {
             setErrors({
               ...errors,
-
               phone: validatePhone(phone),
             });
           }}
@@ -703,9 +699,7 @@ export default function PatientInfo() {
           <Text style={styles.errorText}>{errors.phone}</Text>
         )}
 
-        {/* ================================================= */}
         {/* Next */}
-        {/* ================================================= */}
 
         <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
           <Text style={styles.nextText}>Next</Text>
