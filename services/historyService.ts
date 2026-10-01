@@ -1,8 +1,7 @@
-// services/dashboardService.ts
+// ⚠️ ใช้ Web App URL เดียวกับตัวอ่าน historyService
+const HISTORY_API_URL = 'https://script.google.com/macros/s/AKfycbyZHrfZdDKAon-YcJMsVd-7gp0hNk30UEPAteoRP1GQ6eYX1DgMkAImFF56LqGFksBF/exec';
 
-// ⚠️ Web App URL จาก Google Apps Script
-const HISTORY_API_URL = 'https://script.google.com/macros/s/AKfycbzxUxMi5NecassCT-EwLgo5sFroDvkCOnGZXRcRGAMZWgD_vl2mY45ANcLuG8ACKIJ4/exec';
-
+// 1. Export Interface สำหรับ DashboardSummary
 export interface DashboardSummary {
   today: {
     sitMinutes: number;
@@ -18,42 +17,60 @@ export interface DashboardSummary {
   };
 }
 
+export interface SittingLogPayload {
+  sitSeconds: number;
+  moves: number;
+  avgTemp: number;
+  alerts: number;
+}
+
+// 2. Export ฟังก์ชัน fetchDashboardSummary
 export const fetchDashboardSummary = async (): Promise<DashboardSummary | null> => {
   try {
-    const separator = HISTORY_API_URL.includes('?') ? '&' : '?';
-    // เติม Timestamp เพื่อป้องกันการดึงข้อมูลแคชเก่า (Cache-busting)
-    const cacheBusterUrl = `${HISTORY_API_URL}${separator}_t=${Date.now()}`;
-
-    // ลบ headers ป้องกันการติด CORS บน Web Browser และใส่ redirect: 'follow'
-    const response = await fetch(cacheBusterUrl, {
+    const response = await fetch(`${HISTORY_API_URL}?action=getSummary&_t=${Date.now()}`, {
       method: 'GET',
-      redirect: 'follow',
     });
 
     if (!response.ok) {
       throw new Error(`HTTP Error status: ${response.status}`);
     }
 
-    const data = (await response.json()) as DashboardSummary;
-    return data;
+    const resData = await response.json();
+    return resData;
   } catch (error) {
-    // ใช้ console.warn เพื่อป้องกัน UI เกิด Crash สีแดงเวลาหลุดการเชื่อมต่อ
-    console.warn('Error fetching dashboard summary:', error);
-    
-    // คืนค่า Mock Data สำรอง หรือ null เพื่อไม่ให้หน้าแอปค้าง
-    return {
-      today: {
-        sitMinutes: 0,
-        moves: 0,
-        avgTemp: '36.5',
-        alerts: 0,
-      },
-      week: {
-        sitMinutes: 0,
-        moves: 0,
-        avgTemp: '36.5',
-        alerts: 0,
-      },
-    };
+    if (__DEV__) {
+      console.log('Error fetching dashboard summary:', error);
+    }
+    return null;
+  }
+};
+
+// 3. ฟังก์ชันสำหรับส่งประวัติการนั่งไปบันทึกลง Google Sheet
+export const logSittingSession = async (payload: SittingLogPayload): Promise<boolean> => {
+  try {
+    const queryParams = new URLSearchParams({
+      action: 'logSitting',
+      sitSeconds: payload.sitSeconds.toString(),
+      moves: payload.moves.toString(),
+      avgTemp: payload.avgTemp.toString(),
+      alerts: payload.alerts.toString(),
+      _t: Date.now().toString(),
+    });
+
+    // ใช้ mode: 'no-cors' เพื่อให้เบราว์เซอร์ส่ง Request ไปยัง Google Apps Script ได้โดยไม่โดน CORS บล็อก
+    await fetch(`${HISTORY_API_URL}?${queryParams.toString()}`, {
+      method: 'GET',
+      mode: 'no-cors',
+    });
+
+    if (__DEV__) {
+      console.log('✅ ส่งข้อมูลประวัติการนั่งไป Google Sheet เรียบร้อย');
+    }
+    return true;
+  } catch (error) {
+    if (__DEV__) {
+      console.log('❌ Error logging sitting session:', error);
+    }
+    return false;
   }
 };

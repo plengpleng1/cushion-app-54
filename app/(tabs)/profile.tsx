@@ -14,39 +14,79 @@ import {
 export default function ProfileScreen() {
   const router = useRouter();
 
-  const [fullName, setFullName] = useState("");
-  const [idCard, setIdCard] = useState("");
-  const [username, setUsername] = useState("");
+  const [displayType, setDisplayType] = useState<"username" | "email" | "">("");
+  const [displayValue, setDisplayValue] = useState("");
 
-  // ดึงข้อมูลผู้ใช้เมื่อสลับมาหน้านี้
+  // โหลดข้อมูลผู้ใช้ทุกครั้งที่เข้าหน้า Profile
   useFocusEffect(
     useCallback(() => {
-      const loadProfileData = async () => {
+      const loadProfile = async () => {
         try {
-          // 1. ดึงข้อมูลผู้ป่วยจากคีย์ "patientInfo"
-          const patientDataJson = await AsyncStorage.getItem("patientInfo");
-          if (patientDataJson) {
-            const patientData = JSON.parse(patientDataJson);
-            setFullName(patientData.name || "");
-            setIdCard(patientData.citizenId || "");
+          const currentUserJson = await AsyncStorage.getItem("@current_user");
+
+          if (!currentUserJson) {
+            setDisplayType("");
+            setDisplayValue("");
+            return;
           }
 
-          // 2. ดึง Username
-          const currentUserJson = await AsyncStorage.getItem("@current_user");
-          if (currentUserJson) {
-            const currentUser = JSON.parse(currentUserJson);
-            setUsername(currentUser.username || "");
+          const currentUser = JSON.parse(currentUserJson);
+
+          const email = currentUser.email || "";
+          const username = currentUser.username || "";
+
+          // ถ้ามี loginType
+          if (currentUser.loginType === "username") {
+            setDisplayType("username");
+            setDisplayValue(username);
+            return;
           }
+
+          if (currentUser.loginType === "email") {
+            setDisplayType("email");
+            setDisplayValue(email);
+            return;
+          }
+
+          // ถ้าไม่มี loginType
+          // Username จะถูกแปลงเป็น @cushionsense.local
+          if (email.endsWith("@cushionsense.local")) {
+            setDisplayType("username");
+            setDisplayValue(username);
+            return;
+          }
+
+          // Email จริง
+          if (email) {
+            setDisplayType("email");
+            setDisplayValue(email);
+            return;
+          }
+
+          // กรณีมีแค่ Username
+          if (username) {
+            setDisplayType("username");
+            setDisplayValue(username);
+            return;
+          }
+
+          setDisplayType("");
+          setDisplayValue("");
         } catch (error) {
-          console.error("Failed to load profile data:", error);
+          console.error("Failed to load profile:", error);
+
+          setDisplayType("");
+          setDisplayValue("");
         }
       };
 
-      loadProfileData();
+      loadProfile();
     }, []),
   );
 
-  // ฟังก์ชันสลับหน้ากลับไป Login
+  // =========================
+  // LOG OUT
+  // =========================
   const performLogout = async () => {
     try {
       await AsyncStorage.removeItem("@current_user");
@@ -56,11 +96,11 @@ export default function ProfileScreen() {
       if (router.canDismiss()) {
         router.dismissAll();
       }
+
       router.replace("/login");
     }
   };
 
-  // ฟังก์ชัน Log Out
   const handleLogout = () => {
     if (Platform.OS === "web") {
       if (window.confirm("Are you sure you want to log out?")) {
@@ -68,8 +108,15 @@ export default function ProfileScreen() {
       }
     } else {
       Alert.alert("Log Out", "Are you sure you want to log out?", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Log Out", style: "destructive", onPress: performLogout },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Log Out",
+          style: "destructive",
+          onPress: performLogout,
+        },
       ]);
     }
   };
@@ -77,31 +124,29 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* แยกสไตล์ Cushion (หนา) และ Sense (บาง) */}
+        {/* Logo */}
         <Text style={styles.brandTitle}>
           <Text style={styles.brandBold}>Cushion </Text>
+
           <Text style={styles.brandLight}>Sense</Text>
         </Text>
 
         <View style={styles.cardContainer}>
-          {/* ช่องที่ 1: ชื่อ - นามสกุล */}
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>{fullName || "ชื่อ - นามสกุล"}</Text>
-          </View>
+          {/* Username */}
+          {displayType === "username" && (
+            <View style={styles.infoBox}>
+              <Text style={styles.infoText}>{displayValue}</Text>
+            </View>
+          )}
 
-          {/* ช่องที่ 2: เลขบัตรประจำตัวประชาชน */}
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>{idCard || "เลขประชาชน"}</Text>
-          </View>
+          {/* Email */}
+          {displayType === "email" && (
+            <View style={styles.infoBox}>
+              <Text style={styles.infoText}>{displayValue}</Text>
+            </View>
+          )}
 
-          {/* ช่องที่ 3: Username */}
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>
-              {username ? `Username : ${username}` : "Username"}
-            </Text>
-          </View>
-
-          {/* ปุ่ม Log out */}
+          {/* Log out */}
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Text style={styles.logoutButtonText}>Log out</Text>
           </TouchableOpacity>
@@ -150,13 +195,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#D8D8D8",
     borderRadius: 15,
-    paddingHorizontal: 24,
+    paddingHorizontal: 30,
     paddingVertical: 30,
   },
 
   infoBox: {
     width: "100%",
-    height: 60,
+    minHeight: 60,
     borderWidth: 1,
     borderColor: "#C9C9C9",
     borderRadius: 10,

@@ -463,7 +463,7 @@ export default function PatientListScreen() {
           ===================================================== */}
 
       <View style={styles.header}>
-        <Text style={styles.title}>Patient List</Text>
+        <Text style={styles.title}>Patient Lists</Text>
 
         <Text style={styles.subtitle}>รายการผู้ป่วย</Text>
       </View>
@@ -479,7 +479,7 @@ export default function PatientListScreen() {
       >
         {patients.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>ยังไม่มีข้อมูลผู้ป่วย</Text>
+            <Text style={styles.emptyText}>ไม่พบข้อมูลผู้ป่วย</Text>
           </View>
         ) : (
           patients.map((patient, index) => {

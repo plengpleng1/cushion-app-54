@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { makeRedirectUri } from 'expo-auth-session';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -19,6 +20,9 @@ import { supabase } from '../lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
+const STORAGE_USERS_KEY = '@cushionsense_users';
+const STORAGE_CURRENT_USER = '@cushionsense_current_user';
+
 export default function LoginScreen() {
   const router = useRouter();
   const [isSignUp, setIsSignUp] = useState(false);
@@ -31,28 +35,19 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // ปุ่มดวงตาปุ่มเดียวควบคุมการเปิด/ปิดรหัสผ่าน
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   const showError = (message: string) => {
     setErrorMessage(message);
   };
 
-  // แปลง Username เป็น Email Format สำหรับ Supabase Auth
-  const getFormattedEmail = (input: string) => {
-    const trimmed = input.trim();
-    if (trimmed.includes('@')) {
-      return trimmed;
-    }
-    return `${trimmed.toLowerCase()}@cushionsense.app`;
-  };
-
   const validatePassword = (pass: string) => {
     return pass.length >= 8;
   };
 
-  // 1. สมัครสมาชิก
+  // 1. Sign Up (AsyncStorage)
   const handleSignUp = async () => {
     setErrorMessage('');
     const trimmedUser = username.trim();
@@ -76,29 +71,32 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
-      const emailToUse = getFormattedEmail(trimmedUser);
 
-      const { data, error } = await supabase.auth.signUp({
-        email: emailToUse,
-        password: trimmedPassword,
-        options: {
-          data: {
-            username: trimmedUser,
-          },
-        },
-      });
+      const existingData = await AsyncStorage.getItem(STORAGE_USERS_KEY);
+      const users = existingData ? JSON.parse(existingData) : [];
 
-      if (error) {
-        showError(error.message);
+      const isDuplicate = users.some((u: any) => u.username === trimmedUser);
+
+      if (isDuplicate) {
+        showError('Username นี้ถูกใช้งานแล้ว');
         return;
       }
 
-      if (data.session) {
-        router.push('/select' as any);
-      } else {
-        showError('สมัครสมาชิกสำเร็จ! กรุณาล็อกอินเพื่อเข้าสู่ระบบ');
-        setIsSignUp(false);
-      }
+      const newUser = {
+        username: trimmedUser,
+        password: trimmedPassword,
+        createdAt: new Date().toISOString(),
+      };
+
+      users.push(newUser);
+      await AsyncStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
+
+      // สมัครสำเร็จ -> กลับไปหน้า Sign In เพื่อให้พิมพ์ Password อีกครั้ง
+      setIsSignUp(false);
+      setPassword('');
+      setConfirmPassword('');
+      setShowPassword(false);
+      showError('สมัครสมาชิกสำเร็จ! กรุณาใส่ Password เพื่อเข้าสู่ระบบ');
     } catch (err: any) {
       showError('เกิดข้อผิดพลาดในการลงทะเบียน');
     } finally {
@@ -106,7 +104,7 @@ export default function LoginScreen() {
     }
   };
 
-  // 2. เข้าสู่ระบบด้วย Username/Password
+  // 2. Sign In (AsyncStorage)
   const handleSignIn = async () => {
     setErrorMessage('');
     const trimmedUser = username.trim();
@@ -119,18 +117,20 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
-      const emailToUse = getFormattedEmail(trimmedUser);
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email: emailToUse,
-        password: trimmedPassword,
-      });
+      const existingData = await AsyncStorage.getItem(STORAGE_USERS_KEY);
+      const users = existingData ? JSON.parse(existingData) : [];
 
-      if (error) {
+      const targetUser = users.find(
+        (u: any) => u.username === trimmedUser && u.password === trimmedPassword
+      );
+
+      if (!targetUser) {
         showError('เข้าสู่ระบบไม่สำเร็จ: Username หรือ Password ไม่ถูกต้อง');
         return;
       }
 
+      await AsyncStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(targetUser));
       router.push('/select' as any);
     } catch (err: any) {
       showError('เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
@@ -139,7 +139,7 @@ export default function LoginScreen() {
     }
   };
 
-  // 3. เข้าสู่ระบบด้วย Google OAuth
+  // 3. Sign in with Google
   const createSessionFromUrl = async (url: string) => {
     const route = url.replace('#', '?');
     const queryParams = new URLSearchParams(route.split('?')[1]);
@@ -151,7 +151,7 @@ export default function LoginScreen() {
       return;
     }
 
-    const { error } = await supabase.auth.setSession({
+    const { data, error } = await supabase.auth.setSession({
       access_token,
       refresh_token,
     });
@@ -159,6 +159,15 @@ export default function LoginScreen() {
     if (error) {
       showError(error.message);
     } else {
+      if (data.session?.user) {
+        await AsyncStorage.setItem(
+          STORAGE_CURRENT_USER,
+          JSON.stringify({
+            username: data.session.user.email,
+            type: 'google',
+          })
+        );
+      }
       router.push('/select' as any);
     }
   };
@@ -167,9 +176,10 @@ export default function LoginScreen() {
     setErrorMessage('');
     try {
       setLoading(true);
+
       const redirectTo = makeRedirectUri({
         scheme: 'cushionsense',
-        path: 'auth/callback',
+        preferLocalhost: false,
       });
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -183,8 +193,8 @@ export default function LoginScreen() {
         },
       });
 
-      if (error) {
-        showError(error.message);
+      if (error || !data?.url) {
+        showError(error?.message || 'ไม่สามารถดึง URL สำหรับเข้าสู่ระบบได้');
         return;
       }
 
@@ -213,6 +223,18 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* ซ่อนดวงตาของ Browser (Edge/Chrome) บน Web */}
+      {Platform.OS === 'web' && (
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            input::-ms-reveal,
+            input::-ms-clear {
+              display: none !important;
+            }
+          `
+        }} />
+      )}
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -241,6 +263,9 @@ export default function LoginScreen() {
                   if (errorMessage) setErrorMessage('');
                 }}
                 autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="off"
+                textContentType="none"
                 returnKeyType="next"
                 onSubmitEditing={() => passwordInputRef.current?.focus()}
               />
@@ -264,6 +289,9 @@ export default function LoginScreen() {
                     if (errorMessage) setErrorMessage('');
                   }}
                   autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="off"
+                  textContentType="none"
                   returnKeyType={isSignUp ? 'next' : 'done'}
                   onSubmitEditing={() => {
                     if (isSignUp) {
@@ -276,6 +304,7 @@ export default function LoginScreen() {
                 <TouchableOpacity
                   style={styles.eyeIcon}
                   onPress={() => setShowPassword(!showPassword)}
+                  activeOpacity={0.7}
                 >
                   <Ionicons
                     name={showPassword ? 'eye-outline' : 'eye-off-outline'}
@@ -290,45 +319,37 @@ export default function LoginScreen() {
             {isSignUp && (
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Confirm Password</Text>
-                <View style={styles.passwordWrapper}>
-                  <TextInput
-                    ref={confirmPasswordInputRef}
-                    style={[styles.input, styles.passwordInput]}
-                    placeholder="Confirm your password"
-                    placeholderTextColor="#A0A0A0"
-                    secureTextEntry={!showConfirmPassword}
-                    value={confirmPassword}
-                    onChangeText={(text) => {
-                      setConfirmPassword(text);
-                      if (errorMessage) setErrorMessage('');
-                    }}
-                    autoCapitalize="none"
-                    returnKeyType="done"
-                    onSubmitEditing={handleSubmit}
-                  />
-                  <TouchableOpacity
-                    style={styles.eyeIcon}
-                    onPress={() =>
-                      setShowConfirmPassword(!showConfirmPassword)
-                    }
-                  >
-                    <Ionicons
-                      name={
-                        showConfirmPassword
-                          ? 'eye-outline'
-                          : 'eye-off-outline'
-                      }
-                      size={22}
-                      color="#666666"
-                    />
-                  </TouchableOpacity>
-                </View>
+                <TextInput
+                  ref={confirmPasswordInputRef}
+                  style={styles.input}
+                  placeholder="Confirm your password"
+                  placeholderTextColor="#A0A0A0"
+                  secureTextEntry={!showPassword}
+                  value={confirmPassword}
+                  onChangeText={(text) => {
+                    setConfirmPassword(text);
+                    if (errorMessage) setErrorMessage('');
+                  }}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="off"
+                  textContentType="none"
+                  returnKeyType="done"
+                  onSubmitEditing={handleSubmit}
+                />
               </View>
             )}
 
-            {/* Error Message */}
+            {/* Error / Success Message */}
             {errorMessage ? (
-              <Text style={styles.errorText}>{errorMessage}</Text>
+              <Text
+                style={[
+                  styles.errorText,
+                  errorMessage.includes('สำเร็จ') && styles.successText,
+                ]}
+              >
+                {errorMessage}
+              </Text>
             ) : null}
 
             {/* Submit Button */}
@@ -359,7 +380,6 @@ export default function LoginScreen() {
                   setPassword('');
                   setConfirmPassword('');
                   setShowPassword(false);
-                  setShowConfirmPassword(false);
                   setErrorMessage('');
                 }}
               >
@@ -470,12 +490,13 @@ const styles = StyleSheet.create({
     paddingRight: 48,
   },
   eyeIcon: {
-  position: 'absolute',
-  right: 12,
-  height: '100%',
-  justifyContent: 'center', 
-  alignItems: 'center',
-},
+    position: 'absolute',
+    right: 12,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
   errorText: {
     color: '#D92D20',
     fontSize: 13,
@@ -483,23 +504,26 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: 'center',
   },
+  successText: {
+    color: '#079455',
+  },
   primaryButton: {
-  height: 48,
-  backgroundColor: '#4464D0',
-  justifyContent: 'center', 
-  alignItems: 'center',
-  borderRadius: 8,
-  marginTop: 4,
-},
+    height: 48,
+    backgroundColor: '#4464D0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    marginTop: 4,
+  },
   primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
   toggleContainer: {
-  flexDirection: 'row',
-  justifyContent: 'center', // 🟢 แก้จาก justify เป็น justifyContent
-  marginTop: 20,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
   },
   toggleText: {
     color: '#666666',
@@ -527,15 +551,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   googleButton: {
-  height: 48,
-  borderWidth: 1,
-  borderColor: '#CCCCCC',
-  borderRadius: 8,
-  flexDirection: 'row',
-  justifyContent: 'center', 
-  alignItems: 'center',
-  backgroundColor: '#FFFFFF',
-},
+    height: 48,
+    borderWidth: 1,
+    borderColor: '#CCCCCC',
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
   googleIcon: {
     marginRight: 8,
   },
