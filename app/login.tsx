@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { makeRedirectUri } from 'expo-auth-session';
+import * as AuthSession from 'expo-auth-session';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useRef, useState } from 'react';
@@ -177,10 +177,14 @@ export default function LoginScreen() {
     try {
       setLoading(true);
 
-      const redirectTo = makeRedirectUri({
+      // สร้าง Redirect URI ที่บังคับใช้ Custom Scheme (cushionsense://)
+      // ป้องกันไม่ให้ Expo คืนค่ากลับมาเป็น http://localhost
+      const redirectTo = AuthSession.makeRedirectUri({
         scheme: 'cushionsense',
-        preferLocalhost: false,
+        path: 'auth/callback',
       });
+
+      console.log('Redirecting to:', redirectTo); // เช็ค Log ว่าได้ cushionsense://auth/callback หรือไม่
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
