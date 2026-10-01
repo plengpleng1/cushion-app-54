@@ -1,37 +1,50 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  useWindowDimensions,
+ View,
+ Text,
+ StyleSheet,
+ ScrollView,
+ ActivityIndicator,
+ useWindowDimensions,
 } from 'react-native';
 
+
 import {
-  fetchSensorData,
-  SensorData,
+ fetchSensorData,
+ SensorData,
 } from '../../services/sensorService';
+
 
 type PrimaryStatus = 'ACTIVE' | 'STANDBY';
 type PressureSide = 'left' | 'right' | 'both' | 'none';
 
+
 export default function HomeScreen() {
+  // =========================
+  // Responsive Layout
+  // =========================
   const { width: windowWidth } = useWindowDimensions();
+  // กำหนดความกว้างสูงสุดของคอนเทนเนอร์ไม่เกิน 500px (ปรับได้ตามต้องการ)
   const maxContainerWidth = Math.min(windowWidth - 32, 500);
 
+  // =========================
+  // Timer & States
+  // =========================
   const [seconds, setSeconds] = useState(0);
+
+  // Sensor Data
   const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // UI State
   const [mainStatus, setMainStatus] = useState<PrimaryStatus>('STANDBY');
   const [pressureSide, setPressureSide] = useState<PressureSide>('none');
   const [isHumidHigh, setIsHumidHigh] = useState<boolean>(false);
   const [isTempHigh, setIsTempHigh] = useState<boolean>(false);
 
   // =========================
-  // Timer Logic: นับเฉพาะเมื่อนั่งตรงกลาง (CENTER / both)
+  // Timer Logic: นับเฉพาะเมื่อ pressureSide === 'both' (CENTER)
   // =========================
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
@@ -41,6 +54,7 @@ export default function HomeScreen() {
         setSeconds((prev) => prev + 1);
       }, 1000);
     } else if (pressureSide === 'none') {
+      // ลุกออกไปแล้ว -> รีเซ็ตเวลากลับเป็น 0
       setSeconds(0);
     }
     return () => {
@@ -51,55 +65,70 @@ export default function HomeScreen() {
   // =========================
   // ดึงข้อมูล Sensor ทุก 2 วินาที
   // =========================
-  useEffect(() => {
-    let isMounted = true;
+useEffect(() => {
+  let isMounted = true; // 1. กำหนดตัวแปรติดตามสถานะ Component
 
-    const loadData = async () => {
-      try {
-        const data = await fetchSensorData();
+  const loadData = async () => {
+    try {
+      const data = await fetchSensorData();
 
-        if (data && isMounted) {
-          setSensorData(data);
-          setLoading(false);
+      // เช็กว่า Component ยังอยู่หรือไม่ ถ้าไม่อยู่แล้วให้หยุดทำงาน
+      if (!isMounted) return;
 
-          // 1. เช็คความชื้นและอุณหภูมิสูง
-          setIsHumidHigh((data.humidity || 0) > 75);
-          setIsTempHigh((data.temperature || 0) > 28);
+      if (data) {
+        // 1. อัปเดตข้อมูล Sensor หลัก
+        setSensorData(data);
 
-          // 2. ซิงค์สถานะการลงน้ำหนักจาก sensorService โดยตรง
-          switch (data.position) {
-            case 'CENTER':
-              setPressureSide('both');
-              break;
-            case 'LEFT':
-              setPressureSide('left');
-              break;
-            case 'RIGHT':
-              setPressureSide('right');
-              break;
-            case 'NONE':
-            default:
-              setPressureSide('none');
-              break;
-          }
+        // 2. เช็คความชื้นสูง > 75%
+        const humidHigh = (data.humidity || 0) > 75;
+        setIsHumidHigh(humidHigh);
 
-          // 3. ซิงค์สถานะ ACTIVE / STANDBY
-          setMainStatus(data.status);
+        // 3. เช็คตำแหน่งแรงกด
+        const isLeftPressed = (data.sensor1 ?? 4095) < 500;
+        const isRightPressed = (data.sensor2 ?? 4095) < 500;
+
+        if (isLeftPressed && isRightPressed) {
+          setPressureSide('both');
+        } else if (isLeftPressed) {
+          setPressureSide('left');
+        } else if (isRightPressed) {
+          setPressureSide('right');
+        } else {
+          setPressureSide('none');
         }
-      } catch (error) {
-        console.error('โหลดข้อมูล Sensor ไม่สำเร็จ:', error);
+
+        // 4. เช็คอุณหภูมิสูง > 28°C
+        const tempHigh = (data.temperature || 0) > 28;
+        setIsTempHigh(tempHigh);
+
+        // 5. เช็คสถานะ ACTIVE / STANDBY
+        if (data.status === 'ACTIVE') {
+          setMainStatus('ACTIVE');
+        } else {
+          setMainStatus('STANDBY');
+        }
       }
-    };
+    } catch (error) {
+      console.warn("Failed to load data:", error);
+    } finally {
+      // 💡 สำคัญ: ปิด Loading เสมอถ้า Component ยังแสดงอยู่
+      if (isMounted) {
+        setLoading(false);
+      }
+    }
+  };
 
-    loadData();
-    const interval = setInterval(loadData, 2000);
+  loadData(); // เรียกทำงานครั้งแรก
 
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, []);
+  // Cleanup Function เมื่อ Unmount หน้าจอ
+  return () => {
+    isMounted = false;
+  };
+}, []);
 
+  // =========================
+  // แก้ไขข้อความแสดง Position ให้ตรงตาม pressureSide เสมอ
+  // =========================
   const getDisplayPosition = () => {
     switch (pressureSide) {
       case 'left':
@@ -114,44 +143,85 @@ export default function HomeScreen() {
     }
   };
 
+  // =========================
+  // คำนวณสีของ Timer Card
+  // =========================
   const getTimerCardStyle = () => {
-    if (pressureSide === 'none') return { backgroundColor: '#F2F2F7' };
-    if (pressureSide === 'left' || pressureSide === 'right') return { backgroundColor: '#E5E5EA' };
-    if (seconds >= 120) return { backgroundColor: '#FF3B30' };
-    return { backgroundColor: '#34C759' };
+    // ยังไม่ได้นั่ง
+    if (pressureSide === 'none') {
+      return {
+        backgroundColor: '#F2F2F7',
+      };
+    }
+
+    // นั่งเอียงซ้าย / ขวา
+    if (pressureSide === 'left' || pressureSide === 'right') {
+      return {
+        backgroundColor: '#E5E5EA',
+      };
+    }
+
+    // นั่งตรงกลาง และเกิน/ครบ 2 นาที
+    if (seconds >= 120) {
+      return {
+        backgroundColor: '#FF3B30',
+      };
+    }
+
+    // นั่งตรงกลาง และยังไม่ถึง 2 นาที
+    return {
+      backgroundColor: '#34C759',
+    };
   };
 
+  // =========================
+  // คำนวณสีตัวอักษรของ Timer
+  // =========================
   const getTimerTextColor = () => {
-    if (pressureSide === 'both') return '#FFFFFF';
+    // กำลังนั่งตรงกลาง
+    if (pressureSide === 'both') {
+      return '#FFFFFF';
+    }
+
+    // Standby / นั่งเอียง
     return '#8E8E93';
   };
 
+  // แปลงวินาทีเป็น HH:MM:SS
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const secs = totalSeconds % 60;
 
-    return `${hours.toString().padStart(2, '0')}:${minutes
-      .toString()
-      .padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+   return `${hours.toString().padStart(2, '0')}:${minutes
+     .toString()
+     .padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+ };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4464D0" />
-        <Text style={styles.loadingText}>กำลังโหลดข้อมูลจาก Google Sheet...</Text>
-      </View>
-    );
-  }
 
-  const isActive = mainStatus === 'ACTIVE';
+ if (loading) {
+   return (
+     <View style={styles.loadingContainer}>
+       <ActivityIndicator size="large" color="#4464D0" />
+       <Text style={styles.loadingText}>กำลังโหลดข้อมูลจาก Google Sheet...</Text>
+     </View>
+   );
+ }
+
+
+ const isActive = mainStatus === 'ACTIVE';
+
 
   const formatUpdateTime = (time?: string) => {
     if (!time) return '-';
+
     try {
       const date = new Date(time);
-      if (isNaN(date.getTime())) return time;
+
+      if (isNaN(date.getTime())) {
+        return time;
+      }
+
       return date.toLocaleTimeString('th-TH', {
         hour: '2-digit',
         minute: '2-digit',
@@ -164,12 +234,13 @@ export default function HomeScreen() {
   };
 
   return (
-  <SafeAreaView style={styles.safeArea} edges={['top']}>
-    <ScrollView
+    <ScrollView 
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
     >
+      {/* Wrapper หลักสำหรับจำกัดความกว้างและจัดกึ่งกลางหน้าจอ */}
       <View style={[styles.mainWrapper, { width: maxContainerWidth }]}>
+        {/* Header */}
         <Text style={styles.logo}>
           Cushion <Text style={styles.sense}>Sense</Text>
         </Text>
@@ -177,6 +248,7 @@ export default function HomeScreen() {
           อัปเดตล่าสุด: {formatUpdateTime(sensorData?.time)}
         </Text>
 
+        {/* Alarm Alerts */}
         {(isHumidHigh || isTempHigh || seconds >= 120) && (
           <View style={styles.alarmCard}>
             <Text style={styles.alarmTitle}>🚨 แจ้งเตือนระบบ (Alarm Alert)</Text>
@@ -198,45 +270,70 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {/* Status + Timer */}
         <View style={styles.row}>
+          {/* Status Card */}
           <View
             style={[
               styles.card,
               styles.thirdCard,
-              { backgroundColor: isActive ? '#EAF9EC' : '#F2F2F7' },
+              {
+                backgroundColor: isActive ? '#EAF9EC' : '#F2F2F7',
+              },
             ]}
           >
-            <Text style={styles.cardLabel} numberOfLines={1}>
-              Status
-            </Text>
+            <Text style={styles.cardLabel}>Status</Text>
             <Text
               style={[
                 styles.cardValue,
-                { color: isActive ? '#34C759' : '#8E8E93' },
+                {
+                  color: isActive ? '#34C759' : '#8E8E93',
+                },
               ]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
             >
               {mainStatus}
             </Text>
-            <Text style={styles.subText} numberOfLines={1}>
+            <Text style={styles.subText}>
               {isActive ? 'มีการลงน้ำหนัก' : 'ไม่มีการลงน้ำหนัก'}
             </Text>
           </View>
 
-          <View style={[styles.card, styles.twoThirdsCard, getTimerCardStyle()]}>
-            <Text style={[styles.cardLabel, { color: getTimerTextColor() }]} numberOfLines={1}>
+          {/* Timer Card */}
+          <View
+            style={[
+              styles.card,
+              styles.twoThirdsCard,
+              getTimerCardStyle(),
+            ]}
+          >
+            <Text
+              style={[
+                styles.cardLabel,
+                {
+                  color: getTimerTextColor(),
+                },
+              ]}
+            >
               Timer
             </Text>
-            <Text style={[styles.timerValue, { color: getTimerTextColor() }]} numberOfLines={1}>
+
+            <Text
+              style={[
+                styles.timerValue,
+                {
+                  color: getTimerTextColor(),
+                },
+              ]}
+            >
               {formatTime(seconds)}
             </Text>
           </View>
         </View>
 
+        {/* Position & Pressure Map */}
         <View style={styles.card}>
           <View style={styles.positionHeader}>
-            <Text style={[styles.cardLabel, { flex: 1, marginRight: 6 }]} numberOfLines={1} adjustsFontSizeToFit>
+            <Text style={styles.cardLabel}>
               Position & Pressure Map ({getDisplayPosition()})
             </Text>
             <View style={styles.badgeContainer}>
@@ -245,6 +342,11 @@ export default function HomeScreen() {
             </View>
           </View>
 
+          <Text style={styles.notMedicalInformation}>
+            หมายเหตุ: ผลประเมินเบื้องต้น ไม่ใช่การวินิจฉัยทางการแพทย์
+          </Text>
+
+          {/* Cushion Area */}
           <View
             style={[
               styles.cushionContainer,
@@ -253,6 +355,7 @@ export default function HomeScreen() {
               isHumidHigh && styles.humidWarningBorder,
             ]}
           >
+            {/* Left Side */}
             <View
               style={[
                 styles.cushionHalf,
@@ -271,6 +374,7 @@ export default function HomeScreen() {
               )}
             </View>
 
+            {/* Right Side */}
             <View
               style={[
                 styles.cushionHalf,
@@ -291,16 +395,17 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* Sensor Values */}
         <View style={styles.sensorRow}>
+          {/* Pressure */}
           <View style={[styles.card, styles.pressureCard]}>
-            <Text style={styles.cardLabel} numberOfLines={1}>
-              Pressure
-            </Text>
-            <Text style={styles.cardValue} numberOfLines={1}>
+            <Text style={styles.cardLabel}>Pressure</Text>
+            <Text style={styles.cardValue}>
               {pressureSide === 'none' ? 'LOW' : 'HIGH'}
             </Text>
           </View>
 
+          {/* Temperature */}
           <View
             style={[
               styles.card,
@@ -308,15 +413,18 @@ export default function HomeScreen() {
               isTempHigh && styles.tempWarningCard,
             ]}
           >
-            {/* เพิ่ม numberOfLines และ adjustsFontSizeToFit ป้องกันคำว่า Temperature ตกบรรทัด */}
-            <Text style={styles.cardLabel} numberOfLines={1} adjustsFontSizeToFit>
-              Temperature
-            </Text>
-            <Text style={[styles.cardValue, isTempHigh && styles.tempWarningText]} numberOfLines={1}>
+            <Text style={styles.cardLabel}>Temperature</Text>
+            <Text
+              style={[
+                styles.cardValue,
+                isTempHigh && styles.tempWarningText,
+              ]}
+            >
               {sensorData?.temperature ?? 0} °C
             </Text>
           </View>
 
+          {/* Humidity */}
           <View
             style={[
               styles.card,
@@ -324,39 +432,34 @@ export default function HomeScreen() {
               isHumidHigh && styles.humidWarningCard,
             ]}
           >
-            <Text style={styles.cardLabel} numberOfLines={1}>
-              Humid
-            </Text>
-            <Text style={[styles.cardValue, isHumidHigh && styles.humidWarningText]} numberOfLines={1}>
+            <Text style={styles.cardLabel}>Humid</Text>
+            <Text
+              style={[
+                styles.cardValue,
+                isHumidHigh && styles.humidWarningText,
+              ]}
+            >
               {sensorData?.humidity ?? 0} %
             </Text>
           </View>
         </View>
-
-        <Text style={styles.notMedicalInformation}>
-          หมายเหตุ: ผลประเมินเบื้องต้น ไม่ใช่การวินิจฉัยทางการแพทย์
-        </Text>
       </View>
     </ScrollView>
-  </SafeAreaView>
-);
+  );
 }
 
+
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
   container: {
     paddingVertical: 20,
     paddingTop: 60,
     paddingHorizontal: 16,
     backgroundColor: '#F2F2F7',
     flexGrow: 1,
-    alignItems: 'center',
+    alignItems: 'center', // บังคับให้ Wrapper ตรงกลางอยู่กึ่งกลางหน้าจอเสมอ
   },
   mainWrapper: {
-    alignSelf: 'center',
+    alignSelf: 'center', // บีบขนาดความกว้างตามที่กำหนดไว้ใน dynamic style
   },
   loadingContainer: {
     flex: 1,
@@ -367,6 +470,10 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     color: '#8E8E93',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 35,
   },
   logo: {
     fontSize: 32,
@@ -380,14 +487,14 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   lastUpdateText: {
-    fontSize: 16,
+    fontSize: 12,
     color: '#8E8E93',
     textAlign: 'center',
     marginBottom: 16,
     marginTop: 2,
   },
   notMedicalInformation: {
-    fontSize: 16,
+    fontSize: 12,
     color: '#8E8E93',
     marginBottom: 16,
     marginTop: 2,
@@ -396,25 +503,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFE5E5',
     borderLeftWidth: 5,
     borderLeftColor: '#FF3B30',
-    padding: 20,
+    padding: 10,
     borderRadius: 12,
     marginBottom: 16,
   },
   alarmTitle: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#FF3B30',
     marginBottom: 6,
   },
   alarmText: {
-    fontSize: 17,
+    fontSize: 13,
     color: '#D70000',
     fontWeight: '500',
     marginBottom: 3,
   },
   card: {
     backgroundColor: '#FFFFFF',
-    padding: 20,
+    padding: 16,
     borderRadius: 16,
     marginBottom: 16,
     shadowColor: '#000',
@@ -424,23 +531,23 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cardLabel: {
-    fontSize: 16,
+    fontSize: 13,
     color: '#8E8E93',
     fontWeight: '600',
     marginBottom: 6,
   },
   cardValue: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#1C1C1E',
   },
   subText: {
-    fontSize: 15,
+    fontSize: 11,
     color: '#8E8E93',
     marginTop: 4,
   },
   timerValue: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
   },
   row: {
@@ -472,14 +579,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 0.5,
   },
   badgeContainer: {
     flexDirection: 'row',
     gap: 5,
   },
   humidBadge: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 'bold',
     color: '#0288D1',
     backgroundColor: '#E0F7FA',
@@ -488,7 +595,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   tempBadge: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 'bold',
     color: '#FF3B30',
     backgroundColor: '#FFE5E5',
