@@ -16,21 +16,17 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg';
-import { fetchSensorData, SensorData } from '../../services/sensorService';
+import { fetchSensorData } from '../../services/sensorService';
+
+import {
+  HistoryLog,
+  loadSavedHistory,
+  saveHistory,
+} from '../../services/historyService';
 
 type TabType = 'today' | 'week';
 type MetricType = 'humidity' | 'pressure' | 'temperature';
 
-interface HistoryLog extends SensorData {
-  id: string;
-  calculatedPosition: 'LEFT' | 'RIGHT' | 'CENTER' | 'NONE';
-  isTempHigh: boolean;
-  isHumidHigh: boolean;
-  leftPressed: boolean;
-  rightPressed: boolean;
-  sittingSeconds: number;
-  isSittingTooLong: boolean;
-}
 
 // =====================================================
 // Format Time
@@ -324,9 +320,6 @@ export default function HistoryScreen() {
 // สร้าง Storage Key
 // =====================================================
 
-const getHistoryStorageKey = (patientId: string) =>
-  `history_${patientId}`;
-
 // =====================================================
 // จัดรูปแบบวันที่สำหรับเปรียบเทียบ
 // =====================================================
@@ -334,26 +327,38 @@ const getHistoryStorageKey = (patientId: string) =>
 const getLogDateKey = (dateString: string) => {
   if (!dateString) return '';
 
-  // กรณีเป็นรูปแบบ d/M/yyyy
-  // เช่น 30/9/2026
-  const slashMatch = dateString.match(
-  /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-
-  if (slashMatch) {
-    const [, day, month, year] = slashMatch;
-
-    return `${year}-${Number(month)}-${Number(day)}`;
-  }
-
-  // กรณีเป็น ISO Date
-  // เช่น 2026-09-30T00:00:00.000Z
   const date = new Date(dateString);
 
   if (isNaN(date.getTime())) {
     return '';
   }
 
-  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+  const thailandDate = new Intl.DateTimeFormat(
+    'en-CA',
+    {
+      timeZone: 'Asia/Bangkok',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    }
+  ).formatToParts(date);
+
+  const year =
+    thailandDate.find(
+      (part) => part.type === 'year'
+    )?.value;
+
+  const month =
+    thailandDate.find(
+      (part) => part.type === 'month'
+    )?.value;
+
+  const day =
+    thailandDate.find(
+      (part) => part.type === 'day'
+    )?.value;
+
+  return `${year}-${Number(month)}-${Number(day)}`;
 };
 
 // =====================================================
@@ -408,71 +413,7 @@ const filteredLogs = historyLogs.filter((log) => {
   return true;
 });
 
-  // =====================================================
-  // โหลด History ของ Patient ปัจจุบัน
-  // =====================================================
-  const loadSavedHistory = async (
-    patientId: string
-  ) => {
-    try {
-      const storageKey =
-        getHistoryStorageKey(patientId);
-
-      const savedData =
-        await AsyncStorage.getItem(storageKey);
-
-      if (!savedData) {
-        historyLogsRef.current = [];
-        setHistoryLogs([]);
-        return;
-      }
-
-      const savedLogs: HistoryLog[] =
-        JSON.parse(savedData);
-
-      if (Array.isArray(savedLogs)) {
-        historyLogsRef.current =
-          savedLogs;
-
-        setHistoryLogs(savedLogs);
-      } else {
-        historyLogsRef.current = [];
-        setHistoryLogs([]);
-      }
-    } catch (error) {
-      console.error(
-        'ไม่สามารถโหลด History ได้:',
-        error
-      );
-
-      historyLogsRef.current = [];
-      setHistoryLogs([]);
-    }
-  };
-
-  // =====================================================
-  // บันทึก History ลง AsyncStorage
-  // =====================================================
-  const saveHistory = async (
-    patientId: string,
-    logs: HistoryLog[]
-  ) => {
-    try {
-      const storageKey =
-        getHistoryStorageKey(patientId);
-
-      await AsyncStorage.setItem(
-        storageKey,
-        JSON.stringify(logs)
-      );
-    } catch (error) {
-      console.error(
-        'ไม่สามารถบันทึก History ได้:',
-        error
-      );
-    }
-  };
-
+  
   // =====================================================
   // โหลด Sensor + เพิ่ม History
   // =====================================================
@@ -729,9 +670,13 @@ const filteredLogs = historyLogs.filter((log) => {
           // ---------------------------------------------
           // 4. โหลด History เก่า
           // ---------------------------------------------
-          await loadSavedHistory(
-            selectedPatientId
-          );
+          const savedLogs =
+            await loadSavedHistory(selectedPatientId);
+
+          if (!isActive) return;
+
+          historyLogsRef.current = savedLogs;
+          setHistoryLogs(savedLogs);
 
           if (!isActive) return;
 
