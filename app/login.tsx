@@ -1,8 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { makeRedirectUri } from 'expo-auth-session';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,17 +15,19 @@ import {
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 
-WebBrowser.maybeCompleteAuthSession();
-
 export default function LoginScreen() {
   const router = useRouter();
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Input Refs สำหรับการกด Next บนคีย์บอร์ด
+  const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const confirmPasswordInputRef = useRef<TextInput>(null);
 
-  const [identifier, setIdentifier] = useState('');
+  // States
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -40,6 +40,7 @@ export default function LoginScreen() {
     setErrorMessage(message);
   };
 
+  // ตรวจสอบความถูกต้องของ Password (ความยาว >= 8, มีตัวอักษร, มีตัวเลข, ใส่ตัวอักษรพิเศษได้)
   const validatePassword = (pass: string) => {
     const hasMinLength = pass.length >= 8;
     const hasLetter = /[a-zA-Z]/.test(pass);
@@ -47,85 +48,33 @@ export default function LoginScreen() {
     return hasMinLength && hasLetter && hasNumber;
   };
 
-  const formatAuthInput = (input: string) => {
-    const trimmed = input.trim();
-    if (trimmed.includes('@')) {
-      return trimmed.toLowerCase();
-    }
-    const preservedCase = trimmed.replace(/[A-Z]/g, (char) => `_${char.charCodeAt(0).toString(16)}`);
-    return `${encodeURIComponent(preservedCase)}@cushionsense.internal`;
+  // ตรวจสอบรูปแบบ Email
+  const validateEmail = (targetEmail: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(targetEmail);
   };
 
-  // Helper แกะ Token จาก URL ของ Google OAuth
-  const handleOAuthCallback = async (url: string) => {
-    try {
-      let accessToken = '';
-      let refreshToken = '';
-
-      if (url.includes('#')) {
-        const hash = url.split('#')[1];
-        const params = new URLSearchParams(hash);
-        accessToken = params.get('access_token') || '';
-        refreshToken = params.get('refresh_token') || '';
-      } else if (url.includes('?')) {
-        const query = url.split('?')[1];
-        const params = new URLSearchParams(query);
-        accessToken = params.get('access_token') || '';
-        refreshToken = params.get('refresh_token') || '';
-
-        const code = params.get('code');
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) throw error;
-          router.replace('/select' as any);
-          return;
-        }
-      }
-
-      if (!accessToken || !refreshToken) {
-        showError('ไม่สามารถเข้าสู่ระบบด้วย Google ได้ (ไม่พบ Session)');
-        return;
-      }
-
-      const { error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-
-      if (error) {
-        showError(error.message);
-      } else {
-        // สำเร็จ: Supabase เก็บ Session ในคลาวด์แล้ว ย้ายหน้าได้เลย
-        router.replace('/select' as any);
-      }
-    } catch (e: any) {
-      showError(e?.message || 'เกิดข้อผิดพลาดในการจัดการ Google Session');
-    }
-  };
-
-  useEffect(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const href = window.location.href;
-      if (href.includes('access_token') || href.includes('code=')) {
-        handleOAuthCallback(href);
-      }
-    }
-  }, []);
-
-  // 1. Sign Up
+  // 1. Sign Up Logic
   const handleSignUp = async () => {
     setErrorMessage('');
-    const rawIdentifier = identifier.trim();
+    // คง case sensitivity ของ username ไว้ และ trim เฉพาะช่องว่างหัวท้าย
+    const rawUsername = username.trim();
+    const rawEmail = email.trim().toLowerCase();
     const rawPassword = password;
     const rawConfirm = confirmPassword;
 
-    if (!rawIdentifier || !rawPassword || !rawConfirm) {
-      showError('กรุณากรอกข้อมูลให้ครบถ้วน');
+    if (!rawUsername || !rawEmail || !rawPassword || !rawConfirm) {
+      showError('กรุณากรอกข้อมูลให้ครบทุกช่อง');
+      return;
+    }
+
+    if (!validateEmail(rawEmail)) {
+      showError('กรุณากรอกรูปแบบ Email ให้ถูกต้อง');
       return;
     }
 
     if (!validatePassword(rawPassword)) {
-      showError('Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องมีทั้งตัวอักษรและตัวเลข');
+      showError('Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และมีทั้งตัวอักษรและตัวเลข');
       return;
     }
 
@@ -134,35 +83,44 @@ export default function LoginScreen() {
       return;
     }
 
-    const formattedEmail = formatAuthInput(rawIdentifier);
-
     try {
       setLoading(true);
 
       const { error } = await supabase.auth.signUp({
-        email: formattedEmail,
+        email: rawEmail,
         password: rawPassword,
         options: {
           data: {
-            username: rawIdentifier,
+            username: rawUsername,
           },
         },
       });
 
       if (error) {
         if (error.message.includes('User already registered')) {
-          showError('Username นี้ถูกใช้งานแล้ว');
+          showError('Email นี้ถูกใช้งานแล้วในระบบ');
         } else {
           showError(error.message);
         }
         return;
       }
 
+      // เมื่อสมัครสำเร็จ:
+      // 1. สลับกลับเป็นหน้า Sign In
+      // 2. นำ Username/Email ที่ใช้สมัครไปใส่ค้างไว้ในช่อง Username เพื่อให้ใส่แค่ Password
       setIsSignUp(false);
+      setUsername(rawUsername); // เก็บค่า Username ไว้ในช่องสำหรับ Sign In
+      setEmail('');
       setPassword('');
       setConfirmPassword('');
       setShowPassword(false);
       setShowConfirmPassword(false);
+      
+
+      // ย้าย Focus ไปที่ช่องใส่ Password ทันที
+      setTimeout(() => {
+        passwordInputRef.current?.focus();
+      }, 300);
 
     } catch (err: any) {
       showError('เกิดข้อผิดพลาดในการลงทะเบียน');
@@ -171,24 +129,41 @@ export default function LoginScreen() {
     }
   };
 
-  // 2. Sign In
+  // 2. Sign In Logic
   const handleSignIn = async () => {
     setErrorMessage('');
-    const rawIdentifier = identifier.trim();
+    const rawInput = username.trim(); // รับค่าทั้ง Username (แยกเล็ก-ใหญ่) หรือ Email
     const rawPassword = password;
 
-    if (!rawIdentifier || !rawPassword) {
-      showError('กรุณากรอก Username และ Password');
+    if (!rawInput || !rawPassword) {
+      showError('กรุณากรอก Username/Email และ Password');
       return;
     }
-
-    const formattedEmail = formatAuthInput(rawIdentifier);
 
     try {
       setLoading(true);
 
+      let loginEmail = rawInput;
+
+      // หากผู้ใช้พิมพ์เป็น Username ให้ดึง Email จริงจากตาราง profiles
+      if (!rawInput.includes('@')) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('username', rawInput)
+          .maybeSingle<{ email: string }>();
+
+        if (profileError || !profileData?.email) {
+          showError('เข้าสู่ระบบไม่สำเร็จ: Username หรือ Password ไม่ถูกต้อง');
+          setLoading(false);
+          return;
+        }
+
+        loginEmail = profileData.email;
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: formattedEmail,
+        email: loginEmail,
         password: rawPassword,
       });
 
@@ -198,52 +173,10 @@ export default function LoginScreen() {
       }
 
       if (data.user) {
-        // บันทึกสำเร็จ ไม่ต้องใช้ AsyncStorage ส่งไปหน้าถัดไปได้ทันที
         router.replace('/select' as any);
       }
     } catch (err: any) {
       showError('เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 3. Sign in with Google
-  const signInWithGoogle = async () => {
-    setErrorMessage('');
-    try {
-      setLoading(true);
-
-      const redirectTo = Platform.OS === 'web'
-        ? (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8081')
-        : makeRedirectUri({
-            native: 'cushionsense://',
-          });
-
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-          skipBrowserRedirect: Platform.OS !== 'web',
-          queryParams: { prompt: 'select_account' },
-        },
-      });
-
-      if (error || !data?.url) {
-        showError(error?.message || 'ไม่สามารถดึง URL ได้');
-        return;
-      }
-
-      if (Platform.OS !== 'web') {
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-        if (result.type === 'success' && result.url) {
-          await handleOAuthCallback(result.url);
-        }
-      } else {
-        window.location.href = data.url;
-      }
-    } catch (err: any) {
-      showError('เกิดข้อผิดพลาดในการเปิด Google Login');
     } finally {
       setLoading(false);
     }
@@ -284,15 +217,18 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.formContainer}>
+            {/* ช่อง Username / Identifier */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Username</Text>
+              <Text style={styles.label}>
+                {isSignUp ? 'Username' : 'Username or Email'}
+              </Text>
               <TextInput
                 style={styles.input}
-                placeholder="Enter your username"
+                placeholder={isSignUp ? 'Enter your username' : 'Enter username or email'}
                 placeholderTextColor="#A0A0A0"
-                value={identifier}
+                value={username}
                 onChangeText={(text) => {
-                  setIdentifier(text);
+                  setUsername(text);
                   if (errorMessage) setErrorMessage('');
                 }}
                 autoCapitalize="none"
@@ -300,10 +236,42 @@ export default function LoginScreen() {
                 autoComplete="off"
                 textContentType="none"
                 returnKeyType="next"
-                onSubmitEditing={() => passwordInputRef.current?.focus()}
+                onSubmitEditing={() => {
+                  if (isSignUp) {
+                    emailInputRef.current?.focus();
+                  } else {
+                    passwordInputRef.current?.focus();
+                  }
+                }}
               />
             </View>
 
+            {/* ช่อง Email (แสดงเฉพาะตอน Sign Up) */}
+            {isSignUp && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  ref={emailInputRef}
+                  style={styles.input}
+                  placeholder="Enter your email"
+                  placeholderTextColor="#A0A0A0"
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (errorMessage) setErrorMessage('');
+                  }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="off"
+                  textContentType="none"
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordInputRef.current?.focus()}
+                />
+              </View>
+            )}
+
+            {/* ช่อง Password */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.passwordWrapper}>
@@ -347,6 +315,7 @@ export default function LoginScreen() {
               </View>
             </View>
 
+            {/* ช่อง Confirm Password (แสดงเฉพาะตอน Sign Up) */}
             {isSignUp && (
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Confirm Password</Text>
@@ -384,10 +353,12 @@ export default function LoginScreen() {
               </View>
             )}
 
+            {/* แสดง Error Message */}
             {errorMessage ? (
               <Text style={styles.errorText}>{errorMessage}</Text>
             ) : null}
 
+            {/* ปุ่ม Sign In / Sign Up */}
             <TouchableOpacity
               style={styles.primaryButton}
               onPress={handleSubmit}
@@ -402,6 +373,7 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
+            {/* ปุ่มสลับระหว่าง Sign In และ Sign Up */}
             <View style={styles.toggleContainer}>
               <Text style={styles.toggleText}>
                 {isSignUp
@@ -411,6 +383,8 @@ export default function LoginScreen() {
               <TouchableOpacity
                 onPress={() => {
                   setIsSignUp(!isSignUp);
+                  setUsername('');
+                  setEmail('');
                   setPassword('');
                   setConfirmPassword('');
                   setShowPassword(false);
@@ -423,26 +397,6 @@ export default function LoginScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
-
-            <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>OR</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <TouchableOpacity
-              style={styles.googleButton}
-              onPress={signInWithGoogle}
-              disabled={loading}
-            >
-              <Ionicons
-                name="logo-google"
-                size={20}
-                color="#4285F4"
-                style={styles.googleIcon}
-              />
-              <Text style={styles.googleButtonText}>Sign in with Google</Text>
-            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -543,7 +497,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
-    marginTop: 4,
+    marginTop: 8,
   },
   primaryButtonText: {
     color: '#FFFFFF',
@@ -563,39 +517,5 @@ const styles = StyleSheet.create({
     color: '#4464D0',
     fontSize: 14,
     fontWeight: '700',
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E0E0E0',
-  },
-  dividerText: {
-    marginHorizontal: 10,
-    color: '#888888',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  googleButton: {
-    height: 48,
-    borderWidth: 1,
-    borderColor: '#CCCCCC',
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  googleIcon: {
-    marginRight: 8,
-  },
-  googleButtonText: {
-    color: '#333333',
-    fontSize: 15,
-    fontWeight: '600',
   },
 });
