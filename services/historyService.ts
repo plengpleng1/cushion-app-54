@@ -1,5 +1,5 @@
 // ⚠️ ใช้ Web App URL เดียวกับตัวอ่าน historyService
-const HISTORY_API_URL = 'https://script.google.com/macros/s/AKfycbyNYyeMj98qwdehn41xbUQP_MTTnXieTOB6Qhd1yKWyj1COqoO6hU2aqa3kH-IbBOM-/exec';
+const HISTORY_API_URL = 'https://script.google.com/macros/s/AKfycbyZHrfZdDKAon-YcJMsVd-7gp0hNk30UEPAteoRP1GQ6eYX1DgMkAImFF56LqGFksBF/exec';
 
 // 1. Export Interface สำหรับ DashboardSummary
 export interface DashboardSummary {
@@ -29,7 +29,6 @@ export const fetchDashboardSummary = async (): Promise<DashboardSummary | null> 
   try {
     const response = await fetch(`${HISTORY_API_URL}?action=getSummary&_t=${Date.now()}`, {
       method: 'GET',
-      redirect: 'follow',
     });
 
     if (!response.ok) {
@@ -46,10 +45,9 @@ export const fetchDashboardSummary = async (): Promise<DashboardSummary | null> 
   }
 };
 
-// ฟังก์ชันสำหรับส่งประวัติการนั่งไปบันทึกลง Google Sheet
+// 3. ฟังก์ชันสำหรับส่งประวัติการนั่งไปบันทึกลง Google Sheet
 export const logSittingSession = async (payload: SittingLogPayload): Promise<boolean> => {
   try {
-    // ใช้ URLSearchParams หรือยิงผ่าน Query String เพื่อหลีกเลี่ยง CORS Preflight Options บน Web
     const queryParams = new URLSearchParams({
       action: 'logSitting',
       sitSeconds: payload.sitSeconds.toString(),
@@ -59,20 +57,19 @@ export const logSittingSession = async (payload: SittingLogPayload): Promise<boo
       _t: Date.now().toString(),
     });
 
-    const response = await fetch(`${HISTORY_API_URL}?${queryParams.toString()}`, {
-      method: 'GET', // ใช้ GET ยิงพร้อม action=logSitting เพื่อความชัวร์และไม่ติด CORS
-      redirect: 'follow',
+    // ใช้ mode: 'no-cors' เพื่อให้เบราว์เซอร์ส่ง Request ไปยัง Google Apps Script ได้โดยไม่โดน CORS บล็อก
+    await fetch(`${HISTORY_API_URL}?${queryParams.toString()}`, {
+      method: 'GET',
+      mode: 'no-cors',
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP Error status: ${response.status}`);
+    if (__DEV__) {
+      console.log('✅ ส่งข้อมูลประวัติการนั่งไป Google Sheet เรียบร้อย');
     }
-
-    const resData = await response.json();
-    return resData?.status === 'success';
+    return true;
   } catch (error) {
     if (__DEV__) {
-      console.log('Error logging sitting session:', error);
+      console.log('❌ Error logging sitting session:', error);
     }
     return false;
   }

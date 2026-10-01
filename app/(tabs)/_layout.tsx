@@ -28,12 +28,12 @@ export default function TabLayout() {
         name="index"
         options={{title: 'Home',
           tabBarLabelStyle: {
-            fontSize: 12,
+            fontSize: 20,
           },
 
           tabBarIcon: ({ color }) => (
             <Ionicons name="home-outline"
-              size={20}
+              size={25}
               color={color}
             />
           ),
@@ -46,13 +46,13 @@ export default function TabLayout() {
         options={{title: 'History',
 
           tabBarLabelStyle: {
-            fontSize: 12,
+            fontSize: 20,
           },
 
           tabBarIcon: ({ color }) => (
             <Octicons
               name="graph"
-              size={20}
+              size={25}
               color={color}
             />
           ),
@@ -64,12 +64,12 @@ export default function TabLayout() {
         name="lists"
         options={{title: 'Lists',
           tabBarLabelStyle: {
-            fontSize: 12,
+            fontSize: 20,
           },
 
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="clipboard-list-outline"
-              size={20}
+              size={25}
               color={color}
             />
           ),
@@ -83,13 +83,13 @@ export default function TabLayout() {
           title: 'Profile',
 
           tabBarLabelStyle: {
-            fontSize: 12,
+            fontSize: 20,
           },
 
           tabBarIcon: ({ color }) => (
             <Ionicons
               name="person-outline"
-              size={20}
+              size={25}
               color={color}
             />
           ),

@@ -369,11 +369,6 @@ export default function HomeScreen() {
          </View>
 
 
-         <Text style={styles.notMedicalInformation}>
-           หมายเหตุ: ผลประเมินเบื้องต้น ไม่ใช่การวินิจฉัยทางการแพทย์
-         </Text>
-
-
          {/* Cushion Area */}
          <View
            style={[
@@ -475,6 +470,9 @@ export default function HomeScreen() {
            </Text>
          </View>
        </View>
+       <Text style={styles.notMedicalInformation}>
+           หมายเหตุ: ผลประเมินเบื้องต้น ไม่ใช่การวินิจฉัยทางการแพทย์
+         </Text>
      </View>
    </ScrollView>
  );
@@ -522,41 +520,42 @@ const styles = StyleSheet.create({
    fontWeight: '400',
  },
  lastUpdateText: {
-   fontSize: 12,
+   fontSize: 16,
    color: '#8E8E93',
    textAlign: 'center',
    marginBottom: 16,
    marginTop: 2,
  },
  notMedicalInformation: {
-   fontSize: 12,
+   fontSize: 16,
    color: '#8E8E93',
    marginBottom: 16,
    marginTop: 2,
+   
  },
  alarmCard: {
    backgroundColor: '#FFE5E5',
    borderLeftWidth: 5,
    borderLeftColor: '#FF3B30',
-   padding: 10,
+   padding: 20,
    borderRadius: 12,
    marginBottom: 16,
  },
  alarmTitle: {
-   fontSize: 14,
+   fontSize: 18,
    fontWeight: 'bold',
    color: '#FF3B30',
    marginBottom: 6,
  },
  alarmText: {
-   fontSize: 13,
+   fontSize: 17,
    color: '#D70000',
    fontWeight: '500',
    marginBottom: 3,
  },
  card: {
    backgroundColor: '#FFFFFF',
-   padding: 16,
+   padding: 20,
    borderRadius: 16,
    marginBottom: 16,
    shadowColor: '#000',
@@ -565,24 +564,24 @@ const styles = StyleSheet.create({
    shadowRadius: 8,
    elevation: 3,
  },
- cardLabel: {
-   fontSize: 13,
+ cardLabel: {                 // หัวข้อในกล่อง
+   fontSize: 16,
    color: '#8E8E93',
    fontWeight: '600',
    marginBottom: 6,
  },
- cardValue: {
-   fontSize: 18,
+ cardValue: {                 // ค่าในกล่อง
+   fontSize: 22,
    fontWeight: 'bold',
    color: '#1C1C1E',
  },
  subText: {
-   fontSize: 11,
+   fontSize: 15,
    color: '#8E8E93',
    marginTop: 4,
  },
  timerValue: {
-   fontSize: 22,
+   fontSize: 24,
    fontWeight: 'bold',
  },
  row: {
@@ -621,7 +620,7 @@ const styles = StyleSheet.create({
    gap: 5,
  },
  humidBadge: {
-   fontSize: 12,
+   fontSize: 13,
    fontWeight: 'bold',
    color: '#0288D1',
    backgroundColor: '#E0F7FA',
@@ -630,7 +629,7 @@ const styles = StyleSheet.create({
    borderRadius: 6,
  },
  tempBadge: {
-   fontSize: 12,
+   fontSize: 13,
    fontWeight: 'bold',
    color: '#FF3B30',
    backgroundColor: '#FFE5E5',
