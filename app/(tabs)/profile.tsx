@@ -18,51 +18,48 @@ const STORAGE_CURRENT_USER = "@cushionsense_current_user";
 export default function ProfileScreen() {
   const router = useRouter();
 
-  const [displayValue, setDisplayValue] = useState<string>("");
+  const [username, setUsername] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
 
   useFocusEffect(
     useCallback(() => {
       const loadProfile = async () => {
         try {
+          // 1. ดึงข้อมูลจาก Supabase Auth
           const { data: { user } } = await supabase.auth.getUser();
 
           if (user) {
-            if (user.app_metadata?.provider === "google" || user.email?.endsWith("@gmail.com")) {
-              setDisplayValue(user.email || "");
-              return;
-            }
+            const fetchedEmail = user.email || "";
+            const fetchedUsername = user.user_metadata?.username || "";
 
-            if (user.user_metadata?.username) {
-              setDisplayValue(user.user_metadata.username);
-              return;
-            }
+            setEmail(fetchedEmail);
+            setUsername(fetchedUsername);
+            return;
           }
 
+          // 2. ดึงข้อมูลจาก AsyncStorage (กรณีล็อกอินแบบ Local/Custom)
           const currentUserJson = await AsyncStorage.getItem(STORAGE_CURRENT_USER);
 
           if (currentUserJson) {
             const currentUser = JSON.parse(currentUserJson);
 
-            if (currentUser.type === "google" && currentUser.email) {
-              setDisplayValue(currentUser.email);
-              return;
-            }
-
-            if (currentUser.username) {
-              setDisplayValue(currentUser.username);
-              return;
-            }
-
+            setUsername(currentUser.username || "");
+            
+            // ซ่อน email ภายในระบบถ้ามี
             if (currentUser.email && !currentUser.email.includes("@cushionsense.internal")) {
-              setDisplayValue(currentUser.email);
-              return;
+              setEmail(currentUser.email);
+            } else {
+              setEmail("");
             }
+            return;
           }
 
-          setDisplayValue("");
+          setUsername("");
+          setEmail("");
         } catch (error) {
           console.error("Failed to load profile:", error);
-          setDisplayValue("");
+          setUsername("");
+          setEmail("");
         }
       };
 
@@ -75,7 +72,7 @@ export default function ProfileScreen() {
       await supabase.auth.signOut();
       await AsyncStorage.removeItem(STORAGE_CURRENT_USER);
     } catch (error) {
-      console.error("Logout error:", error);
+      console.error("Sign out error:", error);
     } finally {
       if (router.canDismiss()) {
         router.dismissAll();
@@ -86,17 +83,17 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     if (Platform.OS === "web") {
-      if (window.confirm("Are you sure you want to log out?")) {
+      if (window.confirm("Are you sure you want to sign out?")) {
         performLogout();
       }
     } else {
-      Alert.alert("Log Out", "Are you sure you want to log out?", [
+      Alert.alert("Sign Out", "Are you sure you want to sign out?", [
         {
           text: "Cancel",
           style: "cancel",
         },
         {
-          text: "Log Out",
+          text: "Sign Out",
           style: "destructive",
           onPress: performLogout,
         },
@@ -114,22 +111,35 @@ export default function ProfileScreen() {
         </Text>
 
         <View style={styles.cardContainer}>
-          {/* แสดง Username หรือ Email แบบเลื่อนซ้าย-ขวาได้ */}
-          {displayValue ? (
+          {/* แสดง Username */}
+          {username ? (
             <View style={styles.infoBoxWrapper}>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.infoScrollContent}
               >
-                <Text style={styles.infoText}>{displayValue}</Text>
+                <Text style={styles.infoText}>Username: {username}</Text>
               </ScrollView>
             </View>
           ) : null}
 
-          {/* Log out */}
+          {/* แสดง Email */}
+          {email ? (
+            <View style={styles.infoBoxWrapper}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.infoScrollContent}
+              >
+                <Text style={styles.infoText}>Email: {email}</Text>
+              </ScrollView>
+            </View>
+          ) : null}
+
+          {/* ปุ่ม Sign Out */}
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Log out</Text>
+            <Text style={styles.logoutButtonText}>Sign Out</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -180,7 +190,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#C9C9C9",
     borderRadius: 10,
-    marginBottom: 20,
+    marginBottom: 16,
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     overflow: "hidden",
@@ -203,6 +213,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 10,
+    marginTop: 8,
   },
   logoutButtonText: {
     color: "#FFFFFF",
