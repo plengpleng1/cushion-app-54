@@ -12,9 +12,9 @@ export interface SensorData {
 }
 
 // 2. API URL หลักจาก Google Apps Script
-const API_URL = "https://script.google.com/macros/s/AKfycby9UFBh-2Ct06oGaexrTMqUSGXFjHHAtI67AtrToOXwr1EBl_HztFRzSliLDk2iPQuzYg/exec";
+const API_URL =
+  "https://script.google.com/macros/s/AKfycby9UFBh-2Ct06oGaexrTMqUSGXFjHHAtI67AtrToOXwr1EBl_HztFRzSliLDk2iPQuzYg/exec";
 
-<<<<<<< HEAD
 // ==========================================
 // 3. ตัวแปรเก็บสะสมค่าการนั่ง (Background Tracker)
 // ==========================================
@@ -56,23 +56,14 @@ export const logSittingSession = async (data: {
 // ==========================================
 // 5. ฟังก์ชันดึงข้อมูล Sensor + คำนวณเบื้องหลัง
 // ==========================================
-=======
-// 3. ฟังก์ชันสำหรับดึงข้อมูลล่าสุด
->>>>>>> 829b4db0067e16b96520e34f7f33abd14a4c8376
 export const fetchSensorData = async (): Promise<SensorData | null> => {
   try {
     const separator = API_URL.includes("?") ? "&" : "?";
     const cacheBusterUrl = `${API_URL}${separator}action=read&_t=${Date.now()}`;
 
-    // 💡 แก้ไข: ตัด headers ออกทั้งหมด และใช้ redirect: 'follow'
     const response = await fetch(cacheBusterUrl, {
-<<<<<<< HEAD
       method: "GET",
       redirect: "follow",
-=======
-      method: 'GET',
-      redirect: 'follow',
->>>>>>> 829b4db0067e16b96520e34f7f33abd14a4c8376
     });
 
     if (!response.ok) {
@@ -80,27 +71,17 @@ export const fetchSensorData = async (): Promise<SensorData | null> => {
     }
 
     const rawData = await response.json();
-<<<<<<< HEAD
+
     if (!rawData) return null;
 
-    // แปลงโครงสร้างข้อมูลจาก Google Sheet
+    // แปลงโครงสร้างข้อมูลจาก Google Sheet อย่างปลอดภัย
     const sensorData: SensorData = {
       date: String(rawData.date || rawData.Date || ""),
       time: String(rawData.time || rawData.Time || "-"),
-=======
-
-    if (!rawData) return null;
-
-    // จัดการแปลงข้อมูลอย่างปลอดภัย (Mapping) กันกรณีประเภทข้อมูลส่งมาไม่ตรง
-    return {
-      date: String(rawData.date || rawData.Date || ''),
-      time: String(rawData.time || rawData.Time || '-'),
->>>>>>> 829b4db0067e16b96520e34f7f33abd14a4c8376
       sensor1: Number(rawData.sensor1 ?? 4095),
       sensor2: Number(rawData.sensor2 ?? 4095),
       temperature: Number(rawData.temperature ?? rawData.temp ?? 0),
       humidity: Number(rawData.humidity ?? rawData.humid ?? 0),
-<<<<<<< HEAD
       status: rawData.status === "ACTIVE" ? "ACTIVE" : "STANDBY",
       position: rawData.position || "NONE",
       pressure: rawData.pressure === "HIGH" ? "HIGH" : "LOW",
@@ -130,7 +111,6 @@ export const fetchSensorData = async (): Promise<SensorData | null> => {
         alertsCount += 1;
       }
       prevAlertState = isAlerting;
-
     } else if (currentPosition === "NONE") {
       // 2) ลุกออกจากเบาะ -> ถ้านั่งเกิน 10 วินาที ให้ส่งข้อมูลลง Google Sheet
       if ((prevPosition === "CENTER" || sitSeconds > 0) && sitSeconds >= 10) {
@@ -155,7 +135,6 @@ export const fetchSensorData = async (): Promise<SensorData | null> => {
       tempSamples = 0;
       alertsCount = 0;
       prevAlertState = false;
-
     } else if (currentPosition === "LEFT" || currentPosition === "RIGHT") {
       // 3) เอียงซ้าย/ขวา -> นับการขยับตัว 1 ครั้ง
       if (prevPosition === "CENTER") {
@@ -168,15 +147,6 @@ export const fetchSensorData = async (): Promise<SensorData | null> => {
     return sensorData;
   } catch (error) {
     if (__DEV__) {
-=======
-      status: rawData.status === 'ACTIVE' ? 'ACTIVE' : 'STANDBY',
-      position: rawData.position || 'NONE',
-      pressure: rawData.pressure === 'HIGH' ? 'HIGH' : 'LOW',
-    };
-  } catch (error) {
-    if (__DEV__) {
-      // แสดง Log เฉพาะตอน Debug ไม่ให้ขัดจังหวะการทำงาน
->>>>>>> 829b4db0067e16b96520e34f7f33abd14a4c8376
       console.log("Error fetching sensor data:", error);
     }
     return null;
