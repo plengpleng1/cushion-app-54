@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as AuthSession from 'expo-auth-session';
+import { makeRedirectUri } from 'expo-auth-session';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -20,7 +20,6 @@ import { supabase } from '../lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const STORAGE_USERS_KEY = '@cushionsense_users';
 const STORAGE_CURRENT_USER = '@cushionsense_current_user';
 
 export default function LoginScreen() {
@@ -31,72 +30,167 @@ export default function LoginScreen() {
   const passwordInputRef = useRef<TextInput>(null);
   const confirmPasswordInputRef = useRef<TextInput>(null);
 
-  const [username, setUsername] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // ปุ่มดวงตาปุ่มเดียวควบคุมการเปิด/ปิดรหัสผ่าน
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [errorMessage, setErrorMessage] = useState('');
 
   const showError = (message: string) => {
     setErrorMessage(message);
   };
 
+  // 💡 ตรวจสอบเงื่อนไข Password: ความยาว >= 8 ตัวอักษร, มีทั้งตัวอักษร [a-zA-Z] และตัวเลข [0-9]
   const validatePassword = (pass: string) => {
-    return pass.length >= 8;
+    const hasMinLength = pass.length >= 8;
+    const hasLetter = /[a-zA-Z]/.test(pass);
+    const hasNumber = /[0-9]/.test(pass);
+    return hasMinLength && hasLetter && hasNumber;
   };
 
-  // 1. Sign Up (AsyncStorage)
+  // 💡 แปลง Username ให้รองรับ Case-Sensitivity (ตัวพิมพ์ใหญ่-เล็ก) และตัวอักษรพิเศษ
+  const formatAuthInput = (input: string) => {
+    const trimmed = input.trim();
+    if (trimmed.includes('@')) {
+      return trimmed.toLowerCase();
+    }
+    
+    // เข้ารหัสตัวพิมพ์ใหญ่ด้วย Hex เพื่อไม่ให้ Supabase นำไปทำ Lowercase เบื้องหลัง
+    const preservedCase = trimmed.replace(/[A-Z]/g, (char) => `_${char.charCodeAt(0).toString(16)}`);
+    return `${encodeURIComponent(preservedCase)}@cushionsense.internal`;
+  };
+
+  // ----------------------------------------------------
+  // Helper แกะ Token จาก URL ของ Google OAuth
+  // ----------------------------------------------------
+  const handleOAuthCallback = async (url: string) => {
+    try {
+      let accessToken = '';
+      let refreshToken = '';
+
+      if (url.includes('#')) {
+        const hash = url.split('#')[1];
+        const params = new URLSearchParams(hash);
+        accessToken = params.get('access_token') || '';
+        refreshToken = params.get('refresh_token') || '';
+      } else if (url.includes('?')) {
+        const query = url.split('?')[1];
+        const params = new URLSearchParams(query);
+        accessToken = params.get('access_token') || '';
+        refreshToken = params.get('refresh_token') || '';
+
+        const code = params.get('code');
+        if (code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          if (data.session?.user) {
+            await AsyncStorage.setItem(
+              STORAGE_CURRENT_USER,
+              JSON.stringify({
+                id: data.session.user.id,
+                email: data.session.user.email,
+                type: 'google',
+              })
+            );
+            router.replace('/select' as any);
+            return;
+          }
+        }
+      }
+
+      if (!accessToken || !refreshToken) {
+        showError('ไม่สามารถเข้าสู่ระบบด้วย Google ได้ (ไม่พบ Session)');
+        return;
+      }
+
+      const { data, error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+
+      if (error) {
+        showError(error.message);
+      } else if (data.session?.user) {
+        await AsyncStorage.setItem(
+          STORAGE_CURRENT_USER,
+          JSON.stringify({
+            id: data.session.user.id,
+            email: data.session.user.email,
+            type: 'google',
+          })
+        );
+        router.replace('/select' as any);
+      }
+    } catch (e: any) {
+      showError(e?.message || 'เกิดข้อผิดพลาดในการจัดการ Google Session');
+    }
+  };
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const href = window.location.href;
+      if (href.includes('access_token') || href.includes('code=')) {
+        handleOAuthCallback(href);
+      }
+    }
+  }, []);
+
+  // 1. Sign Up
   const handleSignUp = async () => {
     setErrorMessage('');
-    const trimmedUser = username.trim();
-    const trimmedPassword = password.trim();
-    const trimmedConfirm = confirmPassword.trim();
+    const rawIdentifier = identifier.trim();
+    const rawPassword = password;
+    const rawConfirm = confirmPassword;
 
-    if (!trimmedUser || !trimmedPassword || !trimmedConfirm) {
+    if (!rawIdentifier || !rawPassword || !rawConfirm) {
       showError('กรุณากรอกข้อมูลให้ครบถ้วน');
       return;
     }
 
-    if (!validatePassword(trimmedPassword)) {
-      showError('Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร');
+    if (!validatePassword(rawPassword)) {
+      showError('Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องมีทั้งตัวอักษรและตัวเลข');
       return;
     }
 
-    if (trimmedPassword !== trimmedConfirm) {
+    if (rawPassword !== rawConfirm) {
       showError('Password และ Confirm Password ไม่ตรงกัน');
       return;
     }
 
+    const formattedEmail = formatAuthInput(rawIdentifier);
+
     try {
       setLoading(true);
 
-      const existingData = await AsyncStorage.getItem(STORAGE_USERS_KEY);
-      const users = existingData ? JSON.parse(existingData) : [];
+      const { error } = await supabase.auth.signUp({
+        email: formattedEmail,
+        password: rawPassword,
+        options: {
+          data: {
+            username: rawIdentifier,
+          },
+        },
+      });
 
-      const isDuplicate = users.some((u: any) => u.username === trimmedUser);
-
-      if (isDuplicate) {
-        showError('Username นี้ถูกใช้งานแล้ว');
+      if (error) {
+        if (error.message.includes('User already registered')) {
+          showError('Username นี้ถูกใช้งานแล้ว');
+        } else {
+          showError(error.message);
+        }
         return;
       }
 
-      const newUser = {
-        username: trimmedUser,
-        password: trimmedPassword,
-        createdAt: new Date().toISOString(),
-      };
-
-      users.push(newUser);
-      await AsyncStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
-
-      // สมัครสำเร็จ -> กลับไปหน้า Sign In เพื่อให้พิมพ์ Password อีกครั้ง
+      // สมัครสมาชิกสำเร็จ: ล้างรหัสผ่าน สลับกลับไปหน้า Sign In ทันที
       setIsSignUp(false);
       setPassword('');
       setConfirmPassword('');
       setShowPassword(false);
-      showError('');
+      setShowConfirmPassword(false);
+
     } catch (err: any) {
       showError('เกิดข้อผิดพลาดในการลงทะเบียน');
     } finally {
@@ -104,34 +198,44 @@ export default function LoginScreen() {
     }
   };
 
-  // 2. Sign In (AsyncStorage)
+  // 2. Sign In
   const handleSignIn = async () => {
     setErrorMessage('');
-    const trimmedUser = username.trim();
-    const trimmedPassword = password.trim();
+    const rawIdentifier = identifier.trim();
+    const rawPassword = password;
 
-    if (!trimmedUser || !trimmedPassword) {
+    if (!rawIdentifier || !rawPassword) {
       showError('กรุณากรอก Username และ Password');
       return;
     }
 
+    const formattedEmail = formatAuthInput(rawIdentifier);
+
     try {
       setLoading(true);
 
-      const existingData = await AsyncStorage.getItem(STORAGE_USERS_KEY);
-      const users = existingData ? JSON.parse(existingData) : [];
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formattedEmail,
+        password: rawPassword,
+      });
 
-      const targetUser = users.find(
-        (u: any) => u.username === trimmedUser && u.password === trimmedPassword
-      );
-
-      if (!targetUser) {
+      if (error) {
         showError('เข้าสู่ระบบไม่สำเร็จ: Username หรือ Password ไม่ถูกต้อง');
         return;
       }
 
-      await AsyncStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(targetUser));
-      router.push('/select' as any);
+      if (data.user) {
+        await AsyncStorage.setItem(
+          STORAGE_CURRENT_USER,
+          JSON.stringify({
+            id: data.user.id,
+            email: data.user.email,
+            username: rawIdentifier,
+            type: 'email_username',
+          })
+        );
+        router.replace('/select' as any);
+      }
     } catch (err: any) {
       showError('เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
     } finally {
@@ -140,75 +244,38 @@ export default function LoginScreen() {
   };
 
   // 3. Sign in with Google
-  const createSessionFromUrl = async (url: string) => {
-    const route = url.replace('#', '?');
-    const queryParams = new URLSearchParams(route.split('?')[1]);
-
-    const access_token = queryParams.get('access_token');
-    const refresh_token = queryParams.get('refresh_token');
-
-    if (!access_token || !refresh_token) {
-      return;
-    }
-
-    const { data, error } = await supabase.auth.setSession({
-      access_token,
-      refresh_token,
-    });
-
-    if (error) {
-      showError(error.message);
-    } else {
-      if (data.session?.user) {
-        await AsyncStorage.setItem(
-          STORAGE_CURRENT_USER,
-          JSON.stringify({
-            username: data.session.user.email,
-            type: 'google',
-          })
-        );
-      }
-      router.push('/select' as any);
-    }
-  };
-
   const signInWithGoogle = async () => {
     setErrorMessage('');
     try {
       setLoading(true);
 
-      // สร้าง Redirect URI ที่บังคับใช้ Custom Scheme (cushionsense://)
-      // ป้องกันไม่ให้ Expo คืนค่ากลับมาเป็น http://localhost
-      const redirectTo = AuthSession.makeRedirectUri({
-        scheme: 'cushionsense',
-        path: 'auth/callback',
-      });
-
-      console.log('Redirecting to:', redirectTo); // เช็ค Log ว่าได้ cushionsense://auth/callback หรือไม่
+      const redirectTo = Platform.OS === 'web'
+        ? (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8081')
+        : makeRedirectUri({
+            native: 'cushionsense://',
+          });
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo,
-          skipBrowserRedirect: true,
-          queryParams: {
-            prompt: 'select_account',
-          },
+          skipBrowserRedirect: Platform.OS !== 'web',
+          queryParams: { prompt: 'select_account' },
         },
       });
 
       if (error || !data?.url) {
-        showError(error?.message || 'ไม่สามารถดึง URL สำหรับเข้าสู่ระบบได้');
+        showError(error?.message || 'ไม่สามารถดึง URL ได้');
         return;
       }
 
-      const result = await WebBrowser.openAuthSessionAsync(
-        data.url,
-        redirectTo
-      );
-
-      if (result.type === 'success' && result.url) {
-        await createSessionFromUrl(result.url);
+      if (Platform.OS !== 'web') {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+        if (result.type === 'success' && result.url) {
+          await handleOAuthCallback(result.url);
+        }
+      } else {
+        window.location.href = data.url;
       }
     } catch (err: any) {
       showError('เกิดข้อผิดพลาดในการเปิด Google Login');
@@ -227,16 +294,15 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ซ่อนดวงตาของ Browser (Edge/Chrome) บน Web */}
       {Platform.OS === 'web' && (
-        <style dangerouslySetInnerHTML={{
-          __html: `
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
             input::-ms-reveal,
-            input::-ms-clear {
-              display: none !important;
-            }
-          `
-        }} />
+            input::-ms-clear { display: none !important; }
+          `,
+          }}
+        />
       )}
 
       <KeyboardAvoidingView
@@ -261,9 +327,9 @@ export default function LoginScreen() {
                 style={styles.input}
                 placeholder="Enter your username"
                 placeholderTextColor="#A0A0A0"
-                value={username}
+                value={identifier}
                 onChangeText={(text) => {
-                  setUsername(text);
+                  setIdentifier(text);
                   if (errorMessage) setErrorMessage('');
                 }}
                 autoCapitalize="none"
@@ -283,7 +349,7 @@ export default function LoginScreen() {
                   ref={passwordInputRef}
                   style={[styles.input, styles.passwordInput]}
                   placeholder={
-                    isSignUp ? 'At least 8 characters' : 'Enter your password'
+                    isSignUp ? 'At least 8 chars with letters & numbers' : 'Enter your password'
                   }
                   placeholderTextColor="#A0A0A0"
                   secureTextEntry={!showPassword}
@@ -323,37 +389,43 @@ export default function LoginScreen() {
             {isSignUp && (
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Confirm Password</Text>
-                <TextInput
-                  ref={confirmPasswordInputRef}
-                  style={styles.input}
-                  placeholder="Confirm your password"
-                  placeholderTextColor="#A0A0A0"
-                  secureTextEntry={!showPassword}
-                  value={confirmPassword}
-                  onChangeText={(text) => {
-                    setConfirmPassword(text);
-                    if (errorMessage) setErrorMessage('');
-                  }}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="off"
-                  textContentType="none"
-                  returnKeyType="done"
-                  onSubmitEditing={handleSubmit}
-                />
+                <View style={styles.passwordWrapper}>
+                  <TextInput
+                    ref={confirmPasswordInputRef}
+                    style={[styles.input, styles.passwordInput]}
+                    placeholder="Confirm your password"
+                    placeholderTextColor="#A0A0A0"
+                    secureTextEntry={!showConfirmPassword}
+                    value={confirmPassword}
+                    onChangeText={(text) => {
+                      setConfirmPassword(text);
+                      if (errorMessage) setErrorMessage('');
+                    }}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="off"
+                    textContentType="none"
+                    returnKeyType="done"
+                    onSubmitEditing={handleSubmit}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeIcon}
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'}
+                      size={22}
+                      color="#666666"
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
 
-            {/* Error / Success Message */}
+            {/* Error Message */}
             {errorMessage ? (
-              <Text
-                style={[
-                  styles.errorText,
-                  errorMessage.includes('สำเร็จ') && styles.successText,
-                ]}
-              >
-                {errorMessage}
-              </Text>
+              <Text style={styles.errorText}>{errorMessage}</Text>
             ) : null}
 
             {/* Submit Button */}
@@ -384,6 +456,7 @@ export default function LoginScreen() {
                   setPassword('');
                   setConfirmPassword('');
                   setShowPassword(false);
+                  setShowConfirmPassword(false);
                   setErrorMessage('');
                 }}
               >
@@ -507,9 +580,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 12,
     textAlign: 'center',
-  },
-  successText: {
-    color: '#e04320',
   },
   primaryButton: {
     height: 48,
