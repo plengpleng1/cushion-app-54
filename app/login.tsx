@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { makeRedirectUri } from 'expo-auth-session';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -19,8 +18,6 @@ import {
 import { supabase } from '../lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
-
-const STORAGE_CURRENT_USER = '@cushionsense_current_user';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -43,7 +40,6 @@ export default function LoginScreen() {
     setErrorMessage(message);
   };
 
-  // 💡 ตรวจสอบเงื่อนไข Password: ความยาว >= 8 ตัวอักษร, มีทั้งตัวอักษร [a-zA-Z] และตัวเลข [0-9]
   const validatePassword = (pass: string) => {
     const hasMinLength = pass.length >= 8;
     const hasLetter = /[a-zA-Z]/.test(pass);
@@ -51,21 +47,16 @@ export default function LoginScreen() {
     return hasMinLength && hasLetter && hasNumber;
   };
 
-  // 💡 แปลง Username ให้รองรับ Case-Sensitivity (ตัวพิมพ์ใหญ่-เล็ก) และตัวอักษรพิเศษ
   const formatAuthInput = (input: string) => {
     const trimmed = input.trim();
     if (trimmed.includes('@')) {
       return trimmed.toLowerCase();
     }
-    
-    // เข้ารหัสตัวพิมพ์ใหญ่ด้วย Hex เพื่อไม่ให้ Supabase นำไปทำ Lowercase เบื้องหลัง
     const preservedCase = trimmed.replace(/[A-Z]/g, (char) => `_${char.charCodeAt(0).toString(16)}`);
     return `${encodeURIComponent(preservedCase)}@cushionsense.internal`;
   };
 
-  // ----------------------------------------------------
   // Helper แกะ Token จาก URL ของ Google OAuth
-  // ----------------------------------------------------
   const handleOAuthCallback = async (url: string) => {
     try {
       let accessToken = '';
@@ -84,20 +75,10 @@ export default function LoginScreen() {
 
         const code = params.get('code');
         if (code) {
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
-          if (data.session?.user) {
-            await AsyncStorage.setItem(
-              STORAGE_CURRENT_USER,
-              JSON.stringify({
-                id: data.session.user.id,
-                email: data.session.user.email,
-                type: 'google',
-              })
-            );
-            router.replace('/select' as any);
-            return;
-          }
+          router.replace('/select' as any);
+          return;
         }
       }
 
@@ -106,22 +87,15 @@ export default function LoginScreen() {
         return;
       }
 
-      const { data, error } = await supabase.auth.setSession({
+      const { error } = await supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken,
       });
 
       if (error) {
         showError(error.message);
-      } else if (data.session?.user) {
-        await AsyncStorage.setItem(
-          STORAGE_CURRENT_USER,
-          JSON.stringify({
-            id: data.session.user.id,
-            email: data.session.user.email,
-            type: 'google',
-          })
-        );
+      } else {
+        // สำเร็จ: Supabase เก็บ Session ในคลาวด์แล้ว ย้ายหน้าได้เลย
         router.replace('/select' as any);
       }
     } catch (e: any) {
@@ -184,7 +158,6 @@ export default function LoginScreen() {
         return;
       }
 
-      // สมัครสมาชิกสำเร็จ: ล้างรหัสผ่าน สลับกลับไปหน้า Sign In ทันที
       setIsSignUp(false);
       setPassword('');
       setConfirmPassword('');
@@ -225,15 +198,7 @@ export default function LoginScreen() {
       }
 
       if (data.user) {
-        await AsyncStorage.setItem(
-          STORAGE_CURRENT_USER,
-          JSON.stringify({
-            id: data.user.id,
-            email: data.user.email,
-            username: rawIdentifier,
-            type: 'email_username',
-          })
-        );
+        // บันทึกสำเร็จ ไม่ต้องใช้ AsyncStorage ส่งไปหน้าถัดไปได้ทันที
         router.replace('/select' as any);
       }
     } catch (err: any) {
@@ -310,7 +275,6 @@ export default function LoginScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* Header */}
           <View style={styles.headerContainer}>
             <Text style={styles.welcomeText}>Welcome</Text>
             <Text style={styles.brandContainer}>
@@ -320,7 +284,6 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.formContainer}>
-            {/* Username Field */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Username</Text>
               <TextInput
@@ -341,7 +304,6 @@ export default function LoginScreen() {
               />
             </View>
 
-            {/* Password Field */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.passwordWrapper}>
@@ -385,7 +347,6 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Confirm Password Field */}
             {isSignUp && (
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Confirm Password</Text>
@@ -423,12 +384,10 @@ export default function LoginScreen() {
               </View>
             )}
 
-            {/* Error Message */}
             {errorMessage ? (
               <Text style={styles.errorText}>{errorMessage}</Text>
             ) : null}
 
-            {/* Submit Button */}
             <TouchableOpacity
               style={styles.primaryButton}
               onPress={handleSubmit}
@@ -443,7 +402,6 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
-            {/* Toggle Mode Button */}
             <View style={styles.toggleContainer}>
               <Text style={styles.toggleText}>
                 {isSignUp
@@ -466,14 +424,12 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Divider */}
             <View style={styles.dividerContainer}>
               <View style={styles.dividerLine} />
               <Text style={styles.dividerText}>OR</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Google Sign-In Button */}
             <TouchableOpacity
               style={styles.googleButton}
               onPress={signInWithGoogle}
