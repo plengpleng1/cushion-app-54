@@ -5,98 +5,81 @@ import {
   Alert,
   Platform,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { supabase } from "../../lib/supabase";
+
+const STORAGE_CURRENT_USER = "@cushionsense_current_user";
 
 export default function ProfileScreen() {
   const router = useRouter();
 
-  const [displayType, setDisplayType] = useState<"username" | "email" | "">("");
-  const [displayValue, setDisplayValue] = useState("");
+  const [displayValue, setDisplayValue] = useState<string>("");
 
-  // โหลดข้อมูลผู้ใช้ทุกครั้งที่เข้าหน้า Profile
   useFocusEffect(
     useCallback(() => {
       const loadProfile = async () => {
         try {
-          const currentUserJson = await AsyncStorage.getItem("@current_user");
+          const { data: { user } } = await supabase.auth.getUser();
 
-          if (!currentUserJson) {
-            setDisplayType("");
-            setDisplayValue("");
-            return;
+          if (user) {
+            if (user.app_metadata?.provider === "google" || user.email?.endsWith("@gmail.com")) {
+              setDisplayValue(user.email || "");
+              return;
+            }
+
+            if (user.user_metadata?.username) {
+              setDisplayValue(user.user_metadata.username);
+              return;
+            }
           }
 
-          const currentUser = JSON.parse(currentUserJson);
+          const currentUserJson = await AsyncStorage.getItem(STORAGE_CURRENT_USER);
 
-          const email = currentUser.email || "";
-          const username = currentUser.username || "";
+          if (currentUserJson) {
+            const currentUser = JSON.parse(currentUserJson);
 
-          // ถ้ามี loginType
-          if (currentUser.loginType === "username") {
-            setDisplayType("username");
-            setDisplayValue(username);
-            return;
+            if (currentUser.type === "google" && currentUser.email) {
+              setDisplayValue(currentUser.email);
+              return;
+            }
+
+            if (currentUser.username) {
+              setDisplayValue(currentUser.username);
+              return;
+            }
+
+            if (currentUser.email && !currentUser.email.includes("@cushionsense.internal")) {
+              setDisplayValue(currentUser.email);
+              return;
+            }
           }
 
-          if (currentUser.loginType === "email") {
-            setDisplayType("email");
-            setDisplayValue(email);
-            return;
-          }
-
-          // ถ้าไม่มี loginType
-          // Username จะถูกแปลงเป็น @cushionsense.local
-          if (email.endsWith("@cushionsense.local")) {
-            setDisplayType("username");
-            setDisplayValue(username);
-            return;
-          }
-
-          // Email จริง
-          if (email) {
-            setDisplayType("email");
-            setDisplayValue(email);
-            return;
-          }
-
-          // กรณีมีแค่ Username
-          if (username) {
-            setDisplayType("username");
-            setDisplayValue(username);
-            return;
-          }
-
-          setDisplayType("");
           setDisplayValue("");
         } catch (error) {
           console.error("Failed to load profile:", error);
-
-          setDisplayType("");
           setDisplayValue("");
         }
       };
 
       loadProfile();
-    }, []),
+    }, [])
   );
 
-  // =========================
-  // LOG OUT
-  // =========================
   const performLogout = async () => {
     try {
-      await AsyncStorage.removeItem("@current_user");
+      await supabase.auth.signOut();
+      await AsyncStorage.removeItem(STORAGE_CURRENT_USER);
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
       if (router.canDismiss()) {
         router.dismissAll();
       }
-
       router.replace("/login");
     }
   };
@@ -127,24 +110,22 @@ export default function ProfileScreen() {
         {/* Logo */}
         <Text style={styles.brandTitle}>
           <Text style={styles.brandBold}>Cushion </Text>
-
           <Text style={styles.brandLight}>Sense</Text>
         </Text>
 
         <View style={styles.cardContainer}>
-          {/* Username */}
-          {displayType === "username" && (
-            <View style={styles.infoBox}>
-              <Text style={styles.infoText}>{displayValue}</Text>
+          {/* แสดง Username หรือ Email แบบเลื่อนซ้าย-ขวาได้ */}
+          {displayValue ? (
+            <View style={styles.infoBoxWrapper}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.infoScrollContent}
+              >
+                <Text style={styles.infoText}>{displayValue}</Text>
+              </ScrollView>
             </View>
-          )}
-
-          {/* Email */}
-          {displayType === "email" && (
-            <View style={styles.infoBox}>
-              <Text style={styles.infoText}>{displayValue}</Text>
-            </View>
-          )}
+          ) : null}
 
           {/* Log out */}
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -161,33 +142,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F5F5F5",
   },
-
   content: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 24,
   },
-
   brandTitle: {
     marginBottom: 32,
     textAlign: "center",
   },
-
   brandBold: {
     fontSize: 33,
     fontStyle: "italic",
     fontWeight: "700",
     color: "#4464D0",
   },
-
   brandLight: {
     fontSize: 33,
     fontStyle: "italic",
     fontWeight: "400",
     color: "#4464D0",
   },
-
   cardContainer: {
     width: "100%",
     maxWidth: 340,
@@ -198,37 +174,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     paddingVertical: 30,
   },
-
-  infoBox: {
+  infoBoxWrapper: {
     width: "100%",
-    minHeight: 60,
+    height: 50,
     borderWidth: 1,
     borderColor: "#C9C9C9",
     borderRadius: 10,
-    justifyContent: "center",
-    paddingHorizontal: 20,
     marginBottom: 20,
     backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    overflow: "hidden",
   },
-
+  infoScrollContent: {
+    alignItems: "center",
+    paddingHorizontal: 16,
+    flexGrow: 1,
+    justifyContent: "center",
+  },
   infoText: {
-    fontSize: 17,
+    fontSize: 16,
+    fontWeight: "600",
     color: "#333333",
   },
-
   logoutButton: {
     width: "100%",
-    height: 60,
+    height: 50,
     backgroundColor: "#C82828",
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 10,
-    marginTop: 5,
   },
-
   logoutButtonText: {
     color: "#FFFFFF",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "600",
   },
 });
