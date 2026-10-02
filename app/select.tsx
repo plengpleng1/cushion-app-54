@@ -1,7 +1,9 @@
-import { useFocusEffect, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
+    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -16,6 +18,10 @@ export default function SelectScreen() {
 
   const [hasPatients, setHasPatients] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // =========================================================
+  // ตรวจสอบว่ามี Patient หรือไม่
+  // =========================================================
 
   const checkPatients = async () => {
     try {
@@ -95,14 +101,48 @@ export default function SelectScreen() {
   };
 
   // =========================================================
+  // Header
+  // =========================================================
+
+  const headerOptions = {
+    headerShown: true,
+    title: "Select",
+    headerTitleAlign: "left" as const,
+
+    // ลูกศรย้อนกลับ
+    headerLeft: () => (
+      <TouchableOpacity
+        onPress={() => router.replace("/login")}
+        style={styles.backButton}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="arrow-back" size={24} color="#222222" />
+      </TouchableOpacity>
+    ),
+
+    // Logo ด้านขวา
+    headerRight: () => (
+      <Image
+        source={require("../assets/images/logo-app.jpg")}
+        style={styles.headerLogo}
+        resizeMode="contain"
+      />
+    ),
+  };
+
+  // =========================================================
   // Loading
   // =========================================================
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={BLUE} />
-      </View>
+      <>
+        <Stack.Screen options={headerOptions} />
+
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={BLUE} />
+        </View>
+      </>
     );
   }
 
@@ -111,41 +151,84 @@ export default function SelectScreen() {
   // =========================================================
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Select Patient</Text>
+    <>
+      <Stack.Screen options={headerOptions} />
 
-        <Text style={styles.logo}>
-          Cushion <Text style={styles.sense}>Sense</Text>
-        </Text>
-      </View>
+      <View style={styles.container}>
+        {/* ===================================================
+            Page Title
+            =================================================== */}
 
-      <View style={styles.card}>
-        {/* Existing Patient */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Select Patient</Text>
 
-        <TouchableOpacity
-          style={[styles.button, !hasPatients && styles.disabledButton]}
-          disabled={!hasPatients}
-          onPress={goToExistingPatient}
-        >
-          <Text
-            style={[styles.buttonText, !hasPatients && styles.disabledText]}
-          >
-            Existing Patient
+          <Text style={styles.logo}>
+            Cushion <Text style={styles.sense}>Sense</Text>
           </Text>
-        </TouchableOpacity>
+        </View>
 
-        {/* New Patient */}
+        {/* ===================================================
+            Buttons
+            =================================================== */}
 
-        <TouchableOpacity style={styles.button} onPress={goToNewPatient}>
-          <Text style={styles.buttonText}>New Patient</Text>
-        </TouchableOpacity>
+        <View style={styles.card}>
+          {/* Existing Patient */}
+
+          <TouchableOpacity
+            style={[styles.button, !hasPatients && styles.disabledButton]}
+            disabled={!hasPatients}
+            onPress={goToExistingPatient}
+          >
+            <Text
+              style={[styles.buttonText, !hasPatients && styles.disabledText]}
+            >
+              Existing Patient
+            </Text>
+          </TouchableOpacity>
+
+          {/* New Patient */}
+
+          <TouchableOpacity style={styles.button} onPress={goToNewPatient}>
+            <Text style={styles.buttonText}>New Patient</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </>
   );
 }
 
+// =========================================================
+// Styles
+// =========================================================
+
 const styles = StyleSheet.create({
+  // =======================================================
+  // Logo ด้านขวาบน
+  // เหมือน Existing Patient
+  // =======================================================
+
+  headerLogo: {
+    width: 105,
+    height: 35,
+    marginRight: 25,
+  },
+
+  // =======================================================
+  // ลูกศรด้านซ้ายบน
+  // =======================================================
+
+  backButton: {
+    width: 45,
+    height: 45,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 5,
+  },
+
+  // =======================================================
+  // Main Container
+  // =======================================================
+
   container: {
     flex: 1,
     backgroundColor: "#F5F5F5",
@@ -154,12 +237,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
 
+  // =======================================================
+  // Loading
+  // =======================================================
+
   loadingContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#F5F5F5",
   },
+
+  // =======================================================
+  // Page Header
+  // =======================================================
 
   header: {
     alignItems: "center",
@@ -185,6 +276,10 @@ const styles = StyleSheet.create({
     fontWeight: "400",
   },
 
+  // =======================================================
+  // Card
+  // =======================================================
+
   card: {
     width: "100%",
     maxWidth: 475,
@@ -195,6 +290,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 38,
     paddingVertical: 35,
   },
+
+  // =======================================================
+  // Button
+  // =======================================================
 
   button: {
     height: 60,

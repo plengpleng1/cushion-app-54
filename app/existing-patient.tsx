@@ -1,8 +1,9 @@
-import { useFocusEffect, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Image,
     ScrollView,
     StyleSheet,
     Text,
@@ -122,7 +123,7 @@ export default function ExistingPatientScreen() {
   const selectPatient = (patient: Patient) => {
     setSelectedId(patient.citizenId);
 
-    // ใช้ citizenId ต่อกับ patient-info.tsx
+    // ส่ง citizenId ไปยัง patient-info
     router.replace({
       pathname: "/patient-info",
       params: {
@@ -137,9 +138,27 @@ export default function ExistingPatientScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={BLUE} />
-      </View>
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            title: "Existing Patient",
+            headerTitleAlign: "left",
+
+            headerRight: () => (
+              <Image
+                source={require("../assets/images/logo-app.jpg")}
+                style={styles.headerLogo}
+                resizeMode="contain"
+              />
+            ),
+          }}
+        />
+
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={BLUE} />
+        </View>
+      </>
     );
   }
 
@@ -148,62 +167,95 @@ export default function ExistingPatientScreen() {
   // =========================================================
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
+    <>
+      {/* =====================================================
+          Header
+          ===================================================== */}
 
-      <View style={styles.header}>
-        <Text style={styles.title}>Select Patient</Text>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: "Existing Patient",
+          headerTitleAlign: "left",
 
-        <Text style={styles.subtitle}>เลือกผู้ป่วย</Text>
+          headerRight: () => (
+            <Image
+              source={require("../assets/images/logo-app.jpg")}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
+          ),
+        }}
+      />
+
+      <View style={styles.container}>
+        {/* ===================================================
+            Page Title
+            =================================================== */}
+
+        <View style={styles.header}>
+          <Text style={styles.title}>Select Patient</Text>
+
+          <Text style={styles.subtitle}>เลือกผู้ป่วย</Text>
+        </View>
+
+        {/* ===================================================
+            Patient List
+            =================================================== */}
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {patients.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>ไม่พบข้อมูลผู้ป่วย</Text>
+            </View>
+          ) : (
+            patients.map((patient) => {
+              const isSelected = selectedId === patient.citizenId;
+
+              return (
+                <TouchableOpacity
+                  key={patient.id}
+                  activeOpacity={0.8}
+                  onPress={() => selectPatient(patient)}
+                  style={[
+                    styles.patientCard,
+                    isSelected && styles.selectedCard,
+                  ]}
+                >
+                  <View style={styles.patientInfo}>
+                    <Text style={styles.patientName}>{patient.name}</Text>
+
+                    <Text style={styles.patientText}>
+                      Patient ID: {patient.patientId || "-"}
+                    </Text>
+
+                    <Text style={styles.patientText}>
+                      เลขบัตรประชาชน: {patient.citizenId}
+                    </Text>
+
+                    <Text style={styles.patientText}>
+                      เพศ: {patient.gender}
+                    </Text>
+
+                    <Text style={styles.patientText}>
+                      อายุ: {patient.age} ปี
+                    </Text>
+
+                    <Text style={styles.patientText}>
+                      เบอร์โทรศัพท์: {patient.phone}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </ScrollView>
       </View>
-
-      {/* Patient List */}
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {patients.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>ไม่พบข้อมูลผู้ป่วย</Text>
-          </View>
-        ) : (
-          patients.map((patient) => {
-            const isSelected = selectedId === patient.citizenId;
-
-            return (
-              <TouchableOpacity
-                key={patient.id}
-                activeOpacity={0.8}
-                onPress={() => selectPatient(patient)}
-                style={[styles.patientCard, isSelected && styles.selectedCard]}
-              >
-                <View style={styles.patientInfo}>
-                  <Text style={styles.patientName}>{patient.name}</Text>
-
-                  <Text style={styles.patientText}>
-                    Patient ID: {patient.patientId || "-"}
-                  </Text>
-
-                  <Text style={styles.patientText}>
-                    เลขบัตรประชาชน: {patient.citizenId}
-                  </Text>
-
-                  <Text style={styles.patientText}>เพศ: {patient.gender}</Text>
-
-                  <Text style={styles.patientText}>อายุ: {patient.age} ปี</Text>
-
-                  <Text style={styles.patientText}>
-                    เบอร์โทรศัพท์: {patient.phone}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })
-        )}
-      </ScrollView>
-    </View>
+    </>
   );
 }
 
@@ -212,6 +264,20 @@ export default function ExistingPatientScreen() {
 // =========================================================
 
 const styles = StyleSheet.create({
+  // =======================================================
+  // Logo ด้านขวาบน
+  // =======================================================
+
+  headerLogo: {
+    width: 105,
+    height: 35,
+    marginRight: 25,
+  },
+
+  // =======================================================
+  // Main Container
+  // =======================================================
+
   container: {
     flex: 1,
     backgroundColor: "#F5F5F5",
@@ -219,12 +285,20 @@ const styles = StyleSheet.create({
     paddingTop: 45,
   },
 
+  // =======================================================
+  // Loading
+  // =======================================================
+
   loadingContainer: {
     flex: 1,
     backgroundColor: "#F5F5F5",
     alignItems: "center",
     justifyContent: "center",
   },
+
+  // =======================================================
+  // Header
+  // =======================================================
 
   header: {
     alignItems: "center",
@@ -244,6 +318,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  // =======================================================
+  // Scroll
+  // =======================================================
+
   scrollView: {
     flex: 1,
   },
@@ -251,6 +329,10 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
   },
+
+  // =======================================================
+  // Empty
+  // =======================================================
 
   emptyContainer: {
     alignItems: "center",
@@ -261,6 +343,10 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: "#888",
   },
+
+  // =======================================================
+  // Patient Card
+  // =======================================================
 
   patientCard: {
     width: "100%",

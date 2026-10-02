@@ -1,7 +1,8 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -268,7 +269,7 @@ export default function PatientInfo() {
       // =====================================================
 
       if (!selectedCitizenId) {
-        // ตรวจ Citizen ID ซ้ำใน Patient ของ User นี้
+        // ตรวจ Citizen ID ซ้ำ
         const { data: citizenExists, error: citizenError } = await supabase
           .from("user_patients")
           .select("id")
@@ -291,10 +292,7 @@ export default function PatientInfo() {
           return;
         }
 
-        // ===================================================
         // ตรวจ Patient ID ซ้ำ
-        // ===================================================
-
         if (patientData.patient_id) {
           const { data: patientIdExists, error: patientIdError } =
             await supabase
@@ -320,10 +318,7 @@ export default function PatientInfo() {
           }
         }
 
-        // ===================================================
         // INSERT
-        // ===================================================
-
         const { error: insertError } = await supabase
           .from("user_patients")
           .insert({
@@ -363,10 +358,7 @@ export default function PatientInfo() {
           return;
         }
 
-        // ===================================================
         // ตรวจ Patient ID ซ้ำกับคนอื่น
-        // ===================================================
-
         if (patientData.patient_id) {
           const { data: duplicatePatientId, error: duplicateError } =
             await supabase
@@ -393,10 +385,7 @@ export default function PatientInfo() {
           }
         }
 
-        // ===================================================
         // UPDATE
-        // ===================================================
-
         const { error: updateError } = await supabase
           .from("user_patients")
           .update(patientData as never)
@@ -428,284 +417,310 @@ export default function PatientInfo() {
   // =========================================================
 
   return (
-    <ScrollView
-      style={styles.background}
-      contentContainerStyle={styles.scrollContainer}
-      keyboardShouldPersistTaps="handled"
-    >
-      {/* Header */}
+    <>
+      {/* =====================================================
+          Header แบบเดียวกับ Existing Patient
+          ===================================================== */}
 
-      <View style={styles.header}>
-        <Text style={styles.welcome}>Patient Information</Text>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: "Patient Information",
+          headerTitleAlign: "left",
 
-        <Text style={styles.logo}>
-          Cushion <Text style={styles.sense}>Sense</Text>
-        </Text>
-      </View>
-
-      {/* Form */}
-
-      <View style={styles.card}>
-        {/* Patient ID */}
-
-        <TextInput
-          ref={patientIdRef}
-          style={[styles.input, errors.patientId !== "" && styles.inputError]}
-          placeholder="Patient ID"
-          placeholderTextColor="#777"
-          value={patientId}
-          onChangeText={(text) => {
-            setPatientId(text);
-
-            if (errors.patientId) {
-              setErrors({
-                ...errors,
-                patientId: validatePatientId(text),
-              });
-            }
-          }}
-          returnKeyType="next"
-          onSubmitEditing={() => {
-            nameRef.current?.focus();
-          }}
-          blurOnSubmit={false}
-        />
-
-        <Text style={styles.noteText}>ระบุหากมี</Text>
-
-        {errors.patientId !== "" && (
-          <Text style={styles.errorText}>{errors.patientId}</Text>
-        )}
-
-        {/* Name */}
-
-        <TextInput
-          ref={nameRef}
-          style={[styles.input, errors.name !== "" && styles.inputError]}
-          placeholder="ชื่อ - นามสกุล"
-          placeholderTextColor="#777"
-          value={name}
-          onChangeText={(text) => {
-            setName(text);
-
-            if (errors.name) {
-              setErrors({
-                ...errors,
-                name: validateName(text),
-              });
-            }
-          }}
-          onBlur={() => {
-            setErrors({
-              ...errors,
-              name: validateName(name),
-            });
-          }}
-          returnKeyType="next"
-          onSubmitEditing={() => {
-            citizenIdRef.current?.focus();
-          }}
-          blurOnSubmit={false}
-        />
-
-        {errors.name !== "" && (
-          <Text style={styles.errorText}>{errors.name}</Text>
-        )}
-
-        {/* Citizen ID */}
-
-        <TextInput
-          ref={citizenIdRef}
-          style={[styles.input, errors.citizenId !== "" && styles.inputError]}
-          placeholder="เลขบัตรประจำตัวประชาชน"
-          placeholderTextColor="#777"
-          value={citizenId}
-          onChangeText={(text) => {
-            const onlyNumbers = text.replace(/[^0-9]/g, "");
-
-            if (onlyNumbers.length <= 13) {
-              setCitizenId(onlyNumbers);
-
-              if (errors.citizenId) {
-                setErrors({
-                  ...errors,
-                  citizenId: validateCitizenId(onlyNumbers),
-                });
-              }
-            }
-          }}
-          keyboardType="number-pad"
-          maxLength={13}
-          onBlur={() => {
-            setErrors({
-              ...errors,
-              citizenId: validateCitizenId(citizenId),
-            });
-          }}
-          returnKeyType="next"
-          onSubmitEditing={() => {
-            ageRef.current?.focus();
-          }}
-          blurOnSubmit={false}
-        />
-
-        {errors.citizenId !== "" && (
-          <Text style={styles.errorText}>{errors.citizenId}</Text>
-        )}
-
-        {/* Gender + Age */}
-
-        <View style={styles.row}>
-          {/* Gender */}
-
-          <View style={styles.halfContainer}>
-            <TouchableOpacity
-              style={[
-                styles.input,
-                styles.dropdown,
-                errors.gender !== "" && styles.inputError,
-              ]}
-              onPress={() => setGenderOpen(!genderOpen)}
-            >
-              <Text
-                style={gender ? styles.selectedText : styles.placeholderText}
-              >
-                {gender || "เพศ"}
-              </Text>
-
-              <Text style={styles.arrow}>{genderOpen ? "▲" : "▼"}</Text>
-            </TouchableOpacity>
-
-            {genderOpen && (
-              <View style={styles.dropdownMenu}>
-                <TouchableOpacity
-                  style={styles.option}
-                  onPress={() => {
-                    setGender("ชาย");
-                    setGenderOpen(false);
-
-                    setErrors({
-                      ...errors,
-                      gender: "",
-                    });
-
-                    ageRef.current?.focus();
-                  }}
-                >
-                  <Text style={styles.optionText}>ชาย</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.option}
-                  onPress={() => {
-                    setGender("หญิง");
-                    setGenderOpen(false);
-
-                    setErrors({
-                      ...errors,
-                      gender: "",
-                    });
-
-                    ageRef.current?.focus();
-                  }}
-                >
-                  <Text style={styles.optionText}>หญิง</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {errors.gender !== "" && (
-              <Text style={styles.errorText}>{errors.gender}</Text>
-            )}
-          </View>
-
-          {/* Age */}
-
-          <View style={styles.halfContainer}>
-            <TextInput
-              ref={ageRef}
-              style={[styles.input, errors.age !== "" && styles.inputError]}
-              placeholder="อายุ"
-              placeholderTextColor="#777"
-              value={age}
-              onChangeText={(text) => {
-                const onlyNumbers = text.replace(/[^0-9]/g, "");
-
-                setAge(onlyNumbers);
-
-                if (errors.age) {
-                  setErrors({
-                    ...errors,
-                    age: validateAge(onlyNumbers),
-                  });
-                }
-              }}
-              keyboardType="number-pad"
-              maxLength={3}
-              onBlur={() => {
-                setErrors({
-                  ...errors,
-                  age: validateAge(age),
-                });
-              }}
-              returnKeyType="next"
-              onSubmitEditing={() => {
-                phoneRef.current?.focus();
-              }}
-              blurOnSubmit={false}
+          headerRight: () => (
+            <Image
+              source={require("../assets/images/logo-app.jpg")}
+              style={styles.headerLogo}
+              resizeMode="contain"
             />
+          ),
+        }}
+      />
 
-            {errors.age !== "" && (
-              <Text style={styles.errorText}>{errors.age}</Text>
-            )}
-          </View>
+      <ScrollView
+        style={styles.background}
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* ===================================================
+            Page Header
+            =================================================== */}
+
+        <View style={styles.header}>
+          <Text style={styles.welcome}>Patient Information</Text>
+
+          <Text style={styles.logo}>
+            Cushion <Text style={styles.sense}>Sense</Text>
+          </Text>
         </View>
 
-        {/* Phone */}
+        {/* ===================================================
+            Form
+            =================================================== */}
 
-        <TextInput
-          ref={phoneRef}
-          style={[styles.input, errors.phone !== "" && styles.inputError]}
-          placeholder="เบอร์โทรศัพท์"
-          placeholderTextColor="#777"
-          value={phone}
-          onChangeText={(text) => {
-            const onlyNumbers = text.replace(/[^0-9]/g, "");
+        <View style={styles.card}>
+          {/* Patient ID */}
 
-            if (onlyNumbers.length <= 10) {
-              setPhone(onlyNumbers);
+          <TextInput
+            ref={patientIdRef}
+            style={[styles.input, errors.patientId !== "" && styles.inputError]}
+            placeholder="Patient ID"
+            placeholderTextColor="#777"
+            value={patientId}
+            onChangeText={(text) => {
+              setPatientId(text);
 
-              if (errors.phone) {
+              if (errors.patientId) {
                 setErrors({
                   ...errors,
-                  phone: validatePhone(onlyNumbers),
+                  patientId: validatePatientId(text),
                 });
               }
-            }
-          }}
-          keyboardType="phone-pad"
-          maxLength={10}
-          onBlur={() => {
-            setErrors({
-              ...errors,
-              phone: validatePhone(phone),
-            });
-          }}
-          returnKeyType="done"
-          onSubmitEditing={handleNext}
-        />
+            }}
+            returnKeyType="next"
+            onSubmitEditing={() => {
+              nameRef.current?.focus();
+            }}
+            blurOnSubmit={false}
+          />
 
-        {errors.phone !== "" && (
-          <Text style={styles.errorText}>{errors.phone}</Text>
-        )}
+          <Text style={styles.noteText}>ระบุหากมี</Text>
 
-        {/* Next */}
+          {errors.patientId !== "" && (
+            <Text style={styles.errorText}>{errors.patientId}</Text>
+          )}
 
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-          <Text style={styles.nextText}>Next</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          {/* Name */}
+
+          <TextInput
+            ref={nameRef}
+            style={[styles.input, errors.name !== "" && styles.inputError]}
+            placeholder="ชื่อ - นามสกุล"
+            placeholderTextColor="#777"
+            value={name}
+            onChangeText={(text) => {
+              setName(text);
+
+              if (errors.name) {
+                setErrors({
+                  ...errors,
+                  name: validateName(text),
+                });
+              }
+            }}
+            onBlur={() => {
+              setErrors({
+                ...errors,
+                name: validateName(name),
+              });
+            }}
+            returnKeyType="next"
+            onSubmitEditing={() => {
+              citizenIdRef.current?.focus();
+            }}
+            blurOnSubmit={false}
+          />
+
+          {errors.name !== "" && (
+            <Text style={styles.errorText}>{errors.name}</Text>
+          )}
+
+          {/* Citizen ID */}
+
+          <TextInput
+            ref={citizenIdRef}
+            style={[styles.input, errors.citizenId !== "" && styles.inputError]}
+            placeholder="เลขบัตรประจำตัวประชาชน"
+            placeholderTextColor="#777"
+            value={citizenId}
+            onChangeText={(text) => {
+              const onlyNumbers = text.replace(/[^0-9]/g, "");
+
+              if (onlyNumbers.length <= 13) {
+                setCitizenId(onlyNumbers);
+
+                if (errors.citizenId) {
+                  setErrors({
+                    ...errors,
+                    citizenId: validateCitizenId(onlyNumbers),
+                  });
+                }
+              }
+            }}
+            keyboardType="number-pad"
+            maxLength={13}
+            onBlur={() => {
+              setErrors({
+                ...errors,
+                citizenId: validateCitizenId(citizenId),
+              });
+            }}
+            returnKeyType="next"
+            onSubmitEditing={() => {
+              ageRef.current?.focus();
+            }}
+            blurOnSubmit={false}
+          />
+
+          {errors.citizenId !== "" && (
+            <Text style={styles.errorText}>{errors.citizenId}</Text>
+          )}
+
+          {/* Gender + Age */}
+
+          <View style={styles.row}>
+            {/* Gender */}
+
+            <View style={styles.halfContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.input,
+                  styles.dropdown,
+                  errors.gender !== "" && styles.inputError,
+                ]}
+                onPress={() => setGenderOpen(!genderOpen)}
+              >
+                <Text
+                  style={gender ? styles.selectedText : styles.placeholderText}
+                >
+                  {gender || "เพศ"}
+                </Text>
+
+                <Text style={styles.arrow}>{genderOpen ? "▲" : "▼"}</Text>
+              </TouchableOpacity>
+
+              {genderOpen && (
+                <View style={styles.dropdownMenu}>
+                  <TouchableOpacity
+                    style={styles.option}
+                    onPress={() => {
+                      setGender("ชาย");
+                      setGenderOpen(false);
+
+                      setErrors({
+                        ...errors,
+                        gender: "",
+                      });
+
+                      ageRef.current?.focus();
+                    }}
+                  >
+                    <Text style={styles.optionText}>ชาย</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.option}
+                    onPress={() => {
+                      setGender("หญิง");
+                      setGenderOpen(false);
+
+                      setErrors({
+                        ...errors,
+                        gender: "",
+                      });
+
+                      ageRef.current?.focus();
+                    }}
+                  >
+                    <Text style={styles.optionText}>หญิง</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {errors.gender !== "" && (
+                <Text style={styles.errorText}>{errors.gender}</Text>
+              )}
+            </View>
+
+            {/* Age */}
+
+            <View style={styles.halfContainer}>
+              <TextInput
+                ref={ageRef}
+                style={[styles.input, errors.age !== "" && styles.inputError]}
+                placeholder="อายุ"
+                placeholderTextColor="#777"
+                value={age}
+                onChangeText={(text) => {
+                  const onlyNumbers = text.replace(/[^0-9]/g, "");
+
+                  setAge(onlyNumbers);
+
+                  if (errors.age) {
+                    setErrors({
+                      ...errors,
+                      age: validateAge(onlyNumbers),
+                    });
+                  }
+                }}
+                keyboardType="number-pad"
+                maxLength={3}
+                onBlur={() => {
+                  setErrors({
+                    ...errors,
+                    age: validateAge(age),
+                  });
+                }}
+                returnKeyType="next"
+                onSubmitEditing={() => {
+                  phoneRef.current?.focus();
+                }}
+                blurOnSubmit={false}
+              />
+
+              {errors.age !== "" && (
+                <Text style={styles.errorText}>{errors.age}</Text>
+              )}
+            </View>
+          </View>
+
+          {/* Phone */}
+
+          <TextInput
+            ref={phoneRef}
+            style={[styles.input, errors.phone !== "" && styles.inputError]}
+            placeholder="เบอร์โทรศัพท์"
+            placeholderTextColor="#777"
+            value={phone}
+            onChangeText={(text) => {
+              const onlyNumbers = text.replace(/[^0-9]/g, "");
+
+              if (onlyNumbers.length <= 10) {
+                setPhone(onlyNumbers);
+
+                if (errors.phone) {
+                  setErrors({
+                    ...errors,
+                    phone: validatePhone(onlyNumbers),
+                  });
+                }
+              }
+            }}
+            keyboardType="phone-pad"
+            maxLength={10}
+            onBlur={() => {
+              setErrors({
+                ...errors,
+                phone: validatePhone(phone),
+              });
+            }}
+            returnKeyType="done"
+            onSubmitEditing={handleNext}
+          />
+
+          {errors.phone !== "" && (
+            <Text style={styles.errorText}>{errors.phone}</Text>
+          )}
+
+          {/* Next */}
+
+          <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+            <Text style={styles.nextText}>Next</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </>
   );
 }
 
@@ -714,16 +729,39 @@ export default function PatientInfo() {
 // =========================================================
 
 const styles = StyleSheet.create({
+  // =======================================================
+  // Logo ด้านขวาบน
+  // ใช้ขนาดเดียวกับ Existing Patient
+  // =======================================================
+
+  headerLogo: {
+    width: 105,
+    height: 35,
+    marginRight: 25,
+  },
+
+  // =======================================================
+  // Background
+  // =======================================================
+
   background: {
     flex: 1,
     backgroundColor: "#F5F5F5",
   },
+
+  // =======================================================
+  // Scroll
+  // =======================================================
 
   scrollContainer: {
     alignItems: "center",
     paddingVertical: 55,
     paddingHorizontal: 20,
   },
+
+  // =======================================================
+  // Page Header
+  // =======================================================
 
   header: {
     alignItems: "center",
@@ -749,6 +787,10 @@ const styles = StyleSheet.create({
     fontWeight: "400",
   },
 
+  // =======================================================
+  // Form Card
+  // =======================================================
+
   card: {
     width: "100%",
     maxWidth: 475,
@@ -759,6 +801,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 38,
     paddingVertical: 35,
   },
+
+  // =======================================================
+  // Input
+  // =======================================================
 
   input: {
     width: "100%",
@@ -778,6 +824,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
 
+  // =======================================================
+  // Note
+  // =======================================================
+
   noteText: {
     fontSize: 12,
     color: "#888",
@@ -786,12 +836,20 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
 
+  // =======================================================
+  // Error
+  // =======================================================
+
   errorText: {
     color: "#FF0000",
     fontSize: 13,
     marginTop: -8,
     marginBottom: 15,
   },
+
+  // =======================================================
+  // Gender + Age
+  // =======================================================
 
   row: {
     flexDirection: "row",
@@ -825,6 +883,10 @@ const styles = StyleSheet.create({
     color: "#666",
   },
 
+  // =======================================================
+  // Dropdown
+  // =======================================================
+
   dropdownMenu: {
     position: "absolute",
     top: 65,
@@ -850,6 +912,10 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: "#222",
   },
+
+  // =======================================================
+  // Next Button
+  // =======================================================
 
   nextButton: {
     width: "40%",
