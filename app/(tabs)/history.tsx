@@ -710,12 +710,40 @@ useFocusEffect(
           tempSum / total
         ).toFixed(1);
 
+      console.log(
+    '🪑 Sitting summary:',
+    {
+      total: filteredLogs.length,
+      centerCount: filteredLogs.filter(
+        (log) => log.calculatedPosition === 'CENTER'
+      ).length,
+      centerSeconds: filteredLogs
+        .filter(
+          (log) => log.calculatedPosition === 'CENTER'
+        )
+        .map((log) => log.sittingSeconds)
+        .slice(0, 20),
+    }
+  );
+  console.log(
+  '🪑 Position summary:',
+  filteredLogs.reduce(
+    (acc, log) => {
+      const position =
+        log.calculatedPosition || 'EMPTY';
+
+      acc[position] =
+        (acc[position] || 0) + 1;
+
+      return acc;
+    },
+    {} as Record<string, number>
+  )
+);
       const totalMinutes =
-        Math.floor(
-          (filteredLogs.length *
-            3) /
-            60
-        );
+  Math.floor(
+    (filteredLogs.length * 3) / 60
+  );
 
       const hours =
         Math.floor(

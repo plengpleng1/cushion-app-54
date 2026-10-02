@@ -20,7 +20,7 @@ const SELECTED_PATIENT_KEY = 'selectedPatientId';
 
 export default function HomeScreen() {
   const player = useAudioPlayer(
-  require('../../assets/sounds/alarm.wav')
+  require('../../assets/sounds/change-position.mp3')
 );
 
   const alarmPlayedRef = useRef(false);             // เชื่อมเสียงจ้า
