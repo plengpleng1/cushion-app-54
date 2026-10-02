@@ -25,11 +25,11 @@ export default function LoginScreen() {
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [isOtpStep, setIsOtpStep] = useState(false);
-  
+
   // State เพิ่มเติมสำหรับระบบ Forgot Password
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isResetPasswordStep, setIsResetPasswordStep] = useState(false);
-  
+
   const [loading, setLoading] = useState(false);
 
   // Timer state สำหรับ Resend OTP
@@ -53,6 +53,12 @@ export default function LoginScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState("");
+
+  // States สำหรับแจ้งเตือนสีแดงใต้ช่องแต่ละช่อง (Inline Validation)
+  const [usernameError, setUsernameError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
   // =========================================================
   // Timer สำหรับ Resend OTP
@@ -99,11 +105,80 @@ export default function LoginScreen() {
     setShowPassword(false);
     setShowConfirmPassword(false);
     setErrorMessage("");
+    setUsernameError("");
+    setEmailError("");
     setIsOtpStep(false);
     setIsForgotPassword(false);
     setIsResetPasswordStep(false);
     setTimer(60);
     setCanResend(false);
+  };
+
+  // =========================================================
+  // Functions ตรวจสอบ Username และ Email ซ้ำในระบบ
+  // =========================================================
+
+  const checkUsernameExists = async (inputUsername: string) => {
+    const rawUsername = inputUsername.trim();
+    if (!rawUsername || !isSignUp) return false;
+
+    try {
+      setIsCheckingUsername(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("username", rawUsername)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setUsernameError("Username นี้ถูกใช้งานแล้วในระบบ");
+        return true;
+      } else {
+        setUsernameError("");
+        return false;
+      }
+    } catch (err) {
+      console.error("Check username error:", err);
+      return false;
+    } finally {
+      setIsCheckingUsername(false);
+    }
+  };
+
+  const checkEmailExists = async (inputEmail: string) => {
+    const rawEmail = inputEmail.trim().toLowerCase();
+    if (!rawEmail || !isSignUp) return false;
+
+    if (!validateEmail(rawEmail)) {
+      setEmailError("กรุณากรอกรูปแบบ Email ให้ถูกต้อง");
+      return false;
+    }
+
+    try {
+      setIsCheckingEmail(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("email")
+        .eq("email", rawEmail)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setEmailError("Email นี้ถูกใช้งานแล้วในระบบ");
+        return true;
+      } else {
+        setEmailError("");
+        return false;
+      }
+    } catch (err) {
+      console.error("Check email error:", err);
+      return false;
+    } finally {
+      setIsCheckingEmail(false);
+    }
   };
 
   // =========================================================
@@ -225,8 +300,9 @@ export default function LoginScreen() {
       return;
     }
 
+    // ตรวจสอบความถูกต้องของ Email และรหัสผ่านก่อน Submit
     if (!validateEmail(rawEmail)) {
-      showError("กรุณากรอกรูปแบบ Email ให้ถูกต้อง");
+      setEmailError("กรุณากรอกรูปแบบ Email ให้ถูกต้อง");
       return;
     }
 
@@ -244,6 +320,15 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
+
+      // ตรวจสอบอีกครั้งก่อนส่งข้อมูลสมัคร
+      const isUsernameTaken = await checkUsernameExists(rawUsername);
+      const isEmailTaken = await checkEmailExists(rawEmail);
+
+      if (isUsernameTaken || isEmailTaken) {
+        showError("โปรดแก้ไขข้อมูลที่มีในระบบแล้วก่อนดำเนินการต่อ");
+        return;
+      }
 
       const { data, error } = await supabase.auth.signUp({
         email: rawEmail,
@@ -275,35 +360,33 @@ export default function LoginScreen() {
   // =========================================================
 
   const handleResendOtp = async () => {
-  if (!canResend) return;
-  setErrorMessage("");
+    if (!canResend) return;
+    setErrorMessage("");
 
-  try {
-    setLoading(true);
-    const targetEmail = email.trim().toLowerCase();
+    try {
+      setLoading(true);
+      const targetEmail = email.trim().toLowerCase();
 
-    if (isForgotPassword) {
-      // สำหรับ Forgot Password / Recovery ให้ใช้ resetPasswordForEmail
-      const { error } = await supabase.auth.resetPasswordForEmail(targetEmail);
-      if (error) throw error;
-    } else {
-      // สำหรับ Sign Up ให้ใช้ resend แบบระบุ type: 'signup'
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email: targetEmail,
-      });
-      if (error) throw error;
+      if (isForgotPassword) {
+        const { error } = await supabase.auth.resetPasswordForEmail(targetEmail);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.resend({
+          type: "signup",
+          email: targetEmail,
+        });
+        if (error) throw error;
+      }
+
+      setTimer(60);
+      setCanResend(false);
+      alert("ส่งรหัส OTP ใหม่ไปยังอีเมลของคุณเรียบร้อยแล้ว");
+    } catch (err: any) {
+      showError(err.message || "ไม่สามารถส่ง OTP ใหม่ได้ กรุณาลองอีกครั้ง");
+    } finally {
+      setLoading(false);
     }
-
-    setTimer(60);
-    setCanResend(false);
-    alert("ส่งรหัส OTP ใหม่ไปยังอีเมลของคุณเรียบร้อยแล้ว");
-  } catch (err: any) {
-    showError(err.message || "ไม่สามารถส่ง OTP ใหม่ได้ กรุณาลองอีกครั้ง");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // =========================================================
   // Verify SignUp OTP Logic
@@ -675,7 +758,10 @@ export default function LoginScreen() {
                   </Text>
 
                   <TextInput
-                    style={styles.input}
+                    style={[
+                      styles.input,
+                      isSignUp && usernameError ? styles.inputError : null,
+                    ]}
                     placeholder={
                       isSignUp
                         ? "Enter your username"
@@ -685,7 +771,11 @@ export default function LoginScreen() {
                     value={username}
                     onChangeText={(text) => {
                       setUsername(text);
+                      if (usernameError) setUsernameError("");
                       if (errorMessage) setErrorMessage("");
+                    }}
+                    onBlur={() => {
+                      if (isSignUp) checkUsernameExists(username);
                     }}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -698,6 +788,14 @@ export default function LoginScreen() {
                       }
                     }}
                   />
+
+                  {/* Inline Error สำหรับ Username ในหน้า Sign Up */}
+                  {isSignUp && isCheckingUsername && (
+                    <Text style={styles.infoText}>กำลังตรวจสอบ Username...</Text>
+                  )}
+                  {isSignUp && usernameError ? (
+                    <Text style={styles.fieldErrorText}>{usernameError}</Text>
+                  ) : null}
                 </View>
 
                 {/* Email - Sign Up only */}
@@ -707,13 +805,20 @@ export default function LoginScreen() {
 
                     <TextInput
                       ref={emailInputRef}
-                      style={styles.input}
+                      style={[
+                        styles.input,
+                        emailError ? styles.inputError : null,
+                      ]}
                       placeholder="Enter your email"
                       placeholderTextColor="#A0A0A0"
                       value={email}
                       onChangeText={(text) => {
                         setEmail(text);
+                        if (emailError) setEmailError("");
                         if (errorMessage) setErrorMessage("");
+                      }}
+                      onBlur={() => {
+                        if (isSignUp) checkEmailExists(email);
                       }}
                       keyboardType="email-address"
                       autoCapitalize="none"
@@ -721,6 +826,14 @@ export default function LoginScreen() {
                       returnKeyType="next"
                       onSubmitEditing={() => passwordInputRef.current?.focus()}
                     />
+
+                    {/* Inline Error สำหรับ Email ในหน้า Sign Up */}
+                    {isCheckingEmail && (
+                      <Text style={styles.infoText}>กำลังตรวจสอบ Email...</Text>
+                    )}
+                    {emailError ? (
+                      <Text style={styles.fieldErrorText}>{emailError}</Text>
+                    ) : null}
                   </View>
                 )}
 
@@ -829,7 +942,7 @@ export default function LoginScreen() {
                   </View>
                 )}
 
-                {/* Error Message */}
+                {/* Error Message รวม */}
                 {errorMessage ? (
                   <Text style={styles.errorText}>{errorMessage}</Text>
                 ) : null}
@@ -969,6 +1082,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 15,
     backgroundColor: "#FAFAFA",
+  },
+  inputError: {
+    borderColor: "#D92D20",
+    backgroundColor: "#FFF5F5",
+  },
+  fieldErrorText: {
+    color: "#D92D20",
+    fontSize: 12,
+    fontWeight: "500",
+    marginTop: 4,
+  },
+  infoText: {
+    color: "#666666",
+    fontSize: 12,
+    marginTop: 4,
   },
   passwordWrapper: {
     position: "relative",
