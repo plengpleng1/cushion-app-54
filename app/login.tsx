@@ -594,8 +594,8 @@ export default function LoginScreen() {
                       </Text>
                     </TouchableOpacity>
                   ) : (
-                    <Text style={{ color: "#888888", fontSize: 13 }}>
-                      ส่งรหัสอีกครั้งได้ใน {timer} วินาที
+                    <Text style={{ color: "#777777", fontSize: 13 }}>
+                      ส่งรหัส OTP อีกครั้งได้ใน {timer} วินาที
                     </Text>
                   )}
                 </View>
@@ -605,7 +605,7 @@ export default function LoginScreen() {
                   style={{ marginTop: 16, alignItems: "center" }}
                   onPress={() => setIsOtpStep(false)}
                 >
-                  <Text style={{ color: "#666666", fontSize: 14 }}>
+                  <Text style={{ color: "#777777", fontSize: 14 }}>
                     ← กลับไปแก้ไขข้อมูล
                   </Text>
                 </TouchableOpacity>
