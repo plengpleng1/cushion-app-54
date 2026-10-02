@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { supabase } from "../../lib/supabase";
 
-const BLUE = "#4966D5";
+const BLUE = "#2D69CA";
 const SELECTED_PATIENT_KEY = "selectedPatientId";
 
 type Patient = {
@@ -1125,7 +1125,7 @@ const styles = StyleSheet.create({
   addButton: {
     position: "absolute",
     right: 30,
-    bottom: 110,          // เดิม 55
+    bottom: 110, // เดิม 55
     width: 58,
     height: 58,
     borderRadius: 29,

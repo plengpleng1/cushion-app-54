@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { supabase } from "../lib/supabase";
 
-const BLUE = "#4966D5";
+const BLUE = "#2D69CA";
 
 export default function SelectScreen() {
   const router = useRouter();

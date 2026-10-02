@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { supabase } from "../lib/supabase";
 
-const BLUE = "#4966D5";
+const BLUE = "#2D69CA";
 
 type Patient = {
   id: string;
@@ -153,7 +153,7 @@ export default function ExistingPatientScreen() {
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color="#222222" />
+          <Ionicons name="arrow-back" size={23} color="#222222" />
         </TouchableOpacity>
 
         <Image
@@ -204,7 +204,7 @@ export default function ExistingPatientScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Select Patient</Text>
 
-          <Text style={styles.subtitle}>เลือกผู้ป่วย</Text>
+          <Text style={styles.subtitle}>กรุณาเลือกผู้ป่วย</Text>
         </View>
 
         {/* ===================================================

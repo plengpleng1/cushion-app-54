@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { supabase } from "../lib/supabase";
 
-const BLUE = "#4464D0";
+const BLUE = "#2D69CA";
 const SELECTED_PATIENT_KEY = "selectedPatientId";
 
 type UserPatientRow = {
@@ -793,7 +793,7 @@ const styles = StyleSheet.create({
   headerLogo: {
     width: 105,
     height: 35,
-    marginLeft: 1,
+    marginLeft: 0,
   },
 
   // =======================================================
