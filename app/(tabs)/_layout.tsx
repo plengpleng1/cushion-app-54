@@ -10,9 +10,24 @@ export default function TabLayout() {
         headerShown: false,
 
         tabBarStyle: {
-          height: 70,
-          paddingTop: 8,
-          paddingBottom: 8,
+          position: 'absolute', // ทำให้แถบลอยเหนือหน้าจอ
+          bottom: 24,           // ระยะห่างจากขอบล่าง
+          left: 20,             // ระยะห่างจากขอบซ้าย
+          right: 20,            // ระยะห่างจากขอบขวา
+          elevation: 5,         // เงาสำหรับ Android
+          backgroundColor: '#FFFDF9', // สีพื้นหลังแคปซูล (ปรับเปลี่ยนได้ตามชอบ) เดิม #FFFDF9
+          borderRadius: 40,     // ความโค้งมนของขอบแคปซูล
+          height: 75,           // ความสูงของบาร์
+          paddingBottom: 10,    // ปรับระยะด้านล่างของไอคอน/ข้อความ
+          paddingTop: 10,
+          shadowColor: '#000',  // เงาสำหรับ iOS
+          shadowOffset: {
+            width: 0,
+            height: 4,
+          },
+          shadowOpacity: 0.12,
+          shadowRadius: 10,
+          borderTopWidth: 0,    // เอาเส้นขอบด้านบนที่ติดมากับค่าเริ่มต้นออก
         },
 
         // สีตอนเลือก
