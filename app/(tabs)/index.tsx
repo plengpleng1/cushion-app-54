@@ -7,6 +7,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { Image } from 'react-native';
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fetchSensorData, SensorData } from "../../services/sensorService";
@@ -293,9 +294,11 @@ export default function HomeScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={[styles.mainWrapper, { width: maxContainerWidth }]}>
-        <Text style={styles.logo}>
-          Cushion <Text style={styles.sense}>Sense</Text>
-        </Text>
+        <Image 
+          source={require('../../assets/images/cushion.png')} // เปลี่ยน path ไปยังไฟล์รูปโลโก้ของคุณ
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
         <Text style={styles.lastUpdateText}>
           อัปเดตล่าสุด: {formatUpdateTime(sensorData?.date, sensorData?.time)}
         </Text>
@@ -516,16 +519,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: "#8E8E93",
   },
-  logo: {
-    fontSize: 32,
-    fontStyle: "italic",
-    fontWeight: "700",
-    color: "#4464D0",
-    textAlign: "center",
-  },
-  sense: {
-    fontStyle: "italic",
-    fontWeight: "400",
+  logoImage: {
+    width: 400,  // ปรับความกว้างของโลโก้ตามต้องการ
+    height: 150,  // ปรับความสูงของโลโก้ตามสัดส่วนจริง
+    alignSelf: 'center', // จัดให้อยู่กึ่งกลางหน้าจอ
+    marginBottom: 5,
   },
   lastUpdateText: {
     fontSize: 12,
@@ -620,7 +618,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 10,      //ระยะกล่องตำแหน่ง
   },
   badgeContainer: {
     flexDirection: "row",
