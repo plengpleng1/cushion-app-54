@@ -23,6 +23,7 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg';
 
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 
 import {
   loadHistoryFromSupabase,
@@ -1365,13 +1366,13 @@ useFocusEffect(
                   handleClearHistory
                 }
               >
-                <Text
-                  style={
-                    styles.clearHistoryBadgeText
-                  }
-                >
-                  🗑️ ล้าง
-                </Text>
+                <View style={styles.clearHistoryBadgeContent}>
+                <FontAwesome5
+                  name="trash"
+                  size={16}
+                  color="#9c1717"
+                />
+              </View>
               </TouchableOpacity>
 
               {/* ปุ่มดูทั้งหมด */}
@@ -1392,8 +1393,8 @@ useFocusEffect(
                   }
                 >
                   {isExpanded
-                    ? 'ย่อลง'
-                    : 'ดูทั้งหมด'}
+                    ? 'Show Less'
+                    : 'View All'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1860,19 +1861,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  exportBadge: {
-    backgroundColor: '#2D69CA',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-
-  exportBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-
   emptyText: {
     color: '#8E8E93',
     fontSize: 12,
@@ -1968,17 +1956,41 @@ const styles = StyleSheet.create({
   alignItems: 'center',
   gap: 6,
 },
+//=================== see all =======================
+exportBadge: {
+    backgroundColor: '#2D69CA',
+    height: 29,               // 🔥 กำหนดความสูงให้ตายตัว
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 
-clearHistoryBadge: {
-  backgroundColor: '#FFE5E5',
-  paddingHorizontal: 10,
-  paddingVertical: 4,
-  borderRadius: 6,
-},
+  exportBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
 
-clearHistoryBadgeText: {
-  color: '#FF3B30',
-  fontSize: 11,
-  fontWeight: '600',
-},
+  clearHistoryBadge: {
+    backgroundColor: '#FFE5E5',
+    height: 30,               // 🔥 ใช้ความสูงเท่ากันเป๊ะๆ (36)
+    paddingHorizontal: 14,    // ปรับให้มีระยะขอบสอดคล้องกัน
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  clearHistoryBadgeText: {
+    color: '#FF3B30',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  clearHistoryBadgeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
 });
