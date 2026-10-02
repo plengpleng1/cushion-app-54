@@ -163,14 +163,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   logoImage: {
-    width: 400,  // ปรับความกว้างของโลโก้ตามต้องการ
+    width: 350,  // ปรับความกว้างของโลโก้ตามต้องการ
     height: 200,  // ปรับความสูงของโลโก้ตามสัดส่วนจริง
     alignSelf: 'center', // จัดให้อยู่กึ่งกลางหน้าจอ
     marginBottom: 5,
   },
   cardContainer: {
     width: "100%",
-    maxWidth: 340,
+    maxWidth: 355,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#D8D8D8",
