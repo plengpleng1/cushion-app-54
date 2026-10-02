@@ -11,9 +11,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../../lib/supabase";
 
 const BLUE = "#4966D5";
+const SELECTED_PATIENT_KEY = "selectedPatientId";
 
 type Patient = {
   id: string;
@@ -65,6 +67,23 @@ export default function PatientListScreen() {
     phone: "",
     patientId: "",
   });
+
+  // =========================================================
+// Load Selected Patient
+// =========================================================
+
+const loadSelectedPatient = async () => {
+  try {
+    const savedPatientId = await AsyncStorage.getItem(
+      SELECTED_PATIENT_KEY,
+    );
+
+    setSelectedPatientId(savedPatientId ?? "");
+  } catch (error) {
+    console.error("Load selected patient error:", error);
+    setSelectedPatientId("");
+  }
+};
 
   // =========================================================
   // Load Patient List
@@ -451,16 +470,30 @@ export default function PatientListScreen() {
   // =========================================================
 
   const selectPatient = (patient: Patient) => {
-    const confirmSelect = () => {
-      setSelectedPatientId(patient.citizenId);
+    const confirmSelect = async () => {
+        try {
+            await AsyncStorage.setItem(
+            SELECTED_PATIENT_KEY,
+            patient.citizenId,
+            );
 
-      router.push({
-        pathname: "/patient-info",
-        params: {
-          citizenId: patient.citizenId,
-        },
-      });
-    };
+            setSelectedPatientId(patient.citizenId);
+
+            router.push({
+            pathname: "/patient-info",
+            params: {
+                citizenId: patient.citizenId,
+            },
+            });
+        } catch (error) {
+            console.error("Save selected patient error:", error);
+
+            Alert.alert(
+            "เกิดข้อผิดพลาด",
+            "ไม่สามารถบันทึกผู้ป่วยที่เลือกได้",
+            );
+        }
+        };
 
     if (Platform.OS === "web") {
       const result = window.confirm(
@@ -521,9 +554,11 @@ export default function PatientListScreen() {
         }
 
         // ถ้าลบ Patient ที่กำลังเลือกอยู่
-        if (selectedPatientId === patient.citizenId) {
-          setSelectedPatientId("");
-        }
+            if (selectedPatientId === patient.citizenId) {
+            setSelectedPatientId("");
+
+            await AsyncStorage.removeItem(SELECTED_PATIENT_KEY);
+            }
 
         await loadPatients();
       } catch (error) {

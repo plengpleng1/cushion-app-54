@@ -8,13 +8,13 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import {
-  fetchSensorData,
-  SensorData,
-} from '../../services/sensorService';
+import {fetchSensorData,SensorData} from '../../services/sensorService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type PrimaryStatus = 'ACTIVE' | 'STANDBY';
 type PressureSide = 'left' | 'right' | 'both' | 'none';
+
+const SELECTED_PATIENT_KEY = 'selectedPatientId';
 
 export default function HomeScreen() {
   const { width: windowWidth } = useWindowDimensions();
@@ -23,12 +23,34 @@ export default function HomeScreen() {
   const [seconds, setSeconds] = useState(0);
   const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
   const [mainStatus, setMainStatus] = useState<PrimaryStatus>('STANDBY');
   const [pressureSide, setPressureSide] = useState<PressureSide>('none');
   const [isHumidHigh, setIsHumidHigh] = useState<boolean>(false);
   const [isTempHigh, setIsTempHigh] = useState<boolean>(false);
 
+  useEffect(() => {
+  console.log('Dashboard: loadSelectedPatient started');
+  const loadSelectedPatient = async () => {
+    try {
+      const savedPatientId = await AsyncStorage.getItem(
+        SELECTED_PATIENT_KEY,
+      );
+
+      console.log('Selected Patient ID:', savedPatientId);
+
+      setSelectedPatientId(savedPatientId);
+    } catch (error) {
+      console.error('โหลดผู้ป่วยที่เลือกไม่สำเร็จ:', error);
+    }
+  };
+
+  loadSelectedPatient();
+}, []);
+
+// timer
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
 
