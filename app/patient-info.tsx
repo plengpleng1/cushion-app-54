@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -13,6 +14,7 @@ import {
 import { supabase } from "../lib/supabase";
 
 const BLUE = "#4464D0";
+const SELECTED_PATIENT_KEY = "selectedPatientId";
 
 type UserPatientRow = {
   id: string;
@@ -91,7 +93,10 @@ export default function PatientInfo() {
       }
 
       try {
+        // =====================================================
         // ตรวจสอบคนที่ Login
+        // =====================================================
+
         const {
           data: { user },
           error: userError,
@@ -103,7 +108,10 @@ export default function PatientInfo() {
           return;
         }
 
+        // =====================================================
         // โหลด Patient ของ User นี้เท่านั้น
+        // =====================================================
+
         const { data, error } = await supabase
           .from("user_patients")
           .select("id, patient_id, name, citizen_id, gender, age, phone")
@@ -123,7 +131,10 @@ export default function PatientInfo() {
           return;
         }
 
+        // =====================================================
         // เติมข้อมูลลง Form
+        // =====================================================
+
         setPatientId(data.patient_id ?? "");
         setName(data.name ?? "");
         setCitizenId(data.citizen_id ?? "");
@@ -269,7 +280,10 @@ export default function PatientInfo() {
       // =====================================================
 
       if (!selectedCitizenId) {
+        // ===================================================
         // ตรวจ Citizen ID ซ้ำ
+        // ===================================================
+
         const { data: citizenExists, error: citizenError } = await supabase
           .from("user_patients")
           .select("id")
@@ -281,6 +295,7 @@ export default function PatientInfo() {
           console.error("Check citizen ID error:", citizenError);
 
           Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถตรวจสอบเลขบัตรประชาชนได้");
+
           return;
         }
 
@@ -289,10 +304,14 @@ export default function PatientInfo() {
             ...newErrors,
             citizenId: "เลขบัตรประชาชนนี้มีอยู่แล้ว",
           });
+
           return;
         }
 
+        // ===================================================
         // ตรวจ Patient ID ซ้ำ
+        // ===================================================
+
         if (patientData.patient_id) {
           const { data: patientIdExists, error: patientIdError } =
             await supabase
@@ -306,6 +325,7 @@ export default function PatientInfo() {
             console.error("Check patient ID error:", patientIdError);
 
             Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถตรวจสอบ Patient ID ได้");
+
             return;
           }
 
@@ -314,11 +334,15 @@ export default function PatientInfo() {
               ...newErrors,
               patientId: "Patient ID นี้มีอยู่แล้ว",
             });
+
             return;
           }
         }
 
+        // ===================================================
         // INSERT
+        // ===================================================
+
         const { error: insertError } = await supabase
           .from("user_patients")
           .insert({
@@ -330,6 +354,7 @@ export default function PatientInfo() {
           console.error("Insert patient error:", insertError);
 
           Alert.alert("บันทึกไม่สำเร็จ", insertError.message);
+
           return;
         }
       }
@@ -338,7 +363,10 @@ export default function PatientInfo() {
       // EXISTING PATIENT
       // =====================================================
       else {
+        // ===================================================
         // หา Patient เดิม
+        // ===================================================
+
         const { data: existingPatient, error: findError } = await supabase
           .from("user_patients")
           .select("id")
@@ -350,15 +378,20 @@ export default function PatientInfo() {
           console.error("Find patient error:", findError);
 
           Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถค้นหาผู้ป่วยได้");
+
           return;
         }
 
         if (!existingPatient) {
           Alert.alert("ไม่พบผู้ป่วย", "ไม่พบข้อมูลผู้ป่วยในระบบ");
+
           return;
         }
 
+        // ===================================================
         // ตรวจ Patient ID ซ้ำกับคนอื่น
+        // ===================================================
+
         if (patientData.patient_id) {
           const { data: duplicatePatientId, error: duplicateError } =
             await supabase
@@ -373,6 +406,7 @@ export default function PatientInfo() {
             console.error("Duplicate patient ID error:", duplicateError);
 
             Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถตรวจสอบ Patient ID ได้");
+
             return;
           }
 
@@ -381,11 +415,15 @@ export default function PatientInfo() {
               ...newErrors,
               patientId: "Patient ID นี้มีอยู่แล้ว",
             });
+
             return;
           }
         }
 
+        // ===================================================
         // UPDATE
+        // ===================================================
+
         const { error: updateError } = await supabase
           .from("user_patients")
           .update(patientData as never)
@@ -396,9 +434,24 @@ export default function PatientInfo() {
           console.error("Update patient error:", updateError);
 
           Alert.alert("บันทึกไม่สำเร็จ", updateError.message);
+
           return;
         }
       }
+
+      // =====================================================
+      // บันทึก Patient ที่เพิ่งสร้าง/แก้ไขเป็น Selected
+      // =====================================================
+      //
+      // สำคัญ:
+      // ไม่ว่าจะเป็น New Patient หรือ Existing Patient
+      // เมื่อบันทึก Supabase สำเร็จแล้ว
+      // ผู้ป่วยคนนี้จะถูกตั้งเป็น Selected
+      //
+      // ใช้ citizen_id ของข้อมูลล่าสุด
+      // =====================================================
+
+      await AsyncStorage.setItem(SELECTED_PATIENT_KEY, patientData.citizen_id);
 
       // =====================================================
       // ไปหน้า Main
@@ -731,7 +784,6 @@ export default function PatientInfo() {
 const styles = StyleSheet.create({
   // =======================================================
   // Logo ด้านขวาบน
-  // ใช้ขนาดเดียวกับ Existing Patient
   // =======================================================
 
   headerLogo: {

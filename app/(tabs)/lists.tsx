@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
@@ -11,7 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../../lib/supabase";
 
 const BLUE = "#4966D5";
@@ -69,21 +69,19 @@ export default function PatientListScreen() {
   });
 
   // =========================================================
-// Load Selected Patient
-// =========================================================
+  // Load Selected Patient
+  // =========================================================
 
-const loadSelectedPatient = async () => {
-  try {
-    const savedPatientId = await AsyncStorage.getItem(
-      SELECTED_PATIENT_KEY,
-    );
+  const loadSelectedPatient = async () => {
+    try {
+      const savedPatientId = await AsyncStorage.getItem(SELECTED_PATIENT_KEY);
 
-    setSelectedPatientId(savedPatientId ?? "");
-  } catch (error) {
-    console.error("Load selected patient error:", error);
-    setSelectedPatientId("");
-  }
-};
+      setSelectedPatientId(savedPatientId ?? "");
+    } catch (error) {
+      console.error("Load selected patient error:", error);
+      setSelectedPatientId("");
+    }
+  };
 
   // =========================================================
   // Load Patient List
@@ -152,9 +150,14 @@ const loadSelectedPatient = async () => {
     }
   };
 
+  // =========================================================
+  // Load ใหม่ทุกครั้งที่กลับเข้าหน้า Patient List
+  // =========================================================
+
   useFocusEffect(
     useCallback(() => {
       loadPatients();
+      loadSelectedPatient();
     }, []),
   );
 
@@ -471,29 +474,23 @@ const loadSelectedPatient = async () => {
 
   const selectPatient = (patient: Patient) => {
     const confirmSelect = async () => {
-        try {
-            await AsyncStorage.setItem(
-            SELECTED_PATIENT_KEY,
-            patient.citizenId,
-            );
+      try {
+        await AsyncStorage.setItem(SELECTED_PATIENT_KEY, patient.citizenId);
 
-            setSelectedPatientId(patient.citizenId);
+        setSelectedPatientId(patient.citizenId);
 
-            router.push({
-            pathname: "/patient-info",
-            params: {
-                citizenId: patient.citizenId,
-            },
-            });
-        } catch (error) {
-            console.error("Save selected patient error:", error);
+        router.push({
+          pathname: "/patient-info",
+          params: {
+            citizenId: patient.citizenId,
+          },
+        });
+      } catch (error) {
+        console.error("Save selected patient error:", error);
 
-            Alert.alert(
-            "เกิดข้อผิดพลาด",
-            "ไม่สามารถบันทึกผู้ป่วยที่เลือกได้",
-            );
-        }
-        };
+        Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถบันทึกผู้ป่วยที่เลือกได้");
+      }
+    };
 
     if (Platform.OS === "web") {
       const result = window.confirm(
@@ -554,11 +551,11 @@ const loadSelectedPatient = async () => {
         }
 
         // ถ้าลบ Patient ที่กำลังเลือกอยู่
-            if (selectedPatientId === patient.citizenId) {
-            setSelectedPatientId("");
+        if (selectedPatientId === patient.citizenId) {
+          setSelectedPatientId("");
 
-            await AsyncStorage.removeItem(SELECTED_PATIENT_KEY);
-            }
+          await AsyncStorage.removeItem(SELECTED_PATIENT_KEY);
+        }
 
         await loadPatients();
       } catch (error) {
