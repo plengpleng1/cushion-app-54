@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   useWindowDimensions,
+  Alert,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import Svg, {
@@ -404,6 +405,11 @@ export default function HistoryScreen() {
     setIsExpanded,
   ] = useState<boolean>(false);
 
+  const [
+  isHistoryCleared,
+  setIsHistoryCleared,
+] = useState<boolean>(false);
+
   // =====================================================
   // วันที่ปัจจุบัน
   // =====================================================
@@ -417,146 +423,172 @@ export default function HistoryScreen() {
   });
 
   
-  // =====================================================
+    // =====================================================
   // Patient ID ปัจจุบัน
   // =====================================================
   const patientIdRef =
     useRef<string | null>(null);
 
+    const isHistoryClearedRef =
+    useRef<boolean>(false);
+
+    const handleClearHistory = () => {
+  console.log('🗑️ CLEAR BUTTON PRESSED');
+
+  setIsHistoryCleared(true);
+  setHistoryLogs([]);
+  setIsExpanded(false);
+};
+
+
   // =====================================================
   // จัดรูปแบบวันที่สำหรับเปรียบเทียบ
   // =====================================================
   const getLogDateKey = (
-  dateString: string
-) => {
-  if (!dateString) {
-    return '';
-  }
-
-  // กรณีวันที่จาก Supabase เป็น DD/MM/YYYY
-  if (dateString.includes('/')) {
-    const parts = dateString.split('/');
-
-    if (parts.length === 3) {
-      const [day, month, year] = parts;
-
-      return `${Number(year)}-${Number(month)}-${Number(day)}`;
+    dateString: string
+  ) => {
+    if (!dateString) {
+      return '';
     }
-  }
 
-  // กรณีเป็น ISO Date เช่น 2026-10-02T...
-  const date =
-    new Date(dateString);
+    // กรณีวันที่จาก Supabase เป็น DD/MM/YYYY
+    if (dateString.includes('/')) {
+      const parts =
+        dateString.split('/');
 
-  if (
-    isNaN(date.getTime())
-  ) {
-    return '';
-  }
+      if (parts.length === 3) {
+        const [
+          day,
+          month,
+          year,
+        ] = parts;
 
-  const thailandDate =
-    new Intl.DateTimeFormat(
-      'en-CA',
-      {
-        timeZone:
-          'Asia/Bangkok',
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
+        return `${Number(
+          year
+        )}-${Number(
+          month
+        )}-${Number(day)}`;
       }
-    ).formatToParts(date);
+    }
 
-  const year =
-    thailandDate.find(
-      (part) =>
-        part.type === 'year'
-    )?.value;
+    // กรณีเป็น ISO Date เช่น 2026-10-02T...
+    const date =
+      new Date(dateString);
 
-  const month =
-    thailandDate.find(
-      (part) =>
-        part.type === 'month'
-    )?.value;
+    if (
+      isNaN(date.getTime())
+    ) {
+      return '';
+    }
 
-  const day =
-    thailandDate.find(
-      (part) =>
-        part.type === 'day'
-    )?.value;
-
-  return `${year}-${Number(
-    month
-  )}-${Number(day)}`;
-};
-
-// =====================================================
-// ตรวจว่าเป็นข้อมูลของวันนี้หรือไม่
-// =====================================================
-const isToday = (
-  dateString: string
-) => {
-  return (
-    getLogDateKey(
-      dateString
-    ) === currentDate
-  );
-};
-
-// =====================================================
-// ตรวจวันใหม่ทุก 1 นาที
-// =====================================================
-useEffect(() => {
-  const checkDate = () => {
-    const today =
-      new Date();
-
-    const todayKey =
-      `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
-
-    setCurrentDate(
-      (prevDate) => {
-        if (
-          prevDate !==
-          todayKey
-        ) {
-          return todayKey;
+    const thailandDate =
+      new Intl.DateTimeFormat(
+        'en-CA',
+        {
+          timeZone:
+            'Asia/Bangkok',
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric',
         }
+      ).formatToParts(date);
 
-        return prevDate;
-      }
+    const year =
+      thailandDate.find(
+        (part) =>
+          part.type === 'year'
+      )?.value;
+
+    const month =
+      thailandDate.find(
+        (part) =>
+          part.type === 'month'
+      )?.value;
+
+    const day =
+      thailandDate.find(
+        (part) =>
+          part.type === 'day'
+      )?.value;
+
+    return `${year}-${Number(
+      month
+    )}-${Number(day)}`;
+  };
+
+
+  // =====================================================
+  // ตรวจว่าเป็นข้อมูลของวันนี้หรือไม่
+  // =====================================================
+  const isToday = (
+    dateString: string
+  ) => {
+    return (
+      getLogDateKey(
+        dateString
+      ) === currentDate
     );
   };
 
-  checkDate();
 
-  const interval =
-    setInterval(
-      checkDate,
-      60000
-    );
+  // =====================================================
+  // ตรวจวันใหม่ทุก 1 นาที
+  // =====================================================
+  useEffect(() => {
+    const checkDate = () => {
+      const today =
+        new Date();
 
-  return () =>
-    clearInterval(interval);
-}, []);
+      const todayKey =
+        `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+
+      setCurrentDate(
+        (prevDate) => {
+          if (
+            prevDate !==
+            todayKey
+          ) {
+            return todayKey;
+          }
+
+          return prevDate;
+        }
+      );
+    };
+
+    checkDate();
+
+    const interval =
+      setInterval(
+        checkDate,
+        60000
+      );
+
+    return () =>
+      clearInterval(interval);
+  }, []);
+
 
   // =====================================================
   // ข้อมูลที่จะแสดงตาม Tab
   // =====================================================
-  const filteredLogs =
-    historyLogs.filter(
-      (log) => {
-        if (
-          activeTab ===
-          'today'
-        ) {
-          return isToday(
-            log.date
-          );
-        }
+    const filteredLogs =
+    isHistoryCleared
+      ? []
+      : historyLogs.filter(
+          (log) => {
+            if (
+              activeTab ===
+              'today'
+            ) {
+              return isToday(
+                log.date
+              );
+            }
 
-        return true;
-      }
-    );
+            return true;
+          }
+        );
 
   // =====================================================
 // เมื่อเข้า History
@@ -593,7 +625,7 @@ useFocusEffect(
         // ---------------------------------------------
         patientIdRef.current = selectedPatientId;
 
-        //console.log('🟢 History started for patient:',selectedPatientId);
+        isHistoryClearedRef.current = false;
 
         // ---------------------------------------------
         // 3. โหลด History จาก Supabase
@@ -602,6 +634,13 @@ useFocusEffect(
           await loadHistoryFromSupabase(
             selectedPatientId
           );
+
+        if (
+          !isActive ||
+          isHistoryClearedRef.current
+        ) {
+          return;
+        }
 
         if (!isActive) {
           return;
@@ -628,39 +667,50 @@ useFocusEffect(
     };
   }, [])
 );
-// =====================================================
-// Refresh History ทุก 5 วินาที ขณะอยู่หน้า History
-// =====================================================
-useEffect(() => {
-  const refreshHistory = async () => {
-    const patientId = patientIdRef.current;
+  // =====================================================
+  // Auto Refresh History
+  // =====================================================
+  useEffect(() => {
+    const refreshHistory = async () => {
+      const patientId =
+        patientIdRef.current;
 
-    if (!patientId) {
-      return;
-    }
+      if (
+        !patientId ||
+        isHistoryCleared
+      ) {
+        return;
+      }
 
-    try {
-      const savedLogs =
-        await loadHistoryFromSupabase(patientId);
+      try {
+        const savedLogs =
+          await loadHistoryFromSupabase(
+            patientId
+          );
 
-      setHistoryLogs(savedLogs);
-    } catch (error) {
-      console.error(
-        'ไม่สามารถ Refresh History ได้:',
-        error
+        setHistoryLogs(
+          savedLogs
+        );
+      } catch (error) {
+        console.error(
+          'ไม่สามารถ Refresh History ได้:',
+          error
+        );
+      }
+    };
+
+    const interval =
+      setInterval(
+        refreshHistory,
+        5000
       );
-    }
-  };
 
-  const interval = setInterval(
-    refreshHistory,
-    5000
-  );
+    return () => {
+      clearInterval(interval);
+    };
+  }, [isHistoryCleared]);
 
-  return () => {
-    clearInterval(interval);
-  };
-}, []);
+
   // =====================================================
   // Dashboard Stats
   // =====================================================
@@ -707,8 +757,7 @@ useEffect(() => {
             log.calculatedPosition !==
               filteredLogs[
                 idx - 1
-              ]
-                .calculatedPosition
+              ].calculatedPosition
           ) {
             moveCount++;
           }
@@ -735,9 +784,10 @@ useEffect(() => {
         ).toFixed(1);
 
       const totalMinutes =
-  Math.floor(
-    (filteredLogs.length * 3) / 60
-  );
+        Math.floor(
+          (filteredLogs.length * 3) /
+            60
+        );
 
       const hours =
         Math.floor(
@@ -764,6 +814,7 @@ useEffect(() => {
 
   const stats =
     getDashboardStats();
+
 
   // =====================================================
   // Loading
@@ -793,6 +844,7 @@ useEffect(() => {
       </View>
     );
   }
+
 
   const graphLogs =
     filteredLogs
@@ -1267,7 +1319,7 @@ useEffect(() => {
           </Text>
         </View>
 
-        {/* Recent Logs */}
+                {/* Recent Logs */}
         <View
           style={
             styles.cardSection
@@ -1286,27 +1338,52 @@ useEffect(() => {
               📋 ประวัติบันทึกเหตุการณ์
             </Text>
 
-            <TouchableOpacity
+            <View
               style={
-                styles.exportBadge
-              }
-              onPress={() =>
-                setIsExpanded(
-                  (prev) =>
-                    !prev
-                )
+                styles.logHeaderButtons
               }
             >
-              <Text
+              {/* ปุ่มล้างประวัติ */}
+              <TouchableOpacity
                 style={
-                  styles.exportBadgeText
+                  styles.clearHistoryBadge
+                }
+                onPress={
+                  handleClearHistory
                 }
               >
-                {isExpanded
-                  ? 'ย่อลง'
-                  : 'ดูทั้งหมด'}
-              </Text>
-            </TouchableOpacity>
+                <Text
+                  style={
+                    styles.clearHistoryBadgeText
+                  }
+                >
+                  🗑️ ล้าง
+                </Text>
+              </TouchableOpacity>
+
+              {/* ปุ่มดูทั้งหมด */}
+              <TouchableOpacity
+                style={
+                  styles.exportBadge
+                }
+                onPress={() =>
+                  setIsExpanded(
+                    (prev) =>
+                      !prev
+                  )
+                }
+              >
+                <Text
+                  style={
+                    styles.exportBadgeText
+                  }
+                >
+                  {isExpanded
+                    ? 'ย่อลง'
+                    : 'ดูทั้งหมด'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {displayedLogs.length ===
@@ -1873,4 +1950,22 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
     fontWeight: '600',
   },
+  logHeaderButtons: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 6,
+},
+
+clearHistoryBadge: {
+  backgroundColor: '#FFE5E5',
+  paddingHorizontal: 10,
+  paddingVertical: 4,
+  borderRadius: 6,
+},
+
+clearHistoryBadgeText: {
+  color: '#FF3B30',
+  fontSize: 11,
+  fontWeight: '600',
+},
 });
