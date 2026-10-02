@@ -11,7 +11,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fetchSensorData, SensorData } from "../../services/sensorService";
 
-import { Audio } from "expo-av";
+import { useAudioPlayer } from 'expo-audio';
 
 type PrimaryStatus = "ACTIVE" | "STANDBY";
 type PressureSide = "left" | "right" | "both" | "none";
@@ -19,6 +19,10 @@ type PressureSide = "left" | "right" | "both" | "none";
 const SELECTED_PATIENT_KEY = "selectedPatientId";
 
 export default function HomeScreen() {
+  const player = useAudioPlayer(
+    require("../../assets/sounds/change-position.mp3")
+  );
+
   const alarmPlayedRef = useRef(false); // เชื่อมเสียงจ้า
 
   const { width: windowWidth } = useWindowDimensions();
@@ -77,14 +81,10 @@ export default function HomeScreen() {
       if (!alarmPlayedRef.current) {
         alarmPlayedRef.current = true;
 
-        Audio.Sound.createAsync(
-          require("../../assets/sounds/change-position.mp3"),
-          { shouldPlay: true },
-        ).catch((error: unknown) =>
-          console.error("เล่นเสียงแจ้งเตือนไม่สำเร็จ:", error),
-        );
-      }
-    }
+        player.seekTo(0);
+        player.play();
+              }
+            }
 
     if (pressureSide !== "both") {
       alarmPlayedRef.current = false;
