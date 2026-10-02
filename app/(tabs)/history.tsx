@@ -1524,7 +1524,7 @@ const styles = StyleSheet.create({
   },
 
   activeTabText: {
-    color: '#1C1C1E',
+    color: '#4464D0',
   },
 
   gridContainer: {
@@ -1656,18 +1656,51 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
+  // --- ปุ่มตอนที่ถูกเลือก (Active) พร้อมใส่เงาให้ดูลอยขึ้นมา ---\\
   humidityActiveBtn: {
     backgroundColor: '#4A90E2',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    elevation: 4,          // เงาสำหรับ Android
+    shadowColor: '#000',   // เงาสำหรับ iOS
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
 
   pressureActiveBtn: {
     backgroundColor: '#F15B4A',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
 
   tempActiveBtn: {
     backgroundColor: '#FF9500',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
 
+  // --- เพิ่มสไตล์สำหรับปุ่มตอนที่ไม่ได้เลือก (Inactive) ตรงนี้ ---
+  inactiveBtn: {
+    backgroundColor: 'transparent', // หรือใช้สีเทาอ่อนมากๆ เช่น '#F2F2F2'
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+//========================================================\\
   chartWrapper: {
     alignItems: 'center',
     marginTop: 4,

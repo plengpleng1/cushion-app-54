@@ -389,10 +389,6 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <Text style={styles.notMedicalInformation}>
-            หมายเหตุ: ผลประเมินเบื้องต้น ไม่ใช่การวินิจฉัยทางการแพทย์
-          </Text>
-
           <View
             style={[
               styles.cushionContainer,
@@ -489,6 +485,10 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
+
+        <Text style={styles.notMedicalInformation}>
+            หมายเหตุ: ผลประเมินเบื้องต้น ไม่ใช่การวินิจฉัยทางการแพทย์
+        </Text>
       </View>
     </ScrollView>
   );
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 0.5,
+    marginBottom: 10,
   },
   badgeContainer: {
     flexDirection: "row",

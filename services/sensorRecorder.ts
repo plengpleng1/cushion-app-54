@@ -14,6 +14,8 @@ import {
 const SELECTED_PATIENT_KEY =
   'selectedPatientId';
 
+let centerStartTime: number | null = null;
+
 const formatSensorDate = (
   date: string
 ) => {
@@ -73,9 +75,7 @@ export const recordSensorData =
         );
 
       if (!patientId) {
-        console.log(
-          '⚠️ ไม่มี Patient ที่เลือกอยู่'
-        );
+        //console.log('⚠️ ไม่มี Patient ที่เลือกอยู่');
 
         return null;
       }
@@ -87,17 +87,12 @@ export const recordSensorData =
         await fetchSensorData();
 
       if (!data) {
-        console.log(
-          '⚠️ ไม่ได้รับข้อมูล Sensor'
-        );
+        //console.log('⚠️ ไม่ได้รับข้อมูล Sensor');
 
         return null;
       }
 
-      console.log(
-        '📡 Sensor data:',
-        data
-      );
+      //console.log('📡 Sensor data:',data);
 
       // =====================================================
       // 3. ตรวจ Left / Right
@@ -153,11 +148,25 @@ export const recordSensorData =
       // =====================================================
       // 7. Sitting Time
       // =====================================================
-      // ตอนนี้ยังใช้ 0 ก่อน
-      // เพราะ timer เดิมอยู่ใน History
-      const sittingSeconds = 0;
+      // ================================
+        // Sitting Timer สำหรับการบันทึก
+        // ================================
+        let sittingSeconds = 0;
 
-      const isSittingTooLong =
+        if (calcPos === 'CENTER') {
+        if (centerStartTime === null) {
+            centerStartTime = Date.now();
+        }
+
+        sittingSeconds = Math.floor(
+            (Date.now() - centerStartTime) / 1000
+        );
+        } else {
+        centerStartTime = null;
+        sittingSeconds = 0;
+        }
+
+        const isSittingTooLong =
         sittingSeconds >= 120;
 
       // =====================================================
@@ -220,19 +229,7 @@ export const recordSensorData =
       // =====================================================
       // 11. บันทึก Supabase
       // =====================================================
-      console.log(
-        '📤 Saving sensor data:',
-        {
-          patient_id:
-            patientId,
-
-          date:
-            newLog.date,
-
-          time:
-            newLog.time,
-        }
-      );
+      //console.log('📤 Saving sensor data:',{patient_id:patientId,date:newLog.date,time:newLog.time,});
 
       const {
         error,
@@ -308,9 +305,7 @@ export const recordSensorData =
         return null;
       }
 
-      console.log(
-        '✅ Sensor data saved to Supabase'
-      );
+     // console.log('✅ Sensor data saved to Supabase');
 
       return newLog;
 
