@@ -456,7 +456,7 @@ export default function LoginScreen() {
                       activeOpacity={0.7}
                     >
                       <Ionicons
-                        name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                         size={22}
                         color="#666666"
                       />
