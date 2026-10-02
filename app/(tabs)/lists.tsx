@@ -637,7 +637,7 @@ export default function PatientListScreen() {
               keyboardShouldPersistTaps="handled"
             >
               <Text style={styles.modalTitle}>
-                {editingId ? "Edit Patient" : "Add Patient"}
+                {editingId ? "Edit Patient" : "Edit Patient"}
               </Text>
 
               {/* Patient ID */}
@@ -915,7 +915,7 @@ export default function PatientListScreen() {
                   onPress={savePatient}
                 >
                   <Text style={styles.saveText}>
-                    {editingId ? "บันทึก" : "Save"}
+                    {editingId ? "Save" : "Save"}
                   </Text>
                 </TouchableOpacity>
               </View>
