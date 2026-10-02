@@ -25,6 +25,11 @@ export default function LoginScreen() {
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [isOtpStep, setIsOtpStep] = useState(false);
+  
+  // State เพิ่มเติมสำหรับระบบ Forgot Password
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isResetPasswordStep, setIsResetPasswordStep] = useState(false);
+  
   const [loading, setLoading] = useState(false);
 
   // Timer state สำหรับ Resend OTP
@@ -42,6 +47,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -89,16 +95,121 @@ export default function LoginScreen() {
     setPassword("");
     setConfirmPassword("");
     setOtp("");
+    setNewPassword("");
     setShowPassword(false);
     setShowConfirmPassword(false);
     setErrorMessage("");
     setIsOtpStep(false);
+    setIsForgotPassword(false);
+    setIsResetPasswordStep(false);
     setTimer(60);
     setCanResend(false);
   };
 
   // =========================================================
-  // 1. Sign Up Logic
+  // 1. Forgot Password Flow
+  // =========================================================
+
+  // 1.1 Request Reset OTP
+  const handleRequestResetOtp = async () => {
+    setErrorMessage("");
+    const rawEmail = email.trim().toLowerCase();
+
+    if (!rawEmail) {
+      showError("กรุณากรอก Email ที่ใช้ลงทะเบียน");
+      return;
+    }
+
+    if (!validateEmail(rawEmail)) {
+      showError("กรุณากรอกรูปแบบ Email ให้ถูกต้อง");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(rawEmail);
+
+      if (error) {
+        showError(error.message);
+        return;
+      }
+
+      setIsOtpStep(true);
+      setTimer(60);
+      setCanResend(false);
+    } catch (err: any) {
+      showError("เกิดข้อผิดพลาดในการส่ง OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 1.2 Verify Recovery OTP
+  const handleVerifyRecoveryOtp = async () => {
+    setErrorMessage("");
+    const rawEmail = email.trim().toLowerCase();
+    const rawOtp = otp.trim();
+
+    if (rawOtp.length !== 6) {
+      showError("กรุณากรอกรหัส OTP ให้ครบ 6 หลัก");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.verifyOtp({
+        email: rawEmail,
+        token: rawOtp,
+        type: "recovery",
+      });
+
+      if (error) {
+        showError("รหัส OTP ไม่ถูกต้องหรือหมดอายุ");
+        return;
+      }
+
+      setIsOtpStep(false);
+      setIsResetPasswordStep(true);
+    } catch (err: any) {
+      showError("เกิดข้อผิดพลาดในการยืนยัน OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 1.3 Save New Password
+  const handleSaveNewPassword = async () => {
+    setErrorMessage("");
+
+    if (!validatePassword(newPassword)) {
+      showError(
+        "Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องประกอบด้วยทั้งตัวอักษรและตัวเลข"
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) {
+        showError(error.message);
+        return;
+      }
+
+      alert("เปลี่ยนรหัสผ่านสำเร็จ กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่");
+      resetForm();
+    } catch (err: any) {
+      showError("เกิดข้อผิดพลาดในการอัปเดตรหัสผ่าน");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =========================================================
+  // 2. Sign Up Logic
   // =========================================================
 
   const handleSignUp = async () => {
@@ -121,7 +232,7 @@ export default function LoginScreen() {
 
     if (!validatePassword(rawPassword)) {
       showError(
-        "Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องประกอบด้วยทั้งตัวอักษรและตัวเลข",
+        "Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องประกอบด้วยทั้งตัวอักษรและตัวเลข"
       );
       return;
     }
@@ -164,39 +275,41 @@ export default function LoginScreen() {
   // =========================================================
 
   const handleResendOtp = async () => {
-    if (!canResend) return;
+  if (!canResend) return;
+  setErrorMessage("");
 
-    setErrorMessage("");
+  try {
+    setLoading(true);
+    const targetEmail = email.trim().toLowerCase();
 
-    try {
-      setLoading(true);
-
+    if (isForgotPassword) {
+      // สำหรับ Forgot Password / Recovery ให้ใช้ resetPasswordForEmail
+      const { error } = await supabase.auth.resetPasswordForEmail(targetEmail);
+      if (error) throw error;
+    } else {
+      // สำหรับ Sign Up ให้ใช้ resend แบบระบุ type: 'signup'
       const { error } = await supabase.auth.resend({
         type: "signup",
-        email: email.trim().toLowerCase(),
+        email: targetEmail,
       });
-
-      if (error) {
-        showError(error.message);
-        return;
-      }
-
-      setTimer(60);
-      setCanResend(false);
-
-      alert("ส่งรหัส OTP ใหม่ไปยังอีเมลของคุณเรียบร้อยแล้ว");
-    } catch (err: any) {
-      showError("ไม่สามารถส่ง OTP ใหม่ได้ กรุณาลองอีกครั้ง");
-    } finally {
-      setLoading(false);
+      if (error) throw error;
     }
-  };
+
+    setTimer(60);
+    setCanResend(false);
+    alert("ส่งรหัส OTP ใหม่ไปยังอีเมลของคุณเรียบร้อยแล้ว");
+  } catch (err: any) {
+    showError(err.message || "ไม่สามารถส่ง OTP ใหม่ได้ กรุณาลองอีกครั้ง");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // =========================================================
-  // 2. Verify OTP Logic
+  // Verify SignUp OTP Logic
   // =========================================================
 
-  const handleVerifyOtp = async () => {
+  const handleVerifySignUpOtp = async () => {
     setErrorMessage("");
 
     const rawEmail = email.trim().toLowerCase();
@@ -258,8 +371,7 @@ export default function LoginScreen() {
           .maybeSingle<{ email: string }>();
 
         if (profileError || !profileData?.email) {
-          showError("เข้าสู่ระบบไม่สำเร็จ: Username หรือ Password ไม่ถูกต้อง");
-
+          showError("เข้าสู่ระบบไม่สำเร็จ: Username/Password ไม่ถูกต้อง");
           setLoading(false);
           return;
         }
@@ -288,12 +400,20 @@ export default function LoginScreen() {
   };
 
   // =========================================================
-  // Submit
+  // Submit Route
   // =========================================================
 
   const handleSubmit = () => {
-    if (isOtpStep) {
-      handleVerifyOtp();
+    if (isResetPasswordStep) {
+      handleSaveNewPassword();
+    } else if (isOtpStep) {
+      if (isForgotPassword) {
+        handleVerifyRecoveryOtp();
+      } else {
+        handleVerifySignUpOtp();
+      }
+    } else if (isForgotPassword) {
+      handleRequestResetOtp();
     } else if (isSignUp) {
       handleSignUp();
     } else {
@@ -303,13 +423,7 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container as ViewStyle}>
-      {/* ปิด Header เดิมของ Expo Router
-          เพื่อไม่ให้คำว่า "login" โผล่ด้านบน */}
-      <Stack.Screen
-        options={{
-          headerShown: false,
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
 
       {Platform.OS === "web" && (
         <style
@@ -324,12 +438,15 @@ export default function LoginScreen() {
         />
       )}
 
-      {/* =====================================================
-          CUSTOM TOP HEADER
-          ===================================================== */}
-
+      {/* TOP HEADER */}
       <View style={styles.topHeader as ViewStyle}>
-        <Text style={styles.topHeaderTitle}>Sign In</Text>
+        <Text style={styles.topHeaderTitle}>
+          {isForgotPassword
+            ? "Reset Password"
+            : isSignUp
+            ? "Sign Up"
+            : "Sign In"}
+        </Text>
 
         <Image
           source={require("../assets/images/logo-app.jpg")}
@@ -338,50 +455,90 @@ export default function LoginScreen() {
         />
       </View>
 
-      {/* เส้นคั่นใต้ Header */}
       <View style={styles.headerLine as ViewStyle} />
 
-      {/* =====================================================
-          MAIN CONTENT
-          ===================================================== */}
-
+      {/* MAIN CONTENT */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* Welcome */}
+          {/* Welcome Header */}
           <View style={styles.headerContainer}>
             <Text style={styles.welcomeText}>Welcome</Text>
 
             <Text style={styles.brandContainer}>
               <Text style={styles.brandBold}>Cushion </Text>
-
               <Text style={styles.brandLight}>Sense</Text>
             </Text>
           </View>
 
-          {/* =================================================
-              FORM
-              ================================================= */}
-
+          {/* FORM CONTAINER */}
           <View style={styles.formContainer}>
-            {/* =================================================
-                OTP
-                ================================================= */}
+            {/* STEP 1: RESTORE / SET NEW PASSWORD */}
+            {isResetPasswordStep ? (
+              <View>
+                <Text style={styles.otpTitle}>Set New Password</Text>
+                <Text style={styles.otpSubTitle}>
+                  กรุณากรอกรหัสผ่านใหม่เพื่อเข้าใช้งานระบบ
+                </Text>
 
-            {isOtpStep ? (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>New Password</Text>
+                  <View style={styles.passwordWrapper}>
+                    <TextInput
+                      style={[styles.input, styles.passwordInput]}
+                      placeholder="At least 8 chars with letters & numbers"
+                      placeholderTextColor="#A0A0A0"
+                      secureTextEntry={!showPassword}
+                      value={newPassword}
+                      onChangeText={(text) => {
+                        setNewPassword(text);
+                        if (errorMessage) setErrorMessage("");
+                      }}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      returnKeyType="done"
+                      onSubmitEditing={handleSaveNewPassword}
+                    />
+                    <TouchableOpacity
+                      style={styles.eyeIcon}
+                      onPress={() => setShowPassword(!showPassword)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={showPassword ? "eye-off-outline" : "eye-outline"}
+                        size={22}
+                        color="#666666"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {errorMessage ? (
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                ) : null}
+
+                <TouchableOpacity
+                  style={styles.primaryButton}
+                  onPress={handleSaveNewPassword}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Save New Password</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ) : isOtpStep ? (
+              /* STEP 2: VERIFY OTP (SIGN UP OR FORGOT PASSWORD) */
               <View>
                 <Text style={styles.otpTitle}>Verify Your Email</Text>
 
                 <Text style={styles.otpSubTitle}>
                   เราได้ส่งรหัส OTP 6 หลักไปที่{"\n"}
-                  <Text
-                    style={{
-                      fontWeight: "700",
-                      color: "#4464D0",
-                    }}
-                  >
+                  <Text style={{ fontWeight: "700", color: "#4464D0" }}>
                     {email}
                   </Text>
                 </Text>
@@ -394,15 +551,12 @@ export default function LoginScreen() {
                     value={otp}
                     onChangeText={(text) => {
                       setOtp(text);
-
-                      if (errorMessage) {
-                        setErrorMessage("");
-                      }
+                      if (errorMessage) setErrorMessage("");
                     }}
                     keyboardType="number-pad"
                     maxLength={6}
                     returnKeyType="done"
-                    onSubmitEditing={handleVerifyOtp}
+                    onSubmitEditing={handleSubmit}
                   />
                 </View>
 
@@ -412,7 +566,7 @@ export default function LoginScreen() {
 
                 <TouchableOpacity
                   style={styles.primaryButton}
-                  onPress={handleVerifyOtp}
+                  onPress={handleSubmit}
                   disabled={loading}
                 >
                   {loading ? (
@@ -423,12 +577,7 @@ export default function LoginScreen() {
                 </TouchableOpacity>
 
                 {/* Resend OTP */}
-                <View
-                  style={{
-                    marginTop: 16,
-                    alignItems: "center",
-                  }}
-                >
+                <View style={{ marginTop: 16, alignItems: "center" }}>
                   {canResend ? (
                     <TouchableOpacity
                       onPress={handleResendOtp}
@@ -445,12 +594,7 @@ export default function LoginScreen() {
                       </Text>
                     </TouchableOpacity>
                   ) : (
-                    <Text
-                      style={{
-                        color: "#888888",
-                        fontSize: 13,
-                      }}
-                    >
+                    <Text style={{ color: "#888888", fontSize: 13 }}>
                       ส่งรหัสอีกครั้งได้ใน {timer} วินาที
                     </Text>
                   )}
@@ -458,27 +602,71 @@ export default function LoginScreen() {
 
                 {/* Back */}
                 <TouchableOpacity
-                  style={{
-                    marginTop: 16,
-                    alignItems: "center",
-                  }}
+                  style={{ marginTop: 16, alignItems: "center" }}
                   onPress={() => setIsOtpStep(false)}
                 >
-                  <Text
-                    style={{
-                      color: "#666666",
-                      fontSize: 14,
-                    }}
-                  >
+                  <Text style={{ color: "#666666", fontSize: 14 }}>
                     ← กลับไปแก้ไขข้อมูล
                   </Text>
                 </TouchableOpacity>
               </View>
-            ) : (
-              /* =================================================
-                 SIGN IN / SIGN UP
-                 ================================================= */
+            ) : isForgotPassword ? (
+              /* STEP 3: REQUEST FORGOT PASSWORD EMAIL */
+              <View>
+                <Text style={styles.otpTitle}>Forgot Password</Text>
+                <Text style={styles.otpSubTitle}>
+                  กรอก Email ที่ใช้ลงทะเบียน{"\n"}เพื่อรับรหัส OTP สำหรับตั้งรหัสผ่านใหม่
+                </Text>
 
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Email</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your email"
+                    placeholderTextColor="#A0A0A0"
+                    value={email}
+                    onChangeText={(text) => {
+                      setEmail(text);
+                      if (errorMessage) setErrorMessage("");
+                    }}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    onSubmitEditing={handleRequestResetOtp}
+                  />
+                </View>
+
+                {errorMessage ? (
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                ) : null}
+
+                <TouchableOpacity
+                  style={styles.primaryButton}
+                  onPress={handleRequestResetOtp}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Send OTP Code</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{ marginTop: 16, alignItems: "center" }}
+                  onPress={() => {
+                    setIsForgotPassword(false);
+                    setErrorMessage("");
+                  }}
+                >
+                  <Text style={{ color: "#666666", fontSize: 14 }}>
+                    ← Back to Sign In
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              /* STEP 4: SIGN IN / SIGN UP */
               <View>
                 {/* Username */}
                 <View style={styles.inputGroup}>
@@ -497,15 +685,10 @@ export default function LoginScreen() {
                     value={username}
                     onChangeText={(text) => {
                       setUsername(text);
-
-                      if (errorMessage) {
-                        setErrorMessage("");
-                      }
+                      if (errorMessage) setErrorMessage("");
                     }}
                     autoCapitalize="none"
                     autoCorrect={false}
-                    autoComplete="off"
-                    textContentType="none"
                     returnKeyType="next"
                     onSubmitEditing={() => {
                       if (isSignUp) {
@@ -530,16 +713,11 @@ export default function LoginScreen() {
                       value={email}
                       onChangeText={(text) => {
                         setEmail(text);
-
-                        if (errorMessage) {
-                          setErrorMessage("");
-                        }
+                        if (errorMessage) setErrorMessage("");
                       }}
                       keyboardType="email-address"
                       autoCapitalize="none"
                       autoCorrect={false}
-                      autoComplete="off"
-                      textContentType="none"
                       returnKeyType="next"
                       onSubmitEditing={() => passwordInputRef.current?.focus()}
                     />
@@ -564,15 +742,10 @@ export default function LoginScreen() {
                       value={password}
                       onChangeText={(text) => {
                         setPassword(text);
-
-                        if (errorMessage) {
-                          setErrorMessage("");
-                        }
+                        if (errorMessage) setErrorMessage("");
                       }}
                       autoCapitalize="none"
                       autoCorrect={false}
-                      autoComplete="off"
-                      textContentType="none"
                       returnKeyType={isSignUp ? "next" : "done"}
                       onSubmitEditing={() => {
                         if (isSignUp) {
@@ -595,9 +768,24 @@ export default function LoginScreen() {
                       />
                     </TouchableOpacity>
                   </View>
+
+                  {/* Forgot Password Link */}
+                  {!isSignUp && (
+                    <TouchableOpacity
+                      style={styles.forgotPasswordContainer}
+                      onPress={() => {
+                        setIsForgotPassword(true);
+                        setErrorMessage("");
+                      }}
+                    >
+                      <Text style={styles.forgotPasswordText}>
+                        Forgot Password?
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
-                {/* Confirm Password */}
+                {/* Confirm Password - Sign Up only */}
                 {isSignUp && (
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Confirm Password</Text>
@@ -612,15 +800,10 @@ export default function LoginScreen() {
                         value={confirmPassword}
                         onChangeText={(text) => {
                           setConfirmPassword(text);
-
-                          if (errorMessage) {
-                            setErrorMessage("");
-                          }
+                          if (errorMessage) setErrorMessage("");
                         }}
                         autoCapitalize="none"
                         autoCorrect={false}
-                        autoComplete="off"
-                        textContentType="none"
                         returnKeyType="done"
                         onSubmitEditing={handleSubmit}
                       />
@@ -646,12 +829,12 @@ export default function LoginScreen() {
                   </View>
                 )}
 
-                {/* Error */}
+                {/* Error Message */}
                 {errorMessage ? (
                   <Text style={styles.errorText}>{errorMessage}</Text>
                 ) : null}
 
-                {/* Sign In / Sign Up */}
+                {/* Sign In / Sign Up Button */}
                 <TouchableOpacity
                   style={styles.primaryButton}
                   onPress={handleSubmit}
@@ -666,7 +849,7 @@ export default function LoginScreen() {
                   )}
                 </TouchableOpacity>
 
-                {/* Toggle */}
+                {/* Toggle Sign In / Sign Up */}
                 <View style={styles.toggleContainer}>
                   <Text style={styles.toggleText}>
                     {isSignUp
@@ -703,11 +886,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F5F5F5",
   },
-
-  // ===========================================================
-  // Custom Header
-  // ===========================================================
-
   topHeader: {
     height: 65,
     width: "100%",
@@ -717,71 +895,53 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     backgroundColor: "#fffefe",
   },
-
   topHeaderTitle: {
     fontSize: 18,
     fontWeight: "500",
     color: "#000000",
   } as TextStyle,
-
   topRightLogo: {
     width: 105,
     height: 35,
     marginRight: 25,
   },
-
   headerLine: {
     height: 1,
     width: "100%",
     backgroundColor: "#D8D8D8",
   },
-
-  // ===========================================================
-  // Main Content
-  // ===========================================================
-
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
     paddingHorizontal: 24,
     paddingVertical: 32,
   },
-
   headerContainer: {
     alignItems: "center",
     marginBottom: 32,
   },
-
   welcomeText: {
     fontSize: 58,
     fontWeight: "900",
     color: "#4464D0",
     textAlign: "center",
   },
-
   brandContainer: {
     textAlign: "center",
     marginTop: 4,
   },
-
   brandBold: {
     fontSize: 42,
     fontStyle: "italic",
     fontWeight: "700",
     color: "#4464D0",
   },
-
   brandLight: {
     fontSize: 42,
     fontStyle: "italic",
     fontWeight: "400",
     color: "#4464D0",
   },
-
-  // ===========================================================
-  // Form
-  // ===========================================================
-
   formContainer: {
     width: "100%",
     maxWidth: 380,
@@ -792,18 +952,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E0E0E0",
   },
-
   inputGroup: {
     marginBottom: 16,
   },
-
   label: {
     fontSize: 14,
     fontWeight: "600",
     color: "#444444",
     marginBottom: 6,
   },
-
   input: {
     height: 48,
     borderWidth: 1,
@@ -813,16 +970,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     backgroundColor: "#FAFAFA",
   },
-
   passwordWrapper: {
     position: "relative",
     justifyContent: "center",
   },
-
   passwordInput: {
     paddingRight: 48,
   },
-
   eyeIcon: {
     position: "absolute",
     right: 12,
@@ -831,11 +985,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 4,
   },
-
-  // ===========================================================
-  // Error
-  // ===========================================================
-
+  forgotPasswordContainer: {
+    alignSelf: "flex-start",
+    marginTop: 8,
+  },
+  forgotPasswordText: {
+    color: "#4464D0",
+    fontSize: 13,
+    fontWeight: "600",
+  },
   errorText: {
     color: "#D92D20",
     fontSize: 13,
@@ -843,11 +1001,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: "center",
   },
-
-  // ===========================================================
-  // Button
-  // ===========================================================
-
   primaryButton: {
     height: 48,
     backgroundColor: "#4464D0",
@@ -856,38 +1009,25 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 8,
   },
-
   primaryButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
   },
-
-  // ===========================================================
-  // Toggle
-  // ===========================================================
-
   toggleContainer: {
     flexDirection: "row",
     justifyContent: "center",
     marginTop: 20,
   },
-
   toggleText: {
     color: "#666666",
     fontSize: 14,
   },
-
   toggleLink: {
     color: "#4464D0",
     fontSize: 14,
     fontWeight: "700",
   },
-
-  // ===========================================================
-  // OTP
-  // ===========================================================
-
   otpTitle: {
     fontSize: 22,
     fontWeight: "700",
@@ -895,7 +1035,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 8,
   },
-
   otpSubTitle: {
     fontSize: 14,
     color: "#666666",
@@ -903,7 +1042,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     lineHeight: 20,
   },
-
   otpInput: {
     textAlign: "center",
     fontSize: 24,
