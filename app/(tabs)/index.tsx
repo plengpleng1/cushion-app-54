@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';  // useRef เสียงร้องใน app
 import {
   View,
   Text,
@@ -11,12 +11,20 @@ import {
 import {fetchSensorData,SensorData} from '../../services/sensorService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { useAudioPlayer } from 'expo-audio';        // เสียงใน app เช่นกัน
+
 type PrimaryStatus = 'ACTIVE' | 'STANDBY';
 type PressureSide = 'left' | 'right' | 'both' | 'none';
 
 const SELECTED_PATIENT_KEY = 'selectedPatientId';
 
 export default function HomeScreen() {
+  const player = useAudioPlayer(
+  require('../../assets/sounds/alarm.wav')
+);
+
+  const alarmPlayedRef = useRef(false);             // เชื่อมเสียงจ้า
+
   const { width: windowWidth } = useWindowDimensions();
   const maxContainerWidth = Math.min(windowWidth - 32, 500);
 
@@ -51,21 +59,38 @@ export default function HomeScreen() {
 }, []);
 
 // timer
-  useEffect(() => {
-    let timer: ReturnType<typeof setInterval> | null = null;
+useEffect(() => {
+  let timer: ReturnType<typeof setInterval> | null = null;
 
-    if (pressureSide === 'both') {
-      timer = setInterval(() => {
-        setSeconds((prev) => prev + 1);
-      }, 1000);
-    } else if (pressureSide === 'none') {
-      setSeconds(0);
+  if (pressureSide === 'both') {
+    timer = setInterval(() => {
+      setSeconds((prev) => prev + 1);
+    }, 1000);
+  } else if (pressureSide === 'none') {
+    setSeconds(0);
+  }
+
+  return () => {
+    if (timer) clearInterval(timer);
+  };
+}, [pressureSide]);
+
+// alarm เมื่อครบ 2 นาที
+useEffect(() => {
+  if (pressureSide === 'both' && seconds >= 120) {
+    if (!alarmPlayedRef.current) {
+      alarmPlayedRef.current = true;
+
+      player.seekTo(0);
+      player.play();
     }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [pressureSide]);
+  }
 
+  if (pressureSide !== 'both') {
+    alarmPlayedRef.current = false;
+  }
+}, [seconds, pressureSide]);
+//==================================================\\
   useEffect(() => {
   let isMounted = true;
   let lastFetchedTime: string | null = null;

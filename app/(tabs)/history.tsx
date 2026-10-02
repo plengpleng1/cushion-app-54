@@ -22,12 +22,9 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg';
 
-import { fetchSensorData } from '../../services/sensorService';
-import { supabase } from '../../lib/supabase';
 
 import {
   loadHistoryFromSupabase,
-  saveHistory,
   HistoryLog,
 } from '../../services/historyService';
 
@@ -422,24 +419,7 @@ export default function HistoryScreen() {
     return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
   });
 
-  // =====================================================
-  // ใช้สำหรับคำนวณเวลานั่งต่อเนื่อง
-  // =====================================================
-  const centerStartTimeRef =
-    useRef<number | null>(null);
-
-  // =====================================================
-  // เก็บ history ล่าสุดไว้ใน ref
-  // =====================================================
-  const historyLogsRef =
-    useRef<HistoryLog[]>([]);
-
-  // =====================================================
-  // ป้องกัน fetch ซ้อนกัน
-  // =====================================================
-  const isFetchingRef =
-    useRef(false);
-
+  
   // =====================================================
   // Patient ID ปัจจุบัน
   // =====================================================
@@ -582,396 +562,14 @@ useEffect(() => {
     );
 
   // =====================================================
-  // โหลด Sensor + เพิ่ม History
-  // =====================================================
-  const loadHistoryData =async () => {
-    console.log(
-    '🔄 loadHistoryData called, patient:',
-    patientIdRef.current
-  );
-      if (
-        isFetchingRef.current
-      ) {
-        return;
-      }
-
-      isFetchingRef.current =
-        true;
-
-      try {
-        // =====================================================
-        // 1. ตรวจ Patient
-        // =====================================================
-        const patientId =
-          patientIdRef.current;
-
-          console.log('🟢 History patientId:', patientId);
-          console.log(
-            '🔄 loadHistoryData called, patient:',
-            patientId
-          );
-        if (!patientId) {
-          setLoading(false);
-          return;
-        }
-
-        // =====================================================
-        // 2. ดึงข้อมูล Sensor
-        // =====================================================
-        const data =
-          await fetchSensorData();
-          console.log('📡 Sensor data received:', data);
-        if (!data) {
-          setLoading(false);
-          return;
-        }
-
-        // =====================================================
-        // 3. ตรวจ Left / Right
-        // =====================================================
-        const isLeftPressed =
-          (data.sensor1 ??
-            4095) < 500;
-
-        const isRightPressed =
-          (data.sensor2 ??
-            4095) < 500;
-
-        // =====================================================
-        // 4. คำนวณ Position
-        // =====================================================
-        let calcPos:
-          | 'LEFT'
-          | 'RIGHT'
-          | 'CENTER'
-          | 'NONE' = 'NONE';
-
-        if (
-          isLeftPressed &&
-          isRightPressed
-        ) {
-          calcPos =
-            'CENTER';
-        } else if (
-          isLeftPressed
-        ) {
-          calcPos =
-            'LEFT';
-        } else if (
-          isRightPressed
-        ) {
-          calcPos =
-            'RIGHT';
-        } else {
-          calcPos =
-            'NONE';
-        }
-
-        // =====================================================
-        // 5. Temperature
-        // =====================================================
-        const temperature =
-          Number(
-            data.temperature
-          ) || 0;
-
-        const tempHigh =
-          temperature > 38;
-
-        // =====================================================
-        // 6. Humidity
-        // =====================================================
-        const humidity =
-          Number(
-            data.humidity
-          ) || 0;
-
-        const humidHigh =
-          humidity > 75;
-
-        // =====================================================
-        // 7. Sitting Time
-        // =====================================================
-        let sittingSeconds = 0;
-
-        if (
-          calcPos ===
-          'CENTER'
-        ) {
-          if (
-            centerStartTimeRef.current ===
-            null
-          ) {
-            centerStartTimeRef.current =
-              Date.now();
-          }
-
-          sittingSeconds =
-            Math.floor(
-              (Date.now() -
-                centerStartTimeRef.current) /
-                1000
-            );
-        } else {
-          centerStartTimeRef.current =
-            null;
-
-          sittingSeconds = 0;
-        }
-
-        const isSittingTooLong =
-          sittingSeconds >=
-          120;
-
-        // =====================================================
-        // 8. สร้าง ID
-        // =====================================================
-        const logId =
-          `${patientId}_${data.date}_${data.time}`;
-
-        // =====================================================
-        // 9. ตรวจข้อมูลซ้ำใน Local
-        // =====================================================
-        const existingLogs =
-          historyLogsRef.current;
-
-        const alreadyExists =
-          existingLogs.some(
-            (log) =>
-              log.id === logId
-          );
-
-        // =====================================================
-        // Format Sensor Date
-        // =====================================================
-        const formatSensorDate =
-          (date: string) => {
-            const d =
-              new Date(date);
-
-            if (
-              isNaN(
-                d.getTime()
-              )
-            ) {
-              return date;
-            }
-
-            return d.toLocaleDateString(
-              'en-GB',
-              {
-                timeZone:
-                  'Asia/Bangkok',
-              }
-            );
-          };
-
-        // =====================================================
-        // Format Sensor Time
-        // =====================================================
-        const formatSensorTime =
-          (time: string) => {
-            if (!time) {
-              return '';
-            }
-
-            const d =
-              new Date(time);
-
-            if (
-              isNaN(
-                d.getTime()
-              )
-            ) {
-              return time;
-            }
-
-            return d.toLocaleTimeString(
-              'en-GB',
-              {
-                timeZone:
-                  'Asia/Bangkok',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: false,
-              }
-            );
-          };
-
-        // =====================================================
-        // 10. สร้าง HistoryLog
-        // =====================================================
-        const formattedDate =
-          formatSensorDate(
-            data.date
-          );
-
-        const formattedTime =
-          formatSensorTime(
-            data.time
-          );
-
-        const newLog:
-          HistoryLog = {
-          ...data,
-
-          date:
-            formattedDate,
-
-          time:
-            formattedTime,
-
-          id: logId,
-
-          calculatedPosition:
-            calcPos,
-
-          isTempHigh:
-            tempHigh,
-
-          isHumidHigh:
-            humidHigh,
-
-          leftPressed:
-            isLeftPressed,
-
-          rightPressed:
-            isRightPressed,
-
-          sittingSeconds:
-            sittingSeconds,
-
-          isSittingTooLong:
-            isSittingTooLong,
-        };
-
-        // =====================================================
-        // 11. บันทึก Local เฉพาะข้อมูลใหม่
-        // =====================================================
-        if (!alreadyExists) {
-          const updatedLogs = [
-            newLog,
-            ...existingLogs,
-          ];
-
-          historyLogsRef.current =
-            updatedLogs;
-
-          setHistoryLogs(
-            updatedLogs
-          );
-
-          await saveHistory(
-            patientId,
-            updatedLogs
-          );
-        }
-
-        // =====================================================
-        // 12. ส่งข้อมูลเข้า Supabase
-        // =====================================================
-        console.log('📤 Saving to Supabase:', {
-        patient_id: patientId,
-        date: newLog.date,
-        time: newLog.time,
-      });
-        const {
-          error,
-        } =
-          await supabase
-            .from(
-              'sensor_history'
-            )
-            .upsert(
-              {
-                patient_id:
-                  patientId,
-
-                date:
-                  newLog.date,
-
-                time:
-                  newLog.time,
-
-                sensor1:
-                  newLog.sensor1,
-
-                sensor2:
-                  newLog.sensor2,
-
-                temperature:
-                  newLog.temperature,
-
-                humidity:
-                  newLog.humidity,
-
-                status:
-                  newLog.status,
-
-                position:
-                  newLog.position,
-
-                pressure:
-                  newLog.pressure,
-
-                calculated_position:
-                  newLog.calculatedPosition,
-
-                is_temp_high:
-                  newLog.isTempHigh,
-
-                is_humid_high:
-                  newLog.isHumidHigh,
-
-                left_pressed:
-                  newLog.leftPressed,
-
-                right_pressed:
-                  newLog.rightPressed,
-
-                sitting_seconds:
-                  newLog.sittingSeconds,
-
-                is_sitting_too_long:
-                  newLog.isSittingTooLong,
-              } as any,
-              {
-                onConflict:
-                  'patient_id,date,time',
-              }
-            );
-
-        // =====================================================
-        // 13. ตรวจผล Supabase
-        // =====================================================
-        if (error) {
-          console.error(
-            '⚠️ Supabase UPSERT error:',
-            error
-          );
-        }
-      } catch (error) {
-        console.error(
-          '❌ Error loading history data:',
-          error
-        );
-      } finally {
-        setLoading(false);
-
-        isFetchingRef.current =
-          false;
-      }
-    };
-
-  // =====================================================
-  // เมื่อเข้า History
-  // =====================================================
-  console.log(
+// เมื่อเข้า History
+// =====================================================
+console.log(
   'loadHistoryFromSupabase:',
   loadHistoryFromSupabase
 );
-  useFocusEffect(
+
+useFocusEffect(
   useCallback(() => {
     let isActive = true;
 
@@ -991,7 +589,6 @@ useEffect(() => {
 
         if (!selectedPatientId) {
           patientIdRef.current = null;
-          historyLogsRef.current = [];
           setHistoryLogs([]);
           setLoading(false);
           return;
@@ -1008,12 +605,7 @@ useEffect(() => {
         );
 
         // ---------------------------------------------
-        // 3. Reset timer
-        // ---------------------------------------------
-        centerStartTimeRef.current = null;
-
-        // ---------------------------------------------
-        // 4. โหลด History เก่า
+        // 3. โหลด History จาก Supabase
         // ---------------------------------------------
         const savedLogs =
           await loadHistoryFromSupabase(
@@ -1024,55 +616,10 @@ useEffect(() => {
           return;
         }
 
-        historyLogsRef.current = savedLogs;
         setHistoryLogs(savedLogs);
 
-        // ---------------------------------------------
-        // 5. ดึง Sensor ล่าสุดทันที
-        // ---------------------------------------------
-        await loadHistoryData();
+        setLoading(false);
 
-        if (!isActive) {
-          return;
-        }
-
-        // ---------------------------------------------
-        // 6. ดึงข้อมูลใหม่ทุก 3 วินาที
-        // ---------------------------------------------
-        console.log(
-          '🟡 Creating History interval for patient:',
-          selectedPatientId
-        );
-
-        const interval = setInterval(() => {
-          // ป้องกัน interval เก่าของ Patient เดิม
-          // ไม่ให้บันทึกข้อมูลให้ Patient ใหม่
-          if (
-            patientIdRef.current !== selectedPatientId
-          ) {
-            console.log(
-              '⚠️ Patient changed, skip old interval:',
-              selectedPatientId,
-              '→ current:',
-              patientIdRef.current
-            );
-            return;
-          }
-
-          loadHistoryData();
-        }, 3000);
-
-        // ---------------------------------------------
-        // Cleanup ของ interval นี้
-        // ---------------------------------------------
-        return () => {
-          console.log(
-            '🔴 Cleaning History interval for patient:',
-            selectedPatientId
-          );
-
-          clearInterval(interval);
-        };
       } catch (error) {
         console.error(
           'ไม่สามารถเริ่ม History ได้:',
@@ -1083,27 +630,13 @@ useEffect(() => {
       }
     };
 
-    let cleanup:
-      | (() => void)
-      | undefined;
-
-    startHistory().then((cleanupFunction) => {
-      cleanup = cleanupFunction;
-    });
+    startHistory();
 
     return () => {
       isActive = false;
-
-      if (cleanup) {
-        cleanup();
-      }
-
-      centerStartTimeRef.current = null;
-      isFetchingRef.current = false;
     };
   }, [])
 );
-
   // =====================================================
   // Dashboard Stats
   // =====================================================
