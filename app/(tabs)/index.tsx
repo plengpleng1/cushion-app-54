@@ -290,8 +290,9 @@ export default function HomeScreen() {
 
   return (
     <ScrollView
+      style={{ flex: 1 }}
       contentContainerStyle={styles.container}
-      showsVerticalScrollIndicator={false}
+      showsVerticalScrollIndicator={true}
     >
       <View style={[styles.mainWrapper, { width: maxContainerWidth }]}>
         <Image 
@@ -490,7 +491,7 @@ export default function HomeScreen() {
         </View>
 
         <Text style={styles.notMedicalInformation}>
-            หมายเหตุ: ผลประเมินเบื้องต้น ไม่ใช่การวินิจฉัยทางการแพทย์
+            หมายเหตุ: Cushion Sense เป็นระบบเฝ้าระวังปัจจัยเสี่ยงที่สามารถทำให้แผลกดทับเท่านั้น ไม่สามารถแทนการวินิจฉัยการเกิดโรคแผลกดทับหรือการรักษาทางการแพทย์ได้
         </Text>
       </View>
     </ScrollView>
@@ -499,13 +500,13 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 20,
-    paddingTop: 60,
-    paddingHorizontal: 16,
-    backgroundColor: "#F2F2F7",
-    flexGrow: 1,
-    alignItems: "center",
-  },
+  paddingTop: 30,
+  paddingHorizontal: 16,
+  paddingBottom: 130,
+  backgroundColor: "#F2F2F7",
+  flexGrow: 1,
+  alignItems: "center",
+},
   mainWrapper: {
     alignSelf: "center",
   },
@@ -526,16 +527,16 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   lastUpdateText: {
-    fontSize: 12,
+    fontSize: 14,
     color: "#8E8E93",
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: 13,
     marginTop: 2,
   },
   notMedicalInformation: {
-    fontSize: 12,
+    fontSize: 14,
     color: "#8E8E93",
-    marginBottom: 16,
+    marginBottom: 13,
     marginTop: 2,
   },
   alarmCard: {
@@ -544,7 +545,7 @@ const styles = StyleSheet.create({
     borderLeftColor: "#FF3B30",
     padding: 10,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 13,
   },
   alarmTitle: {
     fontSize: 14,
@@ -562,7 +563,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     padding: 16,
     borderRadius: 16,
-    marginBottom: 16,
+    marginBottom: 13,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,

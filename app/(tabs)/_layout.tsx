@@ -46,7 +46,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
               <Ionicons
                 name="home-outline"
                 size={25}
-                color={isFocused ? '#4464D0' : '#999999'}
+                color={isFocused ? '#2D69CA' : '#999999'}
               />
             );
           }
@@ -56,7 +56,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
               <Octicons
                 name="graph"
                 size={25}
-                color={isFocused ? '#4464D0' : '#999999'}
+                color={isFocused ? '#2D69CA' : '#999999'}
               />
             );
           }
@@ -66,7 +66,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
               <MaterialCommunityIcons
                 name="clipboard-list-outline"
                 size={25}
-                color={isFocused ? '#4464D0' : '#999999'}
+                color={isFocused ? '#2D69CA' : '#999999'}
               />
             );
           }
@@ -76,7 +76,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
               <Ionicons
                 name="person-outline"
                 size={25}
-                color={isFocused ? '#4464D0' : '#999999'}
+                color={isFocused ? '#2D69CA' : '#999999'}
               />
             );
           }
@@ -100,7 +100,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
                     styles.tabLabel,
                     {
                       color: isFocused
-                        ? '#4464D0'
+                        ? '#2D69CA'
                         : '#999999',
                     },
                   ]}

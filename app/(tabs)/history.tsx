@@ -628,6 +628,39 @@ useFocusEffect(
     };
   }, [])
 );
+// =====================================================
+// Refresh History ทุก 5 วินาที ขณะอยู่หน้า History
+// =====================================================
+useEffect(() => {
+  const refreshHistory = async () => {
+    const patientId = patientIdRef.current;
+
+    if (!patientId) {
+      return;
+    }
+
+    try {
+      const savedLogs =
+        await loadHistoryFromSupabase(patientId);
+
+      setHistoryLogs(savedLogs);
+    } catch (error) {
+      console.error(
+        'ไม่สามารถ Refresh History ได้:',
+        error
+      );
+    }
+  };
+
+  const interval = setInterval(
+    refreshHistory,
+    5000
+  );
+
+  return () => {
+    clearInterval(interval);
+  };
+}, []);
   // =====================================================
   // Dashboard Stats
   // =====================================================
@@ -747,7 +780,7 @@ useFocusEffect(
       >
         <ActivityIndicator
           size="large"
-          color="#4464D0"
+          color="#2D69CA"
         />
 
         <Text
@@ -775,14 +808,11 @@ useFocusEffect(
         );
 
   return (
-    <ScrollView
-      contentContainerStyle={
-        styles.container
-      }
-      showsVerticalScrollIndicator={
-        false
-      }
-    >
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={true}
+      >
       <View
         style={[
           styles.mainWrapper,
@@ -800,6 +830,8 @@ useFocusEffect(
         >
           Clinical Dashboard
         </Text>
+
+
 
         <Text
           style={
@@ -1459,12 +1491,13 @@ useFocusEffect(
 // =====================================================
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    backgroundColor: '#F4F6F9',
-    flexGrow: 1,
-    alignItems: 'center',
-  },
+  paddingTop: 60,
+  paddingHorizontal: 16,
+  paddingBottom: 130,
+  backgroundColor: '#F4F6F9',
+  flexGrow: 1,
+  alignItems: 'center',
+},
 
   mainWrapper: {
     alignSelf: 'center',
@@ -1483,14 +1516,14 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: {
-    fontSize: 26,
+    fontSize: 32,
     fontWeight: '800',
     textAlign: 'center',
-    color: '#4464D0',
+    color: '#2D69CA',
   },
 
   subHeaderTitle: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#8E8E93',
     textAlign: 'center',
     marginBottom: 16,
@@ -1524,7 +1557,7 @@ const styles = StyleSheet.create({
   },
 
   activeTabText: {
-    color: '#4464D0',
+    color: '#2D69CA',
   },
 
   gridContainer: {
@@ -1658,7 +1691,7 @@ const styles = StyleSheet.create({
 
   // --- ปุ่มตอนที่ถูกเลือก (Active) พร้อมใส่เงาให้ดูลอยขึ้นมา ---\\
   humidityActiveBtn: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#2D69CA',
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 16,
@@ -1738,7 +1771,7 @@ const styles = StyleSheet.create({
   },
 
   exportBadge: {
-    backgroundColor: '#4464D0',
+    backgroundColor: '#2D69CA',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
@@ -1816,7 +1849,7 @@ const styles = StyleSheet.create({
 
   sittingTimerText: {
     fontSize: 11,
-    color: '#4464D0',
+    color: '#2D69CA',
     marginTop: 4,
     fontWeight: '500',
   },
