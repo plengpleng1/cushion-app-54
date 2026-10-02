@@ -381,6 +381,17 @@ export default function HistoryScreen() {
   ] = useState<TabType>('today');
 
   const [
+    clearedAt,
+    setClearedAt,
+  ] = useState<{
+    today: number | null;
+    week: number | null;
+  }>({
+    today: null,
+    week: null,
+  });
+
+  const [
     selectedMetric,
     setSelectedMetric,
   ] =
@@ -406,9 +417,9 @@ export default function HistoryScreen() {
   ] = useState<boolean>(false);
 
   const [
-  isHistoryCleared,
-  setIsHistoryCleared,
-] = useState<boolean>(false);
+  clearedTab,
+  setClearedTab,
+] = useState<TabType | null>(null);
 
   // =====================================================
   // วันที่ปัจจุบัน
@@ -429,16 +440,18 @@ export default function HistoryScreen() {
   const patientIdRef =
     useRef<string | null>(null);
 
-    const isHistoryClearedRef =
-    useRef<boolean>(false);
-
     const handleClearHistory = () => {
-  console.log('🗑️ CLEAR BUTTON PRESSED');
+    console.log('🗑️ CLEAR BUTTON PRESSED');
 
-  setIsHistoryCleared(true);
-  setHistoryLogs([]);
-  setIsExpanded(false);
-};
+    const now = Date.now();
+
+    setClearedAt((prev) => ({
+      ...prev,
+      [activeTab]: now,
+    }));
+
+    setIsExpanded(false);
+  };
 
 
   // =====================================================
@@ -572,23 +585,33 @@ export default function HistoryScreen() {
   // =====================================================
   // ข้อมูลที่จะแสดงตาม Tab
   // =====================================================
-    const filteredLogs =
-    isHistoryCleared
-      ? []
-      : historyLogs.filter(
-          (log) => {
-            if (
-              activeTab ===
-              'today'
-            ) {
-              return isToday(
-                log.date
-              );
-            }
+    const filteredLogs = historyLogs.filter((log) => {
+      // Today แสดงเฉพาะข้อมูลของวันนี้
+      if (
+        activeTab === 'today' &&
+        !isToday(log.date)
+      ) {
+        return false;
+      }
 
-            return true;
-          }
-        );
+      // เวลาที่กดล้างของ tab นี้
+      const clearTime = clearedAt[activeTab];
+
+      // ถ้ายังไม่เคยกดล้าง → แสดงข้อมูลทั้งหมด
+      if (!clearTime) {
+        return true;
+      }
+
+      // แปลงวันที่ DD/MM/YYYY + เวลา HH:mm:ss
+      const [day, month, year] = log.date.split('/');
+
+      const logDateTime = new Date(
+        `${year}-${month}-${day}T${log.time}+07:00`
+      ).getTime();
+
+      // แสดงเฉพาะข้อมูลที่เกิดหลังจากกดล้าง
+      return logDateTime > clearTime;
+    });
 
   // =====================================================
 // เมื่อเข้า History
@@ -625,8 +648,6 @@ useFocusEffect(
         // ---------------------------------------------
         patientIdRef.current = selectedPatientId;
 
-        isHistoryClearedRef.current = false;
-
         // ---------------------------------------------
         // 3. โหลด History จาก Supabase
         // ---------------------------------------------
@@ -635,10 +656,7 @@ useFocusEffect(
             selectedPatientId
           );
 
-        if (
-          !isActive ||
-          isHistoryClearedRef.current
-        ) {
+        if (!isActive) {
           return;
         }
 
@@ -670,15 +688,12 @@ useFocusEffect(
   // =====================================================
   // Auto Refresh History
   // =====================================================
-  useEffect(() => {
+    useEffect(() => {
     const refreshHistory = async () => {
       const patientId =
         patientIdRef.current;
 
-      if (
-        !patientId ||
-        isHistoryCleared
-      ) {
+      if (!patientId) {
         return;
       }
 
@@ -688,9 +703,7 @@ useFocusEffect(
             patientId
           );
 
-        setHistoryLogs(
-          savedLogs
-        );
+        setHistoryLogs(savedLogs);
       } catch (error) {
         console.error(
           'ไม่สามารถ Refresh History ได้:',
@@ -708,7 +721,7 @@ useFocusEffect(
     return () => {
       clearInterval(interval);
     };
-  }, [isHistoryCleared]);
+  }, []);
 
 
   // =====================================================
