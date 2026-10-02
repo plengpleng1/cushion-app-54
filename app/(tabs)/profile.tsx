@@ -3,6 +3,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   Alert,
+  Image,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -105,9 +106,12 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         {/* Logo */}
-        <Text style={styles.brandTitle}>
-          <Text style={styles.brandBold}>Cushion </Text>
-          <Text style={styles.brandLight}>Sense</Text>
+        <Text style={styles.logoImage}>
+          <Image 
+          source={require('../../assets/images/cushion.png')} // เปลี่ยน path ไปยังไฟล์รูปโลโก้ของคุณ
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
         </Text>
 
         <View style={styles.cardContainer}>
@@ -158,21 +162,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 24,
   },
-  brandTitle: {
-    marginBottom: 32,
-    textAlign: "center",
-  },
-  brandBold: {
-    fontSize: 33,
-    fontStyle: "italic",
-    fontWeight: "700",
-    color: "#4464D0",
-  },
-  brandLight: {
-    fontSize: 33,
-    fontStyle: "italic",
-    fontWeight: "400",
-    color: "#4464D0",
+  logoImage: {
+    width: 400,  // ปรับความกว้างของโลโก้ตามต้องการ
+    height: 200,  // ปรับความสูงของโลโก้ตามสัดส่วนจริง
+    alignSelf: 'center', // จัดให้อยู่กึ่งกลางหน้าจอ
+    marginBottom: 5,
   },
   cardContainer: {
     width: "100%",
@@ -208,7 +202,7 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     width: "100%",
-    height: 50,
+    height: 70,
     backgroundColor: "#C82828",
     justifyContent: "center",
     alignItems: "center",
