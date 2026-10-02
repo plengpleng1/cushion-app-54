@@ -12,7 +12,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TextStyle,
   TouchableOpacity,
   View,
   ViewStyle,
@@ -25,11 +24,11 @@ export default function LoginScreen() {
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [isOtpStep, setIsOtpStep] = useState(false);
-  
+
   // State เพิ่มเติมสำหรับระบบ Forgot Password
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isResetPasswordStep, setIsResetPasswordStep] = useState(false);
-  
+
   const [loading, setLoading] = useState(false);
 
   // Timer state สำหรับ Resend OTP
@@ -183,7 +182,7 @@ export default function LoginScreen() {
 
     if (!validatePassword(newPassword)) {
       showError(
-        "Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องประกอบด้วยทั้งตัวอักษรและตัวเลข"
+        "Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องประกอบด้วยทั้งตัวอักษรและตัวเลข",
       );
       return;
     }
@@ -232,7 +231,7 @@ export default function LoginScreen() {
 
     if (!validatePassword(rawPassword)) {
       showError(
-        "Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องประกอบด้วยทั้งตัวอักษรและตัวเลข"
+        "Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องประกอบด้วยทั้งตัวอักษรและตัวเลข",
       );
       return;
     }
@@ -275,35 +274,36 @@ export default function LoginScreen() {
   // =========================================================
 
   const handleResendOtp = async () => {
-  if (!canResend) return;
-  setErrorMessage("");
+    if (!canResend) return;
+    setErrorMessage("");
 
-  try {
-    setLoading(true);
-    const targetEmail = email.trim().toLowerCase();
+    try {
+      setLoading(true);
+      const targetEmail = email.trim().toLowerCase();
 
-    if (isForgotPassword) {
-      // สำหรับ Forgot Password / Recovery ให้ใช้ resetPasswordForEmail
-      const { error } = await supabase.auth.resetPasswordForEmail(targetEmail);
-      if (error) throw error;
-    } else {
-      // สำหรับ Sign Up ให้ใช้ resend แบบระบุ type: 'signup'
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email: targetEmail,
-      });
-      if (error) throw error;
+      if (isForgotPassword) {
+        // สำหรับ Forgot Password / Recovery ให้ใช้ resetPasswordForEmail
+        const { error } =
+          await supabase.auth.resetPasswordForEmail(targetEmail);
+        if (error) throw error;
+      } else {
+        // สำหรับ Sign Up ให้ใช้ resend แบบระบุ type: 'signup'
+        const { error } = await supabase.auth.resend({
+          type: "signup",
+          email: targetEmail,
+        });
+        if (error) throw error;
+      }
+
+      setTimer(60);
+      setCanResend(false);
+      alert("ส่งรหัส OTP ใหม่ไปยังอีเมลของคุณเรียบร้อยแล้ว");
+    } catch (err: any) {
+      showError(err.message || "ไม่สามารถส่ง OTP ใหม่ได้ กรุณาลองอีกครั้ง");
+    } finally {
+      setLoading(false);
     }
-
-    setTimer(60);
-    setCanResend(false);
-    alert("ส่งรหัส OTP ใหม่ไปยังอีเมลของคุณเรียบร้อยแล้ว");
-  } catch (err: any) {
-    showError(err.message || "ไม่สามารถส่ง OTP ใหม่ได้ กรุณาลองอีกครั้ง");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // =========================================================
   // Verify SignUp OTP Logic
@@ -440,17 +440,9 @@ export default function LoginScreen() {
 
       {/* TOP HEADER */}
       <View style={styles.topHeader as ViewStyle}>
-        <Text style={styles.topHeaderTitle}>
-          {isForgotPassword
-            ? "Reset Password"
-            : isSignUp
-            ? "Sign Up"
-            : "Sign In"}
-        </Text>
-
         <Image
           source={require("../assets/images/logo-app.jpg")}
-          style={styles.topRightLogo}
+          style={styles.topLeftLogo}
           resizeMode="contain"
         />
       </View>
@@ -527,7 +519,9 @@ export default function LoginScreen() {
                   {loading ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.primaryButtonText}>Save New Password</Text>
+                    <Text style={styles.primaryButtonText}>
+                      Save New Password
+                    </Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -615,7 +609,8 @@ export default function LoginScreen() {
               <View>
                 <Text style={styles.otpTitle}>Forgot Password</Text>
                 <Text style={styles.otpSubTitle}>
-                  กรอก Email ที่ใช้ลงทะเบียน{"\n"}เพื่อรับรหัส OTP สำหรับตั้งรหัสผ่านใหม่
+                  กรอก Email ที่ใช้ลงทะเบียน{"\n"}เพื่อรับรหัส OTP
+                  สำหรับตั้งรหัสผ่านใหม่
                 </Text>
 
                 <View style={styles.inputGroup}>
@@ -891,19 +886,15 @@ const styles = StyleSheet.create({
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     paddingHorizontal: 15,
     backgroundColor: "#fffefe",
   },
-  topHeaderTitle: {
-    fontSize: 18,
-    fontWeight: "500",
-    color: "#000000",
-  } as TextStyle,
-  topRightLogo: {
+
+  topLeftLogo: {
     width: 105,
     height: 35,
-    marginRight: 25,
+    marginLeft: 40,
   },
   headerLine: {
     height: 1,
