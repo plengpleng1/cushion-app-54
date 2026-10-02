@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
@@ -133,27 +134,48 @@ export default function ExistingPatientScreen() {
   };
 
   // =========================================================
+  // Header
+  // =========================================================
+
+  const headerOptions = {
+    headerShown: true,
+
+    // ลบคำว่า Existing Patient ออกจากด้านบน
+    title: "",
+
+    headerTitleAlign: "left" as const,
+
+    // ลูกศร + Logo อยู่ด้านบนซ้าย
+    headerLeft: () => (
+      <View style={styles.headerLeftContainer}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color="#222222" />
+        </TouchableOpacity>
+
+        <Image
+          source={require("../assets/images/logo-app.jpg")}
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
+      </View>
+    ),
+
+    // ไม่มีอะไรด้านขวา
+    headerRight: () => null,
+  };
+
+  // =========================================================
   // Loading
   // =========================================================
 
   if (loading) {
     return (
       <>
-        <Stack.Screen
-          options={{
-            headerShown: true,
-            title: "Existing Patient",
-            headerTitleAlign: "left",
-
-            headerRight: () => (
-              <Image
-                source={require("../assets/images/logo-app.jpg")}
-                style={styles.headerLogo}
-                resizeMode="contain"
-              />
-            ),
-          }}
-        />
+        <Stack.Screen options={headerOptions} />
 
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={BLUE} />
@@ -172,21 +194,7 @@ export default function ExistingPatientScreen() {
           Header
           ===================================================== */}
 
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: "Existing Patient",
-          headerTitleAlign: "left",
-
-          headerRight: () => (
-            <Image
-              source={require("../assets/images/logo-app.jpg")}
-              style={styles.headerLogo}
-              resizeMode="contain"
-            />
-          ),
-        }}
-      />
+      <Stack.Screen options={headerOptions} />
 
       <View style={styles.container}>
         {/* ===================================================
@@ -265,13 +273,26 @@ export default function ExistingPatientScreen() {
 
 const styles = StyleSheet.create({
   // =======================================================
-  // Logo ด้านขวาบน
+  // ลูกศร + Logo ด้านซ้ายบน
   // =======================================================
+
+  headerLeftContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 5,
+  },
+
+  backButton: {
+    width: 45,
+    height: 45,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
   headerLogo: {
     width: 105,
     height: 35,
-    marginRight: 25,
+    marginLeft: 5,
   },
 
   // =======================================================

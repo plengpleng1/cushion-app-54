@@ -478,10 +478,14 @@ export default function PatientInfo() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: "Patient Information",
+
+          // ไม่แสดงคำว่า Patient Information
+          title: "",
+
+          // โลโก้อยู่ด้านซ้าย ถัดจากลูกศร Back
           headerTitleAlign: "left",
 
-          headerRight: () => (
+          headerTitle: () => (
             <Image
               source={require("../assets/images/logo-app.jpg")}
               style={styles.headerLogo}
@@ -789,7 +793,7 @@ const styles = StyleSheet.create({
   headerLogo: {
     width: 105,
     height: 35,
-    marginRight: 25,
+    marginLeft: 1,
   },
 
   // =======================================================
