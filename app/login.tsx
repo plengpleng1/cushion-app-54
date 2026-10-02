@@ -1,8 +1,10 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { Stack, useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -10,13 +12,17 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TextStyle,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { supabase } from '../lib/supabase';
+  ViewStyle,
+} from "react-native";
+
+import { supabase } from "../lib/supabase";
 
 export default function LoginScreen() {
   const router = useRouter();
+
   const [isSignUp, setIsSignUp] = useState(false);
   const [isOtpStep, setIsOtpStep] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,19 +37,24 @@ export default function LoginScreen() {
   const confirmPasswordInputRef = useRef<TextInput>(null);
 
   // States
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [otp, setOtp] = useState('');
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [otp, setOtp] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
 
-  // ระบบนับถอยหลัง 60 วินาทีสำหรับการส่ง OTP อีกครั้ง
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // =========================================================
+  // Timer สำหรับ Resend OTP
+  // =========================================================
+
   useEffect(() => {
     let interval: any;
+
     if (isOtpStep && timer > 0) {
       interval = setInterval(() => {
         setTimer((prev) => prev - 1);
@@ -51,6 +62,7 @@ export default function LoginScreen() {
     } else if (timer === 0) {
       setCanResend(true);
     }
+
     return () => clearInterval(interval);
   }, [isOtpStep, timer]);
 
@@ -62,6 +74,7 @@ export default function LoginScreen() {
     const hasMinLength = pass.length >= 8;
     const hasLetter = /[a-zA-Z]/.test(pass);
     const hasNumber = /[0-9]/.test(pass);
+
     return hasMinLength && hasLetter && hasNumber;
   };
 
@@ -71,51 +84,56 @@ export default function LoginScreen() {
   };
 
   const resetForm = () => {
-    setUsername('');
-    setEmail('');
-    setPassword('');
-    setConfirmPassword('');
-    setOtp('');
+    setUsername("");
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setOtp("");
     setShowPassword(false);
     setShowConfirmPassword(false);
-    setErrorMessage('');
+    setErrorMessage("");
     setIsOtpStep(false);
     setTimer(60);
     setCanResend(false);
   };
 
-  // 1. Sign Up Logic (แก้ไขมาใช้ signUp แบบถูกต้อง)
+  // =========================================================
+  // 1. Sign Up Logic
+  // =========================================================
+
   const handleSignUp = async () => {
-    setErrorMessage('');
+    setErrorMessage("");
+
     const rawUsername = username.trim();
     const rawEmail = email.trim().toLowerCase();
     const rawPassword = password;
     const rawConfirm = confirmPassword;
 
     if (!rawUsername || !rawEmail || !rawPassword || !rawConfirm) {
-      showError('กรุณากรอกข้อมูลให้ครบทุกช่อง');
+      showError("กรุณากรอกข้อมูลให้ครบทุกช่อง");
       return;
     }
 
     if (!validateEmail(rawEmail)) {
-      showError('กรุณากรอกรูปแบบ Email ให้ถูกต้อง');
+      showError("กรุณากรอกรูปแบบ Email ให้ถูกต้อง");
       return;
     }
 
     if (!validatePassword(rawPassword)) {
-      showError('Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องประกอบด้วยทั้งตัวอักษรและตัวเลข');
+      showError(
+        "Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องประกอบด้วยทั้งตัวอักษรและตัวเลข",
+      );
       return;
     }
 
     if (rawPassword !== rawConfirm) {
-      showError('Password และ Confirm Password ไม่ตรงกัน');
+      showError("Password และ Confirm Password ไม่ตรงกัน");
       return;
     }
 
     try {
       setLoading(true);
 
-      // ใช้ signUp เพื่อส่งรหัส OTP 6 หลักเข้าอีเมล
       const { data, error } = await supabase.auth.signUp({
         email: rawEmail,
         password: rawPassword,
@@ -134,23 +152,27 @@ export default function LoginScreen() {
       setIsOtpStep(true);
       setTimer(60);
       setCanResend(false);
-
     } catch (err: any) {
-      showError('เกิดข้อผิดพลาดในการสมัครสมาชิก');
+      showError("เกิดข้อผิดพลาดในการสมัครสมาชิก");
     } finally {
       setLoading(false);
     }
   };
 
-  // ฟังก์ชันส่ง OTP ใหม่อีกครั้ง (Resend OTP)
+  // =========================================================
+  // Resend OTP
+  // =========================================================
+
   const handleResendOtp = async () => {
     if (!canResend) return;
-    setErrorMessage('');
+
+    setErrorMessage("");
 
     try {
       setLoading(true);
+
       const { error } = await supabase.auth.resend({
-        type: 'signup',
+        type: "signup",
         email: email.trim().toLowerCase(),
       });
 
@@ -161,22 +183,27 @@ export default function LoginScreen() {
 
       setTimer(60);
       setCanResend(false);
-      alert('ส่งรหัส OTP ใหม่ไปยังอีเมลของคุณเรียบร้อยแล้ว');
+
+      alert("ส่งรหัส OTP ใหม่ไปยังอีเมลของคุณเรียบร้อยแล้ว");
     } catch (err: any) {
-      showError('ไม่สามารถส่ง OTP ใหม่ได้ กรุณาลองอีกครั้ง');
+      showError("ไม่สามารถส่ง OTP ใหม่ได้ กรุณาลองอีกครั้ง");
     } finally {
       setLoading(false);
     }
   };
 
+  // =========================================================
   // 2. Verify OTP Logic
+  // =========================================================
+
   const handleVerifyOtp = async () => {
-    setErrorMessage('');
+    setErrorMessage("");
+
     const rawEmail = email.trim().toLowerCase();
     const rawOtp = otp.trim();
 
     if (rawOtp.length !== 6) {
-      showError('กรุณากรอกรหัส OTP ให้ครบ 6 หลัก');
+      showError("กรุณากรอกรหัส OTP ให้ครบ 6 หลัก");
       return;
     }
 
@@ -186,49 +213,53 @@ export default function LoginScreen() {
       const { data, error } = await supabase.auth.verifyOtp({
         email: rawEmail,
         token: rawOtp,
-        type: 'signup', // ใช้ type เป็น signup
+        type: "signup",
       });
 
       if (error) {
-        showError('รหัส OTP ไม่ถูกต้องหรือหมดอายุ');
+        showError("รหัส OTP ไม่ถูกต้องหรือหมดอายุ");
         return;
       }
 
-      // ยืนยัน OTP สำเร็จ พาเข้าสู่ระบบทันที
       resetForm();
-      router.replace('/select' as any);
-
+      router.replace("/select" as any);
     } catch (err: any) {
-      showError('เกิดข้อผิดพลาดในการยืนยัน OTP');
+      showError("เกิดข้อผิดพลาดในการยืนยัน OTP");
     } finally {
       setLoading(false);
     }
   };
 
+  // =========================================================
   // 3. Sign In Logic
+  // =========================================================
+
   const handleSignIn = async () => {
-    setErrorMessage('');
+    setErrorMessage("");
+
     const rawInput = username.trim();
     const rawPassword = password;
 
     if (!rawInput || !rawPassword) {
-      showError('กรุณากรอก Username และ Password');
+      showError("กรุณากรอก Username และ Password");
       return;
     }
 
     try {
       setLoading(true);
+
       let loginEmail = rawInput;
 
-      if (!rawInput.includes('@')) {
+      if (!rawInput.includes("@")) {
         const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('email')
-          .eq('username', rawInput)
+          .from("profiles")
+          .select("email")
+          .eq("username", rawInput)
           .maybeSingle<{ email: string }>();
 
         if (profileError || !profileData?.email) {
-          showError('เข้าสู่ระบบไม่สำเร็จ: Username หรือ Password ไม่ถูกต้อง');
+          showError("เข้าสู่ระบบไม่สำเร็จ: Username หรือ Password ไม่ถูกต้อง");
+
           setLoading(false);
           return;
         }
@@ -242,19 +273,23 @@ export default function LoginScreen() {
       });
 
       if (error) {
-        showError('เข้าสู่ระบบไม่สำเร็จ: Username/Password ไม่ถูกต้อง');
+        showError("เข้าสู่ระบบไม่สำเร็จ: Username/Password ไม่ถูกต้อง");
         return;
       }
 
       if (data.user) {
-        router.replace('/select' as any);
+        router.replace("/select" as any);
       }
     } catch (err: any) {
-      showError('เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
+      showError("เกิดข้อผิดพลาดในการเข้าสู่ระบบ");
     } finally {
       setLoading(false);
     }
   };
+
+  // =========================================================
+  // Submit
+  // =========================================================
 
   const handleSubmit = () => {
     if (isOtpStep) {
@@ -267,39 +302,88 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {Platform.OS === 'web' && (
+    <SafeAreaView style={styles.container as ViewStyle}>
+      {/* ปิด Header เดิมของ Expo Router
+          เพื่อไม่ให้คำว่า "login" โผล่ด้านบน */}
+      <Stack.Screen
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      {Platform.OS === "web" && (
         <style
           dangerouslySetInnerHTML={{
             __html: `
-            input::-ms-reveal,
-            input::-ms-clear { display: none !important; }
-          `,
+              input::-ms-reveal,
+              input::-ms-clear {
+                display: none !important;
+              }
+            `,
           }}
         />
       )}
 
+      {/* =====================================================
+          CUSTOM TOP HEADER
+          ===================================================== */}
+
+      <View style={styles.topHeader as ViewStyle}>
+        <Text style={styles.topHeaderTitle}>Sign In</Text>
+
+        <Image
+          source={require("../assets/images/logo-app.jpg")}
+          style={styles.topRightLogo}
+          resizeMode="contain"
+        />
+      </View>
+
+      {/* เส้นคั่นใต้ Header */}
+      <View style={styles.headerLine as ViewStyle} />
+
+      {/* =====================================================
+          MAIN CONTENT
+          ===================================================== */}
+
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* Welcome */}
           <View style={styles.headerContainer}>
             <Text style={styles.welcomeText}>Welcome</Text>
+
             <Text style={styles.brandContainer}>
               <Text style={styles.brandBold}>Cushion </Text>
+
               <Text style={styles.brandLight}>Sense</Text>
             </Text>
           </View>
 
+          {/* =================================================
+              FORM
+              ================================================= */}
+
           <View style={styles.formContainer}>
-            {/* --- หน้าต่างที่ 1: กรอก OTP 6 หลัก --- */}
+            {/* =================================================
+                OTP
+                ================================================= */}
+
             {isOtpStep ? (
               <View>
                 <Text style={styles.otpTitle}>Verify Your Email</Text>
+
                 <Text style={styles.otpSubTitle}>
-                  เราได้ส่งรหัส OTP 6 หลักไปที่{'\n'}
-                  <Text style={{ fontWeight: '700', color: '#4464D0' }}>{email}</Text>
+                  เราได้ส่งรหัส OTP 6 หลักไปที่{"\n"}
+                  <Text
+                    style={{
+                      fontWeight: "700",
+                      color: "#4464D0",
+                    }}
+                  >
+                    {email}
+                  </Text>
                 </Text>
 
                 <View style={styles.inputGroup}>
@@ -310,7 +394,10 @@ export default function LoginScreen() {
                     value={otp}
                     onChangeText={(text) => {
                       setOtp(text);
-                      if (errorMessage) setErrorMessage('');
+
+                      if (errorMessage) {
+                        setErrorMessage("");
+                      }
                     }}
                     keyboardType="number-pad"
                     maxLength={6}
@@ -335,48 +422,85 @@ export default function LoginScreen() {
                   )}
                 </TouchableOpacity>
 
-                {/* ปุ่มส่ง OTP อีกครั้ง / ตัวนับถอยหลัง */}
-                <View style={{ marginTop: 16, alignItems: 'center' }}>
+                {/* Resend OTP */}
+                <View
+                  style={{
+                    marginTop: 16,
+                    alignItems: "center",
+                  }}
+                >
                   {canResend ? (
-                    <TouchableOpacity onPress={handleResendOtp} disabled={loading}>
-                      <Text style={{ color: '#4464D0', fontWeight: '700', fontSize: 14 }}>
+                    <TouchableOpacity
+                      onPress={handleResendOtp}
+                      disabled={loading}
+                    >
+                      <Text
+                        style={{
+                          color: "#4464D0",
+                          fontWeight: "700",
+                          fontSize: 14,
+                        }}
+                      >
                         ส่งรหัส OTP อีกครั้ง
                       </Text>
                     </TouchableOpacity>
                   ) : (
-                    <Text style={{ color: '#888888', fontSize: 13 }}>
+                    <Text
+                      style={{
+                        color: "#888888",
+                        fontSize: 13,
+                      }}
+                    >
                       ส่งรหัสอีกครั้งได้ใน {timer} วินาที
                     </Text>
                   )}
                 </View>
 
+                {/* Back */}
                 <TouchableOpacity
-                  style={{ marginTop: 16, alignItems: 'center' }}
+                  style={{
+                    marginTop: 16,
+                    alignItems: "center",
+                  }}
                   onPress={() => setIsOtpStep(false)}
                 >
-                  <Text style={{ color: '#666666', fontSize: 14 }}>
+                  <Text
+                    style={{
+                      color: "#666666",
+                      fontSize: 14,
+                    }}
+                  >
                     ← กลับไปแก้ไขข้อมูล
                   </Text>
                 </TouchableOpacity>
               </View>
             ) : (
-              /* --- หน้าต่างที่ 2: ฟอร์ม Sign In / Sign Up ปกติ --- */
+              /* =================================================
+                 SIGN IN / SIGN UP
+                 ================================================= */
+
               <View>
-                {/* ช่อง Username / Identifier */}
+                {/* Username */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>
-                    {isSignUp ? 'Username' : 'Username or Email'}
+                    {isSignUp ? "Username" : "Username or Email"}
                   </Text>
+
                   <TextInput
                     style={styles.input}
                     placeholder={
-                      isSignUp ? 'Enter your username' : 'Enter username or email'
+                      isSignUp
+                        ? "Enter your username"
+                        : "Enter username or email"
                     }
                     placeholderTextColor="#A0A0A0"
                     value={username}
                     onChangeText={(text) => {
                       setUsername(text);
-                      if (errorMessage) setErrorMessage('');
+
+                      if (errorMessage) {
+                        setErrorMessage("");
+                      }
                     }}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -393,10 +517,11 @@ export default function LoginScreen() {
                   />
                 </View>
 
-                {/* ช่อง Email (แสดงเฉพาะตอน Sign Up) */}
+                {/* Email - Sign Up only */}
                 {isSignUp && (
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Email</Text>
+
                     <TextInput
                       ref={emailInputRef}
                       style={styles.input}
@@ -405,7 +530,10 @@ export default function LoginScreen() {
                       value={email}
                       onChangeText={(text) => {
                         setEmail(text);
-                        if (errorMessage) setErrorMessage('');
+
+                        if (errorMessage) {
+                          setErrorMessage("");
+                        }
                       }}
                       keyboardType="email-address"
                       autoCapitalize="none"
@@ -418,30 +546,34 @@ export default function LoginScreen() {
                   </View>
                 )}
 
-                {/* ช่อง Password */}
+                {/* Password */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Password</Text>
+
                   <View style={styles.passwordWrapper}>
                     <TextInput
                       ref={passwordInputRef}
                       style={[styles.input, styles.passwordInput]}
                       placeholder={
                         isSignUp
-                          ? 'At least 8 chars with letters & numbers'
-                          : 'Enter your password'
+                          ? "At least 8 chars with letters & numbers"
+                          : "Enter your password"
                       }
                       placeholderTextColor="#A0A0A0"
                       secureTextEntry={!showPassword}
                       value={password}
                       onChangeText={(text) => {
                         setPassword(text);
-                        if (errorMessage) setErrorMessage('');
+
+                        if (errorMessage) {
+                          setErrorMessage("");
+                        }
                       }}
                       autoCapitalize="none"
                       autoCorrect={false}
                       autoComplete="off"
                       textContentType="none"
-                      returnKeyType={isSignUp ? 'next' : 'done'}
+                      returnKeyType={isSignUp ? "next" : "done"}
                       onSubmitEditing={() => {
                         if (isSignUp) {
                           confirmPasswordInputRef.current?.focus();
@@ -450,13 +582,14 @@ export default function LoginScreen() {
                         }
                       }}
                     />
+
                     <TouchableOpacity
                       style={styles.eyeIcon}
                       onPress={() => setShowPassword(!showPassword)}
                       activeOpacity={0.7}
                     >
                       <Ionicons
-                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                        name={showPassword ? "eye-off-outline" : "eye-outline"}
                         size={22}
                         color="#666666"
                       />
@@ -464,10 +597,11 @@ export default function LoginScreen() {
                   </View>
                 </View>
 
-                {/* ช่อง Confirm Password (แสดงเฉพาะตอน Sign Up) */}
+                {/* Confirm Password */}
                 {isSignUp && (
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Confirm Password</Text>
+
                     <View style={styles.passwordWrapper}>
                       <TextInput
                         ref={confirmPasswordInputRef}
@@ -478,7 +612,10 @@ export default function LoginScreen() {
                         value={confirmPassword}
                         onChangeText={(text) => {
                           setConfirmPassword(text);
-                          if (errorMessage) setErrorMessage('');
+
+                          if (errorMessage) {
+                            setErrorMessage("");
+                          }
                         }}
                         autoCapitalize="none"
                         autoCorrect={false}
@@ -487,6 +624,7 @@ export default function LoginScreen() {
                         returnKeyType="done"
                         onSubmitEditing={handleSubmit}
                       />
+
                       <TouchableOpacity
                         style={styles.eyeIcon}
                         onPress={() =>
@@ -497,8 +635,8 @@ export default function LoginScreen() {
                         <Ionicons
                           name={
                             showConfirmPassword
-                              ? 'eye-off-outline'
-                              : 'eye-outline'
+                              ? "eye-off-outline"
+                              : "eye-outline"
                           }
                           size={22}
                           color="#666666"
@@ -508,12 +646,12 @@ export default function LoginScreen() {
                   </View>
                 )}
 
-                {/* แสดง Error Message */}
+                {/* Error */}
                 {errorMessage ? (
                   <Text style={styles.errorText}>{errorMessage}</Text>
                 ) : null}
 
-                {/* ปุ่ม Sign In / Sign Up */}
+                {/* Sign In / Sign Up */}
                 <TouchableOpacity
                   style={styles.primaryButton}
                   onPress={handleSubmit}
@@ -523,18 +661,19 @@ export default function LoginScreen() {
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <Text style={styles.primaryButtonText}>
-                      {isSignUp ? 'Sign Up' : 'Sign In'}
+                      {isSignUp ? "Sign Up" : "Sign In"}
                     </Text>
                   )}
                 </TouchableOpacity>
 
-                {/* ปุ่มสลับระหว่าง Sign In และ Sign Up */}
+                {/* Toggle */}
                 <View style={styles.toggleContainer}>
                   <Text style={styles.toggleText}>
                     {isSignUp
-                      ? 'Already have an account? '
+                      ? "Already have an account? "
                       : "Don't have an account? "}
                   </Text>
+
                   <TouchableOpacity
                     onPress={() => {
                       setIsSignUp(!isSignUp);
@@ -542,7 +681,7 @@ export default function LoginScreen() {
                     }}
                   >
                     <Text style={styles.toggleLink}>
-                      {isSignUp ? 'Sign In' : 'Sign Up'}
+                      {isSignUp ? "Sign In" : "Sign Up"}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -555,139 +694,221 @@ export default function LoginScreen() {
   );
 }
 
+// =============================================================
+// STYLES
+// =============================================================
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: "#F5F5F5",
   },
+
+  // ===========================================================
+  // Custom Header
+  // ===========================================================
+
+  topHeader: {
+    height: 65,
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 15,
+    backgroundColor: "#fffefe",
+  },
+
+  topHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#000000",
+  } as TextStyle,
+
+  topRightLogo: {
+    width: 105,
+    height: 35,
+    marginRight: 25,
+  },
+
+  headerLine: {
+    height: 1,
+    width: "100%",
+    backgroundColor: "#D8D8D8",
+  },
+
+  // ===========================================================
+  // Main Content
+  // ===========================================================
+
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 24,
     paddingVertical: 32,
   },
+
   headerContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 32,
   },
+
   welcomeText: {
     fontSize: 58,
-    fontWeight: '900',
-    color: '#4464D0',
-    textAlign: 'center',
+    fontWeight: "900",
+    color: "#4464D0",
+    textAlign: "center",
   },
+
   brandContainer: {
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 4,
   },
+
   brandBold: {
     fontSize: 42,
-    fontStyle: 'italic',
-    fontWeight: '700',
-    color: '#4464D0',
+    fontStyle: "italic",
+    fontWeight: "700",
+    color: "#4464D0",
   },
+
   brandLight: {
     fontSize: 42,
-    fontStyle: 'italic',
-    fontWeight: '400',
-    color: '#4464D0',
+    fontStyle: "italic",
+    fontWeight: "400",
+    color: "#4464D0",
   },
+
+  // ===========================================================
+  // Form
+  // ===========================================================
+
   formContainer: {
-    width: '100%',
+    width: "100%",
     maxWidth: 380,
-    alignSelf: 'center',
-    backgroundColor: '#FFFFFF',
+    alignSelf: "center",
+    backgroundColor: "#FFFFFF",
     padding: 24,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: "#E0E0E0",
   },
+
   inputGroup: {
     marginBottom: 16,
   },
+
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#444444',
+    fontWeight: "600",
+    color: "#444444",
     marginBottom: 6,
   },
+
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: '#CCCCCC',
+    borderColor: "#CCCCCC",
     borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 15,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: "#FAFAFA",
   },
+
   passwordWrapper: {
-    position: 'relative',
-    justifyContent: 'center',
+    position: "relative",
+    justifyContent: "center",
   },
+
   passwordInput: {
     paddingRight: 48,
   },
+
   eyeIcon: {
-    position: 'absolute',
+    position: "absolute",
     right: 12,
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 4,
   },
+
+  // ===========================================================
+  // Error
+  // ===========================================================
+
   errorText: {
-    color: '#D92D20',
+    color: "#D92D20",
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
+
+  // ===========================================================
+  // Button
+  // ===========================================================
+
   primaryButton: {
     height: 48,
-    backgroundColor: '#4464D0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#4464D0",
+    justifyContent: "center",
+    alignItems: "center",
     borderRadius: 8,
     marginTop: 8,
   },
+
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
+
+  // ===========================================================
+  // Toggle
+  // ===========================================================
+
   toggleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginTop: 20,
   },
+
   toggleText: {
-    color: '#666666',
+    color: "#666666",
     fontSize: 14,
   },
+
   toggleLink: {
-    color: '#4464D0',
+    color: "#4464D0",
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
   },
+
+  // ===========================================================
+  // OTP
+  // ===========================================================
+
   otpTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#333333',
-    textAlign: 'center',
+    fontWeight: "700",
+    color: "#333333",
+    textAlign: "center",
     marginBottom: 8,
   },
+
   otpSubTitle: {
     fontSize: 14,
-    color: '#666666',
-    textAlign: 'center',
+    color: "#666666",
+    textAlign: "center",
     marginBottom: 20,
     lineHeight: 20,
   },
+
   otpInput: {
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 24,
     letterSpacing: 10,
-    fontWeight: '700',
-    color: '#4464D0',
+    fontWeight: "700",
+    color: "#4464D0",
   },
 });
