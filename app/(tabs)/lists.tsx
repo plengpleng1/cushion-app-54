@@ -1125,7 +1125,7 @@ const styles = StyleSheet.create({
   addButton: {
     position: "absolute",
     right: 30,
-    bottom: 55,
+    bottom: 110,          // เดิม 55
     width: 58,
     height: 58,
     borderRadius: 29,
