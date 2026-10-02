@@ -1,3 +1,6 @@
+import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
@@ -45,20 +48,6 @@ export default function PatientListScreen() {
 
   const [genderOpen, setGenderOpen] = useState(false);
 
-  // =========================================================
-  // Refs
-  // =========================================================
-
-  const patientIdRef = useRef<TextInput>(null);
-  const nameRef = useRef<TextInput>(null);
-  const citizenIdRef = useRef<TextInput>(null);
-  const ageRef = useRef<TextInput>(null);
-  const phoneRef = useRef<TextInput>(null);
-
-  // =========================================================
-  // Errors
-  // =========================================================
-
   const [errors, setErrors] = useState({
     name: "",
     citizenId: "",
@@ -68,46 +57,38 @@ export default function PatientListScreen() {
     patientId: "",
   });
 
-  // =========================================================
-  // Load Selected Patient
-  // =========================================================
+  const patientIdRef = useRef<TextInput>(null);
+  const nameRef = useRef<TextInput>(null);
+  const citizenIdRef = useRef<TextInput>(null);
+  const ageRef = useRef<TextInput>(null);
+  const phoneRef = useRef<TextInput>(null);
 
+  // =========================
+  // Load Selected Patient
+  // =========================
   const loadSelectedPatient = async () => {
     try {
-      const savedPatientId = await AsyncStorage.getItem(SELECTED_PATIENT_KEY);
+      const selected = await AsyncStorage.getItem(SELECTED_PATIENT_KEY);
 
-      setSelectedPatientId(savedPatientId ?? "");
+      setSelectedPatientId(selected || "");
     } catch (error) {
       console.error("Load selected patient error:", error);
-      setSelectedPatientId("");
     }
   };
 
-  // =========================================================
-  // Load Patient List
-  // =========================================================
-
+  // =========================
+  // Load Patients
+  // =========================
   const loadPatients = async () => {
     try {
-      // =====================================================
-      // Current User
-      // =====================================================
-
       const {
         data: { user },
-        error: userError,
       } = await supabase.auth.getUser();
 
-      if (userError || !user) {
-        console.error("ไม่พบ User:", userError);
-
+      if (!user) {
         setPatients([]);
         return;
       }
-
-      // =====================================================
-      // Load Patients ของ User นี้
-      // =====================================================
 
       const { data, error } = await supabase
         .from("user_patients")
@@ -116,43 +97,25 @@ export default function PatientListScreen() {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Load Patient List error:", error);
-
-        setPatients([]);
+        console.error("Load patients error:", error);
         return;
       }
 
-      const formattedPatients: Patient[] = (data ?? []).map(
-        (patient: {
-          id: string;
-          patient_id: string;
-          name: string | null;
-          citizen_id: string | null;
-          gender: string | null;
-          age: string | number | null;
-          phone: string | null;
-        }) => ({
-          id: patient.id,
-          patientId: patient.patient_id,
-          name: patient.name ?? "",
-          citizenId: patient.citizen_id ?? "",
-          gender: patient.gender ?? "",
-          age: patient.age == null ? "" : String(patient.age),
-          phone: patient.phone ?? "",
-        }),
-      );
+      const formattedPatients: Patient[] = (data || []).map((patient: any) => ({
+        id: patient.id,
+        patientId: patient.patient_id,
+        name: patient.name,
+        citizenId: patient.citizen_id,
+        gender: patient.gender,
+        age: String(patient.age),
+        phone: patient.phone,
+      }));
 
       setPatients(formattedPatients);
     } catch (error) {
-      console.error("ไม่สามารถโหลด Patient List ได้:", error);
-
-      setPatients([]);
+      console.error("Load patients error:", error);
     }
   };
-
-  // =========================================================
-  // Load ใหม่ทุกครั้งที่กลับเข้าหน้า Patient List
-  // =========================================================
 
   useFocusEffect(
     useCallback(() => {
@@ -161,10 +124,9 @@ export default function PatientListScreen() {
     }, []),
   );
 
-  // =========================================================
+  // =========================
   // Clear Form
-  // =========================================================
-
+  // =========================
   const clearForm = () => {
     setPatientId("");
     setName("");
@@ -172,7 +134,6 @@ export default function PatientListScreen() {
     setGender("");
     setAge("");
     setPhone("");
-
     setGenderOpen(false);
     setEditingId(null);
 
@@ -186,46 +147,20 @@ export default function PatientListScreen() {
     });
   };
 
-  // =========================================================
-  // Add
-  // =========================================================
-
-  const openAddPatient = () => {
-    clearForm();
-    setModalVisible(true);
-  };
-
-  // =========================================================
-  // Edit
-  // =========================================================
-
-  const openEditPatient = (patient: Patient) => {
-    setEditingId(patient.id);
-
-    setPatientId(patient.patientId || "");
-    setName(patient.name || "");
-    setCitizenId(patient.citizenId || "");
-    setGender(patient.gender || "");
-    setAge(patient.age || "");
-    setPhone(patient.phone || "");
-
-    setGenderOpen(false);
-
-    setErrors({
-      name: "",
-      citizenId: "",
-      gender: "",
-      age: "",
-      phone: "",
-      patientId: "",
-    });
-
-    setModalVisible(true);
-  };
-
-  // =========================================================
+  // =========================
   // Validation
-  // =========================================================
+  // =========================
+  const validatePatientId = (value: string) => {
+    if (!value.trim()) {
+      return "";
+    }
+
+    if (!/^[A-Za-z0-9]+$/.test(value.trim())) {
+      return "Patient ID ใช้ได้เฉพาะตัวอักษรภาษาอังกฤษและตัวเลขเท่านั้น";
+    }
+
+    return "";
+  };
 
   const validateName = (value: string) => {
     if (!value.trim()) {
@@ -274,7 +209,7 @@ export default function PatientListScreen() {
       return "กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง";
     }
 
-    if (!/^\d{10}$/.test(value)) {
+    if (!/^0\d{9}$/.test(value)) {
       return "กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง";
     }
 
@@ -283,12 +218,12 @@ export default function PatientListScreen() {
 
   const validateAll = () => {
     const newErrors = {
+      patientId: validatePatientId(patientId),
       name: validateName(name),
       citizenId: validateCitizenId(citizenId),
       gender: validateGender(gender),
       age: validateAge(age),
       phone: validatePhone(phone),
-      patientId: "",
     };
 
     setErrors(newErrors);
@@ -296,40 +231,31 @@ export default function PatientListScreen() {
     return !Object.values(newErrors).some((error) => error !== "");
   };
 
-  // =========================================================
-  // Save
-  // =========================================================
-
+  // =========================
+  // Save Patient
+  // =========================
   const savePatient = async () => {
     if (!validateAll()) {
       return;
     }
 
     try {
-      // =====================================================
-      // Current User
-      // =====================================================
-
       const {
         data: { user },
-        error: userError,
       } = await supabase.auth.getUser();
 
-      if (userError || !user) {
-        Alert.alert("ไม่พบผู้ใช้งาน", "กรุณา Login ใหม่");
-
+      if (!user) {
         router.replace("/login");
         return;
       }
 
       const trimmedPatientId = patientId.trim() || null;
-
       const trimmedCitizenId = citizenId.trim();
+      const trimmedPhone = phone.trim();
 
-      // =====================================================
-      // ตรวจ Citizen ID ซ้ำ
-      // =====================================================
-
+      // =========================
+      // Check duplicate Citizen ID
+      // =========================
       let citizenQuery = supabase
         .from("user_patients")
         .select("id")
@@ -344,7 +270,7 @@ export default function PatientListScreen() {
         await citizenQuery.maybeSingle();
 
       if (citizenError) {
-        console.error("Check citizen ID error:", citizenError);
+        console.error("Check Citizen ID error:", citizenError);
 
         Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถตรวจสอบเลขบัตรประชาชนได้");
 
@@ -360,10 +286,9 @@ export default function PatientListScreen() {
         return;
       }
 
-      // =====================================================
-      // ตรวจ Patient ID ซ้ำ
-      // =====================================================
-
+      // =========================
+      // Check duplicate Patient ID
+      // =========================
       if (trimmedPatientId) {
         let patientIdQuery = supabase
           .from("user_patients")
@@ -396,145 +321,156 @@ export default function PatientListScreen() {
         }
       }
 
-      // =====================================================
-      // ข้อมูลที่จะบันทึก
-      // =====================================================
+      // =========================
+      // Check duplicate Phone
+      // =========================
+      let phoneQuery = supabase
+        .from("user_patients")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("phone", trimmedPhone);
 
+      if (editingId) {
+        phoneQuery = phoneQuery.neq("id", editingId);
+      }
+
+      const { data: duplicatePhone, error: phoneError } =
+        await phoneQuery.maybeSingle();
+
+      if (phoneError) {
+        console.error("Check phone error:", phoneError);
+
+        Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถตรวจสอบเบอร์โทรศัพท์ได้");
+
+        return;
+      }
+
+      if (duplicatePhone) {
+        setErrors((prev) => ({
+          ...prev,
+          phone: "เบอร์โทรศัพท์นี้มีอยู่แล้ว",
+        }));
+
+        return;
+      }
+
+      // =========================
+      // Patient Data
+      // =========================
       const patientData = {
         patient_id: trimmedPatientId,
         name: name.trim(),
         citizen_id: trimmedCitizenId,
         gender,
         age,
-        phone: phone.trim(),
+        phone: trimmedPhone,
       };
 
-      // =====================================================
-      // EDIT
-      // =====================================================
-
+      // =========================
+      // Edit Existing Patient
+      // =========================
       if (editingId) {
-        const { error: updateError } = await supabase
+        const { error } = await supabase
           .from("user_patients")
           .update(patientData as never)
           .eq("id", editingId)
           .eq("user_id", user.id);
 
-        if (updateError) {
-          console.error("Update patient error:", updateError);
+        if (error) {
+          console.error("Update patient error:", error);
+          throw error;
+        }
+      } else {
+        // =========================
+        // Add New Patient
+        // =========================
+        const { error } = await supabase.from("user_patients").insert({
+          user_id: user.id,
+          ...patientData,
+        } as never);
 
-          Alert.alert("บันทึกไม่สำเร็จ", updateError.message);
-
-          return;
+        if (error) {
+          console.error("Insert patient error:", error);
+          throw error;
         }
       }
-
-      // =====================================================
-      // ADD
-      // =====================================================
-      else {
-        const { error: insertError } = await supabase
-          .from("user_patients")
-          .insert({
-            user_id: user.id,
-            ...patientData,
-          } as never);
-
-        if (insertError) {
-          console.error("Insert patient error:", insertError);
-
-          Alert.alert("บันทึกไม่สำเร็จ", insertError.message);
-
-          return;
-        }
-      }
-
-      // =====================================================
-      // Reload
-      // =====================================================
 
       await loadPatients();
 
       setModalVisible(false);
       clearForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Save patient error:", error);
 
+      const message = error?.message || "ไม่สามารถบันทึกข้อมูลได้";
+
       if (Platform.OS === "web") {
-        window.alert("ไม่สามารถบันทึกข้อมูลได้");
+        window.alert(message);
       } else {
-        Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถบันทึกข้อมูลได้");
+        Alert.alert("เกิดข้อผิดพลาด", message);
       }
     }
   };
 
-  // =========================================================
+  // =========================
   // Select Patient
-  // =========================================================
+  // =========================
+  const selectPatient = async (patient: Patient) => {
+    try {
+      await AsyncStorage.setItem(SELECTED_PATIENT_KEY, patient.citizenId);
 
-  const selectPatient = (patient: Patient) => {
-    const confirmSelect = async () => {
-      try {
-        await AsyncStorage.setItem(SELECTED_PATIENT_KEY, patient.citizenId);
+      setSelectedPatientId(patient.citizenId);
 
-        setSelectedPatientId(patient.citizenId);
-
-        router.push({
-          pathname: "/patient-info",
-          params: {
-            citizenId: patient.citizenId,
-          },
-        });
-      } catch (error) {
-        console.error("Save selected patient error:", error);
-
-        Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถบันทึกผู้ป่วยที่เลือกได้");
-      }
-    };
-
-    if (Platform.OS === "web") {
-      const result = window.confirm(
-        `ต้องการเลือกผู้ป่วย ${patient.name} ใช่หรือไม่?`,
-      );
-
-      if (result) {
-        confirmSelect();
-      }
-    } else {
-      Alert.alert("เลือกผู้ป่วย", `ต้องการเลือก ${patient.name} หรือไม่?`, [
-        {
-          text: "ยกเลิก",
-          style: "cancel",
+      router.push({
+        pathname: "/patient-info",
+        params: {
+          citizenId: patient.citizenId,
         },
-        {
-          text: "เลือก",
-          onPress: confirmSelect,
-        },
-      ]);
+      });
+    } catch (error) {
+      console.error("Select patient error:", error);
     }
   };
 
-  // =========================================================
-  // Delete Patient
-  // =========================================================
+  // =========================
+  // Edit Patient
+  // =========================
+  const editPatient = (patient: Patient) => {
+    setEditingId(patient.id);
+    setPatientId(patient.patientId || "");
+    setName(patient.name);
+    setCitizenId(patient.citizenId);
+    setGender(patient.gender);
+    setAge(patient.age);
+    setPhone(patient.phone);
 
-  const deletePatient = (patient: Patient) => {
+    setErrors({
+      name: "",
+      citizenId: "",
+      gender: "",
+      age: "",
+      phone: "",
+      patientId: "",
+    });
+
+    setGenderOpen(false);
+    setModalVisible(true);
+  };
+
+  // =========================
+  // Delete Patient
+  // =========================
+  const deletePatient = async (patient: Patient) => {
     const performDelete = async () => {
       try {
         const {
           data: { user },
-          error: userError,
         } = await supabase.auth.getUser();
 
-        if (userError || !user) {
-          Alert.alert("ไม่พบผู้ใช้งาน", "กรุณา Login ใหม่");
-
+        if (!user) {
+          router.replace("/login");
           return;
         }
-
-        // ===================================================
-        // Delete เฉพาะ row ของ User นี้
-        // ===================================================
 
         const { error } = await supabase
           .from("user_patients")
@@ -545,34 +481,35 @@ export default function PatientListScreen() {
         if (error) {
           console.error("Delete patient error:", error);
 
-          Alert.alert("ลบไม่สำเร็จ", error.message);
+          Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถลบข้อมูลได้");
 
           return;
         }
 
-        // ถ้าลบ Patient ที่กำลังเลือกอยู่
         if (selectedPatientId === patient.citizenId) {
-          setSelectedPatientId("");
-
           await AsyncStorage.removeItem(SELECTED_PATIENT_KEY);
+
+          setSelectedPatientId("");
         }
 
         await loadPatients();
       } catch (error) {
         console.error("Delete patient error:", error);
 
-        Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถลบผู้ป่วยได้");
+        Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถลบข้อมูลได้");
       }
     };
 
     if (Platform.OS === "web") {
-      const result = window.confirm(`ต้องการลบ ${patient.name} หรือไม่?`);
+      const confirmed = window.confirm(
+        `ต้องการลบข้อมูล ${patient.name} หรือไม่?`,
+      );
 
-      if (result) {
-        performDelete();
+      if (confirmed) {
+        await performDelete();
       }
     } else {
-      Alert.alert("ลบผู้ป่วย", `ต้องการลบ ${patient.name} หรือไม่?`, [
+      Alert.alert("ยืนยันการลบ", `ต้องการลบข้อมูล ${patient.name} หรือไม่?`, [
         {
           text: "ยกเลิก",
           style: "cancel",
@@ -586,18 +523,23 @@ export default function PatientListScreen() {
     }
   };
 
-  // =========================================================
-  // UI
-  // =========================================================
+  // =========================
+  // Open Add Modal
+  // =========================
+  const openAddModal = () => {
+    clearForm();
+    setModalVisible(true);
+  };
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Patient Lists</Text>
-
         <Text style={styles.subtitle}>รายการผู้ป่วย</Text>
       </View>
 
+      {/* Patient List */}
       <ScrollView
         style={styles.list}
         contentContainerStyle={styles.listContent}
@@ -605,7 +547,7 @@ export default function PatientListScreen() {
       >
         {patients.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>ไม่พบข้อมูลผู้ป่วย</Text>
+            <Text style={styles.emptyText}>ยังไม่มีข้อมูลผู้ป่วย</Text>
           </View>
         ) : (
           patients.map((patient) => {
@@ -624,16 +566,14 @@ export default function PatientListScreen() {
                   </Text>
 
                   <Text style={styles.patientText}>
-                    เลขบัตรประชาชน: {patient.citizenId}
+                    Citizen ID: {patient.citizenId}
                   </Text>
 
                   <Text style={styles.patientText}>เพศ: {patient.gender}</Text>
 
                   <Text style={styles.patientText}>อายุ: {patient.age} ปี</Text>
 
-                  <Text style={styles.patientText}>
-                    เบอร์โทรศัพท์: {patient.phone}
-                  </Text>
+                  <Text style={styles.patientText}>โทร: {patient.phone}</Text>
                 </View>
 
                 <View style={styles.cardButtons}>
@@ -652,16 +592,20 @@ export default function PatientListScreen() {
                   <View style={styles.smallButtonsRow}>
                     <TouchableOpacity
                       style={styles.editButton}
-                      onPress={() => openEditPatient(patient)}
+                      onPress={() => editPatient(patient)}
                     >
-                      <Text style={styles.editText}>✎</Text>
+                      <MaterialCommunityIcons
+                        name="account-edit"
+                        size={20}
+                        color="#2D69CA"
+                      />
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.deleteButton}
                       onPress={() => deletePatient(patient)}
                     >
-                      <Text style={styles.deleteButtonText}>🗑</Text>
+                      <FontAwesome5 name="trash" size={15} color="#9c1717" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -671,14 +615,12 @@ export default function PatientListScreen() {
         )}
       </ScrollView>
 
-      {/* ADD BUTTON */}
-
-      <TouchableOpacity style={styles.addButton} onPress={openAddPatient}>
-        <Text style={styles.plus}>+</Text>
+      {/* Add Button */}
+      <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
+        <Ionicons name="person-add" size={20} color="#ffffff" />
       </TouchableOpacity>
 
-      {/* MODAL */}
-
+      {/* Add / Edit Modal */}
       <Modal
         visible={modalVisible}
         transparent
@@ -690,16 +632,15 @@ export default function PatientListScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {editingId ? "Edit Patient" : "Add Patient"}
-            </Text>
-
             <ScrollView
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              {/* Patient ID */}
+              <Text style={styles.modalTitle}>
+                {editingId ? "Edit Patient" : "Add Patient"}
+              </Text>
 
+              {/* Patient ID */}
               <TextInput
                 ref={patientIdRef}
                 style={[
@@ -710,12 +651,17 @@ export default function PatientListScreen() {
                 placeholderTextColor="#777"
                 value={patientId}
                 onChangeText={(text) => {
-                  setPatientId(text);
+                  const onlyEnglishAndNumbers = text.replace(
+                    /[^A-Za-z0-9]/g,
+                    "",
+                  );
+
+                  setPatientId(onlyEnglishAndNumbers);
 
                   if (errors.patientId) {
                     setErrors((prev) => ({
                       ...prev,
-                      patientId: "",
+                      patientId: validatePatientId(onlyEnglishAndNumbers),
                     }));
                   }
                 }}
@@ -724,14 +670,13 @@ export default function PatientListScreen() {
                 blurOnSubmit={false}
               />
 
-              <Text style={styles.patientIdNote}>ระบุหากมี</Text>
-
-              {errors.patientId !== "" && (
+              {errors.patientId !== "" ? (
                 <Text style={styles.errorText}>{errors.patientId}</Text>
+              ) : (
+                <Text style={styles.patientIdNote}>ระบุหากมี</Text>
               )}
 
               {/* Name */}
-
               <TextInput
                 ref={nameRef}
                 style={[
@@ -767,14 +712,13 @@ export default function PatientListScreen() {
               )}
 
               {/* Citizen ID */}
-
               <TextInput
                 ref={citizenIdRef}
                 style={[
                   styles.modalInput,
                   errors.citizenId !== "" && styles.inputError,
                 ]}
-                placeholder="เลขบัตรประจำตัวประชาชน"
+                placeholder="เลขบัตรประชาชน 13 หลัก"
                 placeholderTextColor="#777"
                 value={citizenId}
                 onChangeText={(text) => {
@@ -807,8 +751,8 @@ export default function PatientListScreen() {
               )}
 
               {/* Gender + Age */}
-
               <View style={styles.row}>
+                {/* Gender */}
                 <View style={styles.halfContainer}>
                   <TouchableOpacity
                     style={[
@@ -823,7 +767,7 @@ export default function PatientListScreen() {
                         gender ? styles.selectedText : styles.placeholderText
                       }
                     >
-                      {gender || "เพศ"}
+                      {gender || "เลือกเพศ"}
                     </Text>
 
                     <Text style={styles.arrow}>{genderOpen ? "▲" : "▼"}</Text>
@@ -872,6 +816,7 @@ export default function PatientListScreen() {
                   )}
                 </View>
 
+                {/* Age */}
                 <View style={styles.halfContainer}>
                   <TextInput
                     ref={ageRef}
@@ -916,7 +861,6 @@ export default function PatientListScreen() {
               </View>
 
               {/* Phone */}
-
               <TextInput
                 ref={phoneRef}
                 style={[
@@ -955,7 +899,6 @@ export default function PatientListScreen() {
               )}
 
               {/* Buttons */}
-
               <View style={styles.modalButtons}>
                 <TouchableOpacity
                   style={styles.cancelButton}
@@ -971,7 +914,9 @@ export default function PatientListScreen() {
                   style={styles.saveButton}
                   onPress={savePatient}
                 >
-                  <Text style={styles.saveText}>Save</Text>
+                  <Text style={styles.saveText}>
+                    {editingId ? "บันทึก" : "Save"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -981,10 +926,6 @@ export default function PatientListScreen() {
     </View>
   );
 }
-
-// =========================================================
-// Styles
-// =========================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -1125,7 +1066,7 @@ const styles = StyleSheet.create({
   addButton: {
     position: "absolute",
     right: 30,
-    bottom: 110, // เดิม 55
+    bottom: 110,
     width: 58,
     height: 58,
     borderRadius: 29,

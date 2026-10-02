@@ -164,8 +164,17 @@ export default function PatientInfo() {
   // Validation
   // =========================================================
 
-  const validatePatientId = (_value: string) => {
+  const validatePatientId = (value: string) => {
     // Patient ID ไม่บังคับ
+    if (!value) {
+      return "";
+    }
+
+    // อนุญาตเฉพาะ A-Z, a-z และ 0-9
+    if (!/^[a-zA-Z0-9]+$/.test(value)) {
+      return "Patient ID ใช้ได้เฉพาะตัวอักษรภาษาอังกฤษและตัวเลข";
+    }
+
     return "";
   };
 
@@ -216,7 +225,8 @@ export default function PatientInfo() {
       return "กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง";
     }
 
-    if (!/^\d{10}$/.test(value)) {
+    // ต้องเป็นตัวเลข 10 หลัก และขึ้นต้นด้วย 0
+    if (!/^0\d{9}$/.test(value)) {
       return "กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง";
     }
 
@@ -340,6 +350,34 @@ export default function PatientInfo() {
         }
 
         // ===================================================
+        // ตรวจเบอร์โทรศัพท์ซ้ำ
+        // ===================================================
+
+        const { data: phoneExists, error: phoneError } = await supabase
+          .from("user_patients")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("phone", patientData.phone)
+          .maybeSingle();
+
+        if (phoneError) {
+          console.error("Check phone error:", phoneError);
+
+          Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถตรวจสอบเบอร์โทรศัพท์ได้");
+
+          return;
+        }
+
+        if (phoneExists) {
+          setErrors({
+            ...newErrors,
+            phone: "เบอร์โทรศัพท์นี้มีอยู่แล้ว",
+          });
+
+          return;
+        }
+
+        // ===================================================
         // INSERT
         // ===================================================
 
@@ -388,6 +426,8 @@ export default function PatientInfo() {
           return;
         }
 
+        const existingPatientId = (existingPatient as { id: string }).id;
+
         // ===================================================
         // ตรวจ Patient ID ซ้ำกับคนอื่น
         // ===================================================
@@ -399,7 +439,7 @@ export default function PatientInfo() {
               .select("id")
               .eq("user_id", user.id)
               .eq("patient_id", patientData.patient_id)
-              .neq("id", (existingPatient as { id: string }).id)
+              .neq("id", existingPatientId)
               .maybeSingle();
 
           if (duplicateError) {
@@ -421,13 +461,43 @@ export default function PatientInfo() {
         }
 
         // ===================================================
+        // ตรวจเบอร์โทรศัพท์ซ้ำกับคนอื่น
+        // ===================================================
+
+        const { data: duplicatePhone, error: duplicatePhoneError } =
+          await supabase
+            .from("user_patients")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("phone", patientData.phone)
+            .neq("id", existingPatientId)
+            .maybeSingle();
+
+        if (duplicatePhoneError) {
+          console.error("Duplicate phone error:", duplicatePhoneError);
+
+          Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถตรวจสอบเบอร์โทรศัพท์ได้");
+
+          return;
+        }
+
+        if (duplicatePhone) {
+          setErrors({
+            ...newErrors,
+            phone: "เบอร์โทรศัพท์นี้มีอยู่แล้ว",
+          });
+
+          return;
+        }
+
+        // ===================================================
         // UPDATE
         // ===================================================
 
         const { error: updateError } = await supabase
           .from("user_patients")
           .update(patientData as never)
-          .eq("id", (existingPatient as { id: string }).id)
+          .eq("id", existingPatientId)
           .eq("user_id", user.id);
 
         if (updateError) {
@@ -441,14 +511,6 @@ export default function PatientInfo() {
 
       // =====================================================
       // บันทึก Patient ที่เพิ่งสร้าง/แก้ไขเป็น Selected
-      // =====================================================
-      //
-      // สำคัญ:
-      // ไม่ว่าจะเป็น New Patient หรือ Existing Patient
-      // เมื่อบันทึก Supabase สำเร็จแล้ว
-      // ผู้ป่วยคนนี้จะถูกตั้งเป็น Selected
-      //
-      // ใช้ citizen_id ของข้อมูลล่าสุด
       // =====================================================
 
       await AsyncStorage.setItem(SELECTED_PATIENT_KEY, patientData.citizen_id);
@@ -526,15 +588,20 @@ export default function PatientInfo() {
             placeholderTextColor="#777"
             value={patientId}
             onChangeText={(text) => {
-              setPatientId(text);
+              // อนุญาตเฉพาะ A-Z, a-z และ 0-9
+              const onlyEnglishAndNumbers = text.replace(/[^a-zA-Z0-9]/g, "");
+
+              setPatientId(onlyEnglishAndNumbers);
 
               if (errors.patientId) {
                 setErrors({
                   ...errors,
-                  patientId: validatePatientId(text),
+                  patientId: validatePatientId(onlyEnglishAndNumbers),
                 });
               }
             }}
+            autoCapitalize="none"
+            autoCorrect={false}
             returnKeyType="next"
             onSubmitEditing={() => {
               nameRef.current?.focus();
