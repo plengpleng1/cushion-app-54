@@ -15,8 +15,15 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg';
+import Svg, {
+  Path,
+  Circle,
+  Line,
+  Text as SvgText,
+} from 'react-native-svg';
+
 import { fetchSensorData } from '../../services/sensorService';
+import { supabase } from '../../lib/supabase';
 
 import {
   HistoryLog,
@@ -25,8 +32,10 @@ import {
 } from '../../services/historyService';
 
 type TabType = 'today' | 'week';
-type MetricType = 'humidity' | 'pressure' | 'temperature';
-
+type MetricType =
+  | 'humidity'
+  | 'pressure'
+  | 'temperature';
 
 // =====================================================
 // Format Time
@@ -39,6 +48,7 @@ const formatTime = (time?: string) => {
 
     if (!isNaN(date.getTime())) {
       return date.toLocaleTimeString('th-TH', {
+        timeZone: 'Asia/Bangkok',
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
@@ -50,6 +60,9 @@ const formatTime = (time?: string) => {
   return time;
 };
 
+// =====================================================
+// Clamp
+// =====================================================
 const clamp = (value: number) => {
   return Math.min(Math.max(value, 0), 100);
 };
@@ -68,7 +81,11 @@ const TrendChart = ({
   selectedMetric,
   containerWidth,
 }: TrendChartProps) => {
-  const chartWidth = Math.max(containerWidth - 32, 280);
+  const chartWidth = Math.max(
+    containerWidth - 32,
+    280
+  );
+
   const chartHeight = 220;
 
   const paddingLeft = 45;
@@ -76,8 +93,15 @@ const TrendChart = ({
   const paddingTop = 20;
   const paddingBottom = 40;
 
-  const plotWidth = chartWidth - paddingLeft - paddingRight;
-  const plotHeight = chartHeight - paddingTop - paddingBottom;
+  const plotWidth =
+    chartWidth -
+    paddingLeft -
+    paddingRight;
+
+  const plotHeight =
+    chartHeight -
+    paddingTop -
+    paddingBottom;
 
   if (logs.length === 0) {
     return (
@@ -107,7 +131,10 @@ const TrendChart = ({
       unit: '',
       gridValues: [100, 75, 50, 25, 0],
       getValue: (item: HistoryLog) =>
-        item.leftPressed || item.rightPressed ? 80 : 20,
+        item.leftPressed ||
+        item.rightPressed
+          ? 80
+          : 20,
     },
 
     temperature: {
@@ -115,28 +142,46 @@ const TrendChart = ({
       yMin: 20,
       yMax: 45,
       unit: '°C',
-      gridValues: [45, 40, 35, 30, 25, 20],
+      gridValues: [
+        45,
+        40,
+        35,
+        30,
+        25,
+        20,
+      ],
       getValue: (item: HistoryLog) =>
         Number(item.temperature) || 0,
     },
   };
 
-  const currentConfig = metricConfig[selectedMetric];
-  const rawValues = logs.map(currentConfig.getValue);
+  const currentConfig =
+    metricConfig[selectedMetric];
+
+  const rawValues = logs.map(
+    currentConfig.getValue
+  );
 
   const getX = (index: number) => {
     if (logs.length === 1) {
-      return paddingLeft + plotWidth / 2;
+      return (
+        paddingLeft +
+        plotWidth / 2
+      );
     }
 
     return (
       paddingLeft +
-      (index / (logs.length - 1)) * plotWidth
+      (index / (logs.length - 1)) *
+        plotWidth
     );
   };
 
   const getY = (val: number) => {
-    const { yMin, yMax } = currentConfig;
+    const {
+      yMin,
+      yMax,
+    } = currentConfig;
 
     const clampedVal = Math.min(
       Math.max(val, yMin),
@@ -144,7 +189,8 @@ const TrendChart = ({
     );
 
     const percentage =
-      (clampedVal - yMin) / (yMax - yMin);
+      (clampedVal - yMin) /
+      (yMax - yMin);
 
     return (
       paddingTop +
@@ -153,66 +199,100 @@ const TrendChart = ({
     );
   };
 
-  const createPath = (values: number[]) => {
-    if (values.length === 0) return '';
+  const createPath = (
+    values: number[]
+  ) => {
+    if (values.length === 0) {
+      return '';
+    }
 
-    return values.reduce((acc, val, index) => {
-      const x = getX(index);
-      const y = getY(val);
+    return values.reduce(
+      (acc, val, index) => {
+        const x = getX(index);
+        const y = getY(val);
 
-      return index === 0
-        ? `M ${x} ${y}`
-        : `${acc} L ${x} ${y}`;
-    }, '');
+        return index === 0
+          ? `M ${x} ${y}`
+          : `${acc} L ${x} ${y}`;
+      },
+      ''
+    );
   };
 
-  const linePath = createPath(rawValues);
+  const linePath =
+    createPath(rawValues);
 
   return (
-    <View style={styles.chartWrapper}>
-      <Svg width={chartWidth} height={chartHeight}>
-        {currentConfig.gridValues.map((val) => {
-          const y = getY(val);
+    <View
+      style={styles.chartWrapper}
+    >
+      <Svg
+        width={chartWidth}
+        height={chartHeight}
+      >
+        {currentConfig.gridValues.map(
+          (val) => {
+            const y = getY(val);
 
-          return (
-            <React.Fragment key={val}>
-              <Line
-                x1={paddingLeft}
-                y1={y}
-                x2={chartWidth - paddingRight}
-                y2={y}
-                stroke="#E5E7EB"
-                strokeWidth={1}
-                strokeDasharray="4,4"
-              />
-
-              <SvgText
-                x={paddingLeft - 8}
-                y={y + 3}
-                fontSize="10"
-                fill="#8E8E93"
-                textAnchor="end"
+            return (
+              <React.Fragment
+                key={val}
               >
-                {`${val}${currentConfig.unit}`}
-              </SvgText>
-            </React.Fragment>
-          );
-        })}
+                <Line
+                  x1={paddingLeft}
+                  y1={y}
+                  x2={
+                    chartWidth -
+                    paddingRight
+                  }
+                  y2={y}
+                  stroke="#E5E7EB"
+                  strokeWidth={1}
+                  strokeDasharray="4,4"
+                />
+
+                <SvgText
+                  x={
+                    paddingLeft - 8
+                  }
+                  y={y + 3}
+                  fontSize="10"
+                  fill="#8E8E93"
+                  textAnchor="end"
+                >
+                  {`${val}${currentConfig.unit}`}
+                </SvgText>
+              </React.Fragment>
+            );
+          }
+        )}
 
         <Line
           x1={paddingLeft}
           y1={paddingTop}
           x2={paddingLeft}
-          y2={paddingTop + plotHeight}
+          y2={
+            paddingTop +
+            plotHeight
+          }
           stroke="#D1D1D6"
           strokeWidth={1}
         />
 
         <Line
           x1={paddingLeft}
-          y1={paddingTop + plotHeight}
-          x2={chartWidth - paddingRight}
-          y2={paddingTop + plotHeight}
+          y1={
+            paddingTop +
+            plotHeight
+          }
+          x2={
+            chartWidth -
+            paddingRight
+          }
+          y2={
+            paddingTop +
+            plotHeight
+          }
           stroke="#D1D1D6"
           strokeWidth={1}
         />
@@ -226,41 +306,54 @@ const TrendChart = ({
           strokeLinejoin="round"
         />
 
-        {rawValues.map((val, index) => {
-          const x = getX(index);
-          const y = getY(val);
+        {rawValues.map(
+          (val, index) => {
+            const x = getX(index);
+            const y = getY(val);
 
-          return (
-            <Circle
-              key={`point-${index}`}
-              cx={x}
-              cy={y}
-              r={5}
-              fill={currentConfig.color}
-            />
-          );
-        })}
+            return (
+              <Circle
+                key={`point-${index}`}
+                cx={x}
+                cy={y}
+                r={5}
+                fill={
+                  currentConfig.color
+                }
+              />
+            );
+          }
+        )}
 
-        {logs.map((item, index) => {
-          const x = getX(index);
-          const time = formatTime(item.time);
+        {logs.map(
+          (item, index) => {
+            const x = getX(index);
+            const time =
+              formatTime(item.time);
 
-          return (
-            <SvgText
-              key={`time-${index}`}
-              x={x}
-              y={chartHeight - 12}
-              fontSize="9"
-              fill="#8E8E93"
-              textAnchor="middle"
-            >
-              {time.slice(0, 5)}
-            </SvgText>
-          );
-        })}
+            return (
+              <SvgText
+                key={`time-${index}`}
+                x={x}
+                y={
+                  chartHeight - 12
+                }
+                fontSize="9"
+                fill="#8E8E93"
+                textAnchor="middle"
+              >
+                {time.slice(0, 5)}
+              </SvgText>
+            );
+          }
+        )}
       </Svg>
 
-      <Text style={styles.xAxisTitle}>เวลา (น.)</Text>
+      <Text
+        style={styles.xAxisTitle}
+      >
+        เวลา (น.)
+      </Text>
     </View>
   );
 };
@@ -269,27 +362,61 @@ const TrendChart = ({
 // History Screen
 // =====================================================
 export default function HistoryScreen() {
-  const { width: windowWidth } = useWindowDimensions();
+  const {
+    width: windowWidth,
+  } = useWindowDimensions();
 
-  const maxContainerWidth = Math.min(
-    windowWidth - 32,
-    480
-  );
+  const maxContainerWidth =
+    Math.min(
+      windowWidth - 32,
+      480
+    );
 
   const cardWidth =
-    (maxContainerWidth - 12) / 2;
+    (maxContainerWidth - 12) /
+    2;
 
-  const [activeTab, setActiveTab] = useState<TabType>('today');
-  const [selectedMetric, setSelectedMetric] = useState<MetricType>('humidity');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [historyLogs, setHistoryLogs] = useState<HistoryLog[]>([]);
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [
+    activeTab,
+    setActiveTab,
+  ] = useState<TabType>('today');
 
-// วันที่ปัจจุบัน
-  const [currentDate, setCurrentDate] = useState(() => {
-  const now = new Date();
-  return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-});
+  const [
+    selectedMetric,
+    setSelectedMetric,
+  ] =
+    useState<MetricType>(
+      'humidity'
+    );
+
+  const [
+    loading,
+    setLoading,
+  ] = useState<boolean>(true);
+
+  const [
+    historyLogs,
+    setHistoryLogs,
+  ] = useState<HistoryLog[]>(
+    []
+  );
+
+  const [
+    isExpanded,
+    setIsExpanded,
+  ] = useState<boolean>(false);
+
+  // =====================================================
+  // วันที่ปัจจุบัน
+  // =====================================================
+  const [
+    currentDate,
+    setCurrentDate,
+  ] = useState(() => {
+    const now = new Date();
+
+    return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  });
 
   // =====================================================
   // ใช้สำหรับคำนวณเวลานั่งต่อเนื่อง
@@ -299,7 +426,6 @@ export default function HistoryScreen() {
 
   // =====================================================
   // เก็บ history ล่าสุดไว้ใน ref
-  // เพื่อป้องกันปัญหา state ยัง update ไม่ทัน
   // =====================================================
   const historyLogsRef =
     useRef<HistoryLog[]>([]);
@@ -317,309 +443,498 @@ export default function HistoryScreen() {
     useRef<string | null>(null);
 
   // =====================================================
-// สร้าง Storage Key
-// =====================================================
-
-// =====================================================
-// จัดรูปแบบวันที่สำหรับเปรียบเทียบ
-// =====================================================
-
-const getLogDateKey = (dateString: string) => {
-  if (!dateString) return '';
-
-  const date = new Date(dateString);
-
-  if (isNaN(date.getTime())) {
-    return '';
-  }
-
-  const thailandDate = new Intl.DateTimeFormat(
-    'en-CA',
-    {
-      timeZone: 'Asia/Bangkok',
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
+  // จัดรูปแบบวันที่สำหรับเปรียบเทียบ
+  // =====================================================
+  const getLogDateKey = (
+    dateString: string
+  ) => {
+    if (!dateString) {
+      return '';
     }
-  ).formatToParts(date);
 
-  const year =
-    thailandDate.find(
-      (part) => part.type === 'year'
-    )?.value;
+    const date =
+      new Date(dateString);
 
-  const month =
-    thailandDate.find(
-      (part) => part.type === 'month'
-    )?.value;
+    if (
+      isNaN(date.getTime())
+    ) {
+      return '';
+    }
 
-  const day =
-    thailandDate.find(
-      (part) => part.type === 'day'
-    )?.value;
+    const thailandDate =
+      new Intl.DateTimeFormat(
+        'en-CA',
+        {
+          timeZone:
+            'Asia/Bangkok',
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric',
+        }
+      ).formatToParts(date);
 
-  return `${year}-${Number(month)}-${Number(day)}`;
-};
+    const year =
+      thailandDate.find(
+        (part) =>
+          part.type === 'year'
+      )?.value;
 
-// =====================================================
-// ตรวจว่าเป็นข้อมูลของวันนี้หรือไม่
-// =====================================================
+    const month =
+      thailandDate.find(
+        (part) =>
+          part.type === 'month'
+      )?.value;
 
-const isToday = (dateString: string) => {
-  return getLogDateKey(dateString) === currentDate;
-};
+    const day =
+      thailandDate.find(
+        (part) =>
+          part.type === 'day'
+      )?.value;
 
-// =====================================================
-// ตรวจวันใหม่ทุก 1 นาที
-// =====================================================
+    return `${year}-${Number(
+      month
+    )}-${Number(day)}`;
+  };
 
-useEffect(() => {
-  const checkDate = () => {
-    const today = new Date();
+  // =====================================================
+  // ตรวจว่าเป็นข้อมูลของวันนี้หรือไม่
+  // =====================================================
+  const isToday = (
+    dateString: string
+  ) => {
+    return (
+      getLogDateKey(
+        dateString
+      ) === currentDate
+    );
+  };
 
-    const todayKey =
-      `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+  // =====================================================
+  // ตรวจวันใหม่ทุก 1 นาที
+  // =====================================================
+  useEffect(() => {
+    const checkDate = () => {
+      const today =
+        new Date();
 
-    setCurrentDate((prevDate) => {
-      if (prevDate !== todayKey) {
-        return todayKey;
+      const todayKey =
+        `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+
+      setCurrentDate(
+        (prevDate) => {
+          if (
+            prevDate !==
+            todayKey
+          ) {
+            return todayKey;
+          }
+
+          return prevDate;
+        }
+      );
+    };
+
+    checkDate();
+
+    const interval =
+      setInterval(
+        checkDate,
+        60 * 1000
+      );
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
+
+  // =====================================================
+  // ข้อมูลที่จะแสดงตาม Tab
+  // =====================================================
+  const filteredLogs =
+    historyLogs.filter(
+      (log) => {
+        if (
+          activeTab ===
+          'today'
+        ) {
+          return isToday(
+            log.date
+          );
+        }
+
+        return true;
       }
+    );
 
-      return prevDate;
-    });
-  };
-
-  // เช็กทันทีตอนเปิดหน้า
-  checkDate();
-
-  // เช็กทุก 1 นาที
-  const interval = setInterval(checkDate, 60 * 1000);
-
-  return () => {
-    clearInterval(interval);
-  };
-}, []);
-
-// =====================================================
-// ข้อมูลที่จะแสดงตาม Tab
-// =====================================================
-
-const filteredLogs = historyLogs.filter((log) => {
-  if (activeTab === 'today') {
-    return isToday(log.date);
-  }
-
-  // ตอนนี้ Week ใช้ข้อมูลทั้งหมดเหมือนเดิม
-  return true;
-});
-
-  
   // =====================================================
   // โหลด Sensor + เพิ่ม History
   // =====================================================
-  const loadHistoryData = async () => {
-    if (isFetchingRef.current) {
-      return;
-    }
-
-    isFetchingRef.current = true;
-
-    try {
-      // -----------------------------------------------
-      // 1. ดูว่าเลือก Patient คนไหนอยู่
-      // -----------------------------------------------
-      const patientId =
-        patientIdRef.current;
-
-      if (!patientId) {
-        console.log(
-          'ยังไม่มี Patient ที่เลือก'
-        );
-
-        setLoading(false);
-        return;
-      }
-
-      // -----------------------------------------------
-      // 2. ดึงข้อมูล Sensor ตัวล่าสุด
-      // -----------------------------------------------
-      const data =
-        await fetchSensorData();
-
-      if (!data) {
-        setLoading(false);
-        return;
-      }
-
-      // -----------------------------------------------
-      // 3. ตรวจแรงกดซ้าย/ขวา
-      // -----------------------------------------------
-      const isLeftPressed =
-        (data.sensor1 ?? 4095) < 500;
-
-      const isRightPressed =
-        (data.sensor2 ?? 4095) < 500;
-
-      // -----------------------------------------------
-      // 4. คำนวณ Position
-      // -----------------------------------------------
-      let calcPos:
-        | 'LEFT'
-        | 'RIGHT'
-        | 'CENTER'
-        | 'NONE' = 'NONE';
-
+  const loadHistoryData =
+    async () => {
       if (
-        isLeftPressed &&
-        isRightPressed
+        isFetchingRef.current
       ) {
-        calcPos = 'CENTER';
-      } else if (isLeftPressed) {
-        calcPos = 'LEFT';
-      } else if (isRightPressed) {
-        calcPos = 'RIGHT';
-      } else {
-        calcPos = 'NONE';
+        return;
       }
 
-      // -----------------------------------------------
-      // 5. Temperature / Humidity
-      // -----------------------------------------------
-      const temperature =
-        Number(data.temperature) || 0;
+      isFetchingRef.current =
+        true;
 
-      const tempHigh =
-        temperature > 38;
+      try {
+        // =====================================================
+        // 1. ตรวจ Patient
+        // =====================================================
+        const patientId =
+          patientIdRef.current;
 
-      const humidity =
-        Number(data.humidity) || 0;
-
-      const humidHigh =
-        humidity > 75;
-
-      // -----------------------------------------------
-      // 6. Sitting time
-      // -----------------------------------------------
-      let sittingSeconds = 0;
-
-      if (calcPos === 'CENTER') {
-        if (
-          centerStartTimeRef.current === null
-        ) {
-          centerStartTimeRef.current =
-            Date.now();
+        if (!patientId) {
+          setLoading(false);
+          return;
         }
 
-        sittingSeconds = Math.floor(
-          (Date.now() -
-            centerStartTimeRef.current) /
-            1000
+        // =====================================================
+        // 2. ดึงข้อมูล Sensor
+        // =====================================================
+        const data =
+          await fetchSensorData();
+
+        if (!data) {
+          setLoading(false);
+          return;
+        }
+
+        // =====================================================
+        // 3. ตรวจ Left / Right
+        // =====================================================
+        const isLeftPressed =
+          (data.sensor1 ??
+            4095) < 500;
+
+        const isRightPressed =
+          (data.sensor2 ??
+            4095) < 500;
+
+        // =====================================================
+        // 4. คำนวณ Position
+        // =====================================================
+        let calcPos:
+          | 'LEFT'
+          | 'RIGHT'
+          | 'CENTER'
+          | 'NONE' = 'NONE';
+
+        if (
+          isLeftPressed &&
+          isRightPressed
+        ) {
+          calcPos =
+            'CENTER';
+        } else if (
+          isLeftPressed
+        ) {
+          calcPos =
+            'LEFT';
+        } else if (
+          isRightPressed
+        ) {
+          calcPos =
+            'RIGHT';
+        } else {
+          calcPos =
+            'NONE';
+        }
+
+        // =====================================================
+        // 5. Temperature
+        // =====================================================
+        const temperature =
+          Number(
+            data.temperature
+          ) || 0;
+
+        const tempHigh =
+          temperature > 38;
+
+        // =====================================================
+        // 6. Humidity
+        // =====================================================
+        const humidity =
+          Number(
+            data.humidity
+          ) || 0;
+
+        const humidHigh =
+          humidity > 75;
+
+        // =====================================================
+        // 7. Sitting Time
+        // =====================================================
+        let sittingSeconds = 0;
+
+        if (
+          calcPos ===
+          'CENTER'
+        ) {
+          if (
+            centerStartTimeRef.current ===
+            null
+          ) {
+            centerStartTimeRef.current =
+              Date.now();
+          }
+
+          sittingSeconds =
+            Math.floor(
+              (Date.now() -
+                centerStartTimeRef.current) /
+                1000
+            );
+        } else {
+          centerStartTimeRef.current =
+            null;
+
+          sittingSeconds = 0;
+        }
+
+        const isSittingTooLong =
+          sittingSeconds >=
+          120;
+
+        // =====================================================
+        // 8. สร้าง ID
+        // =====================================================
+        const logId =
+          `${patientId}_${data.date}_${data.time}`;
+
+        // =====================================================
+        // 9. ตรวจข้อมูลซ้ำใน Local
+        // =====================================================
+        const existingLogs =
+          historyLogsRef.current;
+
+        const alreadyExists =
+          existingLogs.some(
+            (log) =>
+              log.id === logId
+          );
+
+        // =====================================================
+        // Format Sensor Date
+        // =====================================================
+        const formatSensorDate =
+          (date: string) => {
+            const d =
+              new Date(date);
+
+            if (
+              isNaN(
+                d.getTime()
+              )
+            ) {
+              return date;
+            }
+
+            return d.toLocaleDateString(
+              'en-GB',
+              {
+                timeZone:
+                  'Asia/Bangkok',
+              }
+            );
+          };
+
+        // =====================================================
+        // Format Sensor Time
+        // =====================================================
+        const formatSensorTime =
+          (time: string) => {
+            if (!time) {
+              return '';
+            }
+
+            const d =
+              new Date(time);
+
+            if (
+              isNaN(
+                d.getTime()
+              )
+            ) {
+              return time;
+            }
+
+            return d.toLocaleTimeString(
+              'en-GB',
+              {
+                timeZone:
+                  'Asia/Bangkok',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+              }
+            );
+          };
+
+        // =====================================================
+        // 10. สร้าง HistoryLog
+        // =====================================================
+        const formattedDate =
+          formatSensorDate(
+            data.date
+          );
+
+        const formattedTime =
+          formatSensorTime(
+            data.time
+          );
+
+        const newLog:
+          HistoryLog = {
+          ...data,
+
+          date:
+            formattedDate,
+
+          time:
+            formattedTime,
+
+          id: logId,
+
+          calculatedPosition:
+            calcPos,
+
+          isTempHigh:
+            tempHigh,
+
+          isHumidHigh:
+            humidHigh,
+
+          leftPressed:
+            isLeftPressed,
+
+          rightPressed:
+            isRightPressed,
+
+          sittingSeconds:
+            sittingSeconds,
+
+          isSittingTooLong:
+            isSittingTooLong,
+        };
+
+        // =====================================================
+        // 11. บันทึก Local เฉพาะข้อมูลใหม่
+        // =====================================================
+        if (!alreadyExists) {
+          const updatedLogs = [
+            newLog,
+            ...existingLogs,
+          ];
+
+          historyLogsRef.current =
+            updatedLogs;
+
+          setHistoryLogs(
+            updatedLogs
+          );
+
+          await saveHistory(
+            patientId,
+            updatedLogs
+          );
+        }
+
+        // =====================================================
+        // 12. ส่งข้อมูลเข้า Supabase
+        // =====================================================
+        const {
+          error,
+        } =
+          await supabase
+            .from(
+              'sensor_history'
+            )
+            .upsert(
+              {
+                patient_id:
+                  patientId,
+
+                date:
+                  newLog.date,
+
+                time:
+                  newLog.time,
+
+                sensor1:
+                  newLog.sensor1,
+
+                sensor2:
+                  newLog.sensor2,
+
+                temperature:
+                  newLog.temperature,
+
+                humidity:
+                  newLog.humidity,
+
+                status:
+                  newLog.status,
+
+                position:
+                  newLog.position,
+
+                pressure:
+                  newLog.pressure,
+
+                calculated_position:
+                  newLog.calculatedPosition,
+
+                is_temp_high:
+                  newLog.isTempHigh,
+
+                is_humid_high:
+                  newLog.isHumidHigh,
+
+                left_pressed:
+                  newLog.leftPressed,
+
+                right_pressed:
+                  newLog.rightPressed,
+
+                sitting_seconds:
+                  newLog.sittingSeconds,
+
+                is_sitting_too_long:
+                  newLog.isSittingTooLong,
+              } as any,
+              {
+                onConflict:
+                  'patient_id,date,time',
+              }
+            );
+
+        // =====================================================
+        // 13. ตรวจผล Supabase
+        // =====================================================
+        if (error) {
+          console.error(
+            '⚠️ Supabase UPSERT error:',
+            error
+          );
+        }
+      } catch (error) {
+        console.error(
+          '❌ Error loading history data:',
+          error
         );
-      } else {
-        centerStartTimeRef.current =
-          null;
-
-        sittingSeconds = 0;
-      }
-
-      const isSittingTooLong =
-        sittingSeconds >= 120;
-
-      // -----------------------------------------------
-      // 7. สร้าง ID ของข้อมูล
-      // -----------------------------------------------
-      // date + time จาก Google Sheets
-      // ใช้ป้องกันการบันทึกข้อมูลซ้ำ
-      const logId =
-        `${patientId}_${data.date}_${data.time}`;
-
-      // -----------------------------------------------
-      // 8. ตรวจว่าข้อมูลนี้เคยเก็บหรือยัง
-      // -----------------------------------------------
-      const existingLogs =
-        historyLogsRef.current;
-
-      const alreadyExists =
-        existingLogs.some(
-          (log) => log.id === logId
-        );
-
-      if (alreadyExists) {
+      } finally {
         setLoading(false);
-        return;
+
+        isFetchingRef.current =
+          false;
       }
-
-      // -----------------------------------------------
-      // 9. สร้าง History Log
-      // -----------------------------------------------
-      const newLog: HistoryLog = {
-        ...data,
-
-        id: logId,
-
-        calculatedPosition:
-          calcPos,
-
-        isTempHigh:
-          tempHigh,
-
-        isHumidHigh:
-          humidHigh,
-
-        leftPressed:
-          isLeftPressed,
-
-        rightPressed:
-          isRightPressed,
-
-        sittingSeconds:
-          sittingSeconds,
-
-        isSittingTooLong:
-          isSittingTooLong,
-      };
-
-      // -----------------------------------------------
-      // 10. เพิ่มข้อมูลใหม่ไว้ด้านบน
-      // -----------------------------------------------
-      const updatedLogs = [
-        newLog,
-        ...existingLogs,
-      ];
-
-      // -----------------------------------------------
-      // 11. อัปเดต Ref + State
-      // -----------------------------------------------
-      historyLogsRef.current =
-        updatedLogs;
-
-      setHistoryLogs(
-        updatedLogs
-      );
-
-      // -----------------------------------------------
-      // 12. บันทึกลง AsyncStorage
-      // -----------------------------------------------
-      await saveHistory(
-        patientId,
-        updatedLogs
-      );
-
-      console.log(
-        'บันทึก History สำเร็จ:',
-        newLog.id
-      );
-
-    } catch (error) {
-      console.error(
-        'Error loading history data:',
-        error
-      );
-    } finally {
-      setLoading(false);
-      isFetchingRef.current = false;
-    }
-  };
+    };
 
   // =====================================================
   // เมื่อเข้า History
@@ -628,87 +943,106 @@ const filteredLogs = historyLogs.filter((log) => {
     useCallback(() => {
       let isActive = true;
 
-      const startHistory = async () => {
-        try {
-          setLoading(true);
+      const startHistory =
+        async () => {
+          try {
+            setLoading(true);
 
-          // ---------------------------------------------
-          // 1. อ่าน Patient ที่เลือกอยู่
-          // ---------------------------------------------
-          const selectedPatientId =
-            await AsyncStorage.getItem(
-              'selectedPatientId'
+            // ---------------------------------------------
+            // 1. อ่าน Patient ที่เลือกอยู่
+            // ---------------------------------------------
+            const selectedPatientId =
+              await AsyncStorage.getItem(
+                'selectedPatientId'
+              );
+
+            if (!isActive) {
+              return;
+            }
+
+            if (
+              !selectedPatientId
+            ) {
+              patientIdRef.current =
+                null;
+
+              historyLogsRef.current =
+                [];
+
+              setHistoryLogs(
+                []
+              );
+
+              setLoading(false);
+
+              return;
+            }
+
+            // ---------------------------------------------
+            // 2. เก็บ Patient ID ปัจจุบัน
+            // ---------------------------------------------
+            patientIdRef.current =
+              selectedPatientId;
+
+            // ---------------------------------------------
+            // 3. Reset timer
+            // ---------------------------------------------
+            centerStartTimeRef.current =
+              null;
+
+            // ---------------------------------------------
+            // 4. โหลด History เก่า
+            // ---------------------------------------------
+            const savedLogs =
+              await loadSavedHistory(
+                selectedPatientId
+              );
+
+            if (!isActive) {
+              return;
+            }
+
+            historyLogsRef.current =
+              savedLogs;
+
+            setHistoryLogs(
+              savedLogs
             );
 
-          if (!isActive) return;
+            if (!isActive) {
+              return;
+            }
 
-          if (!selectedPatientId) {
-            console.log(
-              'ไม่พบ selectedPatientId'
+            // ---------------------------------------------
+            // 5. ดึง Sensor ล่าสุดทันที
+            // ---------------------------------------------
+            await loadHistoryData();
+
+            // ---------------------------------------------
+            // 6. ดึงข้อมูลใหม่ทุก 3 วินาที
+            // ---------------------------------------------
+            const interval =
+              setInterval(() => {
+                loadHistoryData();
+              }, 3000);
+
+            // ---------------------------------------------
+            // Cleanup
+            // ---------------------------------------------
+            return () => {
+              clearInterval(
+                interval
+              );
+            };
+          } catch (error) {
+            console.error(
+              'ไม่สามารถเริ่ม History ได้:',
+              error
             );
 
-            patientIdRef.current = null;
-            historyLogsRef.current = [];
-            setHistoryLogs([]);
             setLoading(false);
-
-            return;
           }
-
-          // ---------------------------------------------
-          // 2. เก็บ Patient ID ปัจจุบัน
-          // ---------------------------------------------
-          patientIdRef.current =
-            selectedPatientId;
-
-          // ---------------------------------------------
-          // 3. Reset timer
-          // ---------------------------------------------
-          centerStartTimeRef.current =
-            null;
-
-          // ---------------------------------------------
-          // 4. โหลด History เก่า
-          // ---------------------------------------------
-          const savedLogs =
-            await loadSavedHistory(selectedPatientId);
-
-          if (!isActive) return;
-
-          historyLogsRef.current = savedLogs;
-          setHistoryLogs(savedLogs);
-
-          if (!isActive) return;
-
-          // ---------------------------------------------
-          // 5. ดึง Sensor ล่าสุดทันที
-          // ---------------------------------------------
-          await loadHistoryData();
-
-          // ---------------------------------------------
-          // 6. ดึงข้อมูลใหม่ทุก 3 วินาที
-          // ---------------------------------------------
-          const interval =
-            setInterval(() => {
-              loadHistoryData();
-            }, 3000);
-
-          // ---------------------------------------------
-          // Cleanup
-          // ---------------------------------------------
-          return () => {
-            clearInterval(interval);
-          };
-
-        } catch (error) {
-          console.error(
-            'ไม่สามารถเริ่ม History ได้:',
-            error
-          );
-
-          setLoading(false);
-        }
-      };
+        };
 
       let cleanup:
         | (() => void)
@@ -716,7 +1050,8 @@ const filteredLogs = historyLogs.filter((log) => {
 
       startHistory().then(
         (cleanupFunction) => {
-          cleanup = cleanupFunction;
+          cleanup =
+            cleanupFunction;
         }
       );
 
@@ -739,89 +1074,105 @@ const filteredLogs = historyLogs.filter((log) => {
   // =====================================================
   // Dashboard Stats
   // =====================================================
-  const getDashboardStats = () => {
+  const getDashboardStats =
+    () => {
+      const total =
+        filteredLogs.length ||
+        1;
 
-  const total =
-    filteredLogs.length || 1;
+      let leftCount = 0;
+      let rightCount = 0;
+      let tempSum = 0;
+      let alertCount = 0;
+      let moveCount = 0;
 
-  let leftCount = 0;
-  let rightCount = 0;
-  let tempSum = 0;
-  let alertCount = 0;
-  let moveCount = 0;
+      filteredLogs.forEach(
+        (log, idx) => {
+          if (
+            log.leftPressed
+          ) {
+            leftCount++;
+          }
 
-  filteredLogs.forEach(
-    (log, idx) => {
+          if (
+            log.rightPressed
+          ) {
+            rightCount++;
+          }
 
-      if (log.leftPressed) {
-        leftCount++;
-      }
+          tempSum +=
+            log.temperature ||
+            0;
 
-      if (log.rightPressed) {
-        rightCount++;
-      }
+          if (
+            log.isTempHigh ||
+            log.isHumidHigh ||
+            log.isSittingTooLong
+          ) {
+            alertCount++;
+          }
 
-      tempSum +=
-        log.temperature || 0;
+          if (
+            idx > 0 &&
+            log.calculatedPosition !==
+              filteredLogs[
+                idx - 1
+              ]
+                .calculatedPosition
+          ) {
+            moveCount++;
+          }
+        }
+      );
 
-      if (
-        log.isTempHigh ||
-        log.isHumidHigh ||
-        log.isSittingTooLong
-      ) {
-        alertCount++;
-      }
+      const totalPressureSide =
+        leftCount +
+          rightCount || 1;
 
-      if (
-        idx > 0 &&
-        log.calculatedPosition !==
-          filteredLogs[idx - 1]
-            .calculatedPosition
-      ) {
-        moveCount++;
-      }
-    }
-  );
+      const leftPercent =
+        Math.round(
+          (leftCount /
+            totalPressureSide) *
+            100
+        );
 
-  const totalPressureSide =
-    leftCount + rightCount || 1;
+      const rightPercent =
+        100 - leftPercent;
 
-  const leftPercent =
-    Math.round(
-      (leftCount / totalPressureSide) * 100
-    );
+      const avgTemp =
+        (
+          tempSum / total
+        ).toFixed(1);
 
-  const rightPercent =
-    100 - leftPercent;
+      const totalMinutes =
+        Math.floor(
+          (filteredLogs.length *
+            3) /
+            60
+        );
 
-  const avgTemp =
-    (tempSum / total).toFixed(1);
+      const hours =
+        Math.floor(
+          totalMinutes / 60
+        );
 
-  const totalMinutes =
-    Math.floor(
-      (filteredLogs.length * 3) / 60
-    );
+      const mins =
+        totalMinutes % 60;
 
-  const hours =
-    Math.floor(totalMinutes / 60);
+      const sittingTimeStr =
+        hours > 0
+          ? `${hours} ชม. ${mins} นาที`
+          : `${mins} นาที`;
 
-  const mins =
-    totalMinutes % 60;
-
-  const sittingTimeStr =
-    hours > 0
-      ? `${hours} ชม. ${mins} นาที`
-      : `${mins} นาที`;
-
-  return {
-    sittingTimeStr,
-    moveCount,
-    avgTemp,
-    alertCount,
-    leftPercent,
-    rightPercent,
-  };
-};
+      return {
+        sittingTimeStr,
+        moveCount,
+        avgTemp,
+        alertCount,
+        leftPercent,
+        rightPercent,
+      };
+    };
 
   const stats =
     getDashboardStats();
@@ -835,7 +1186,9 @@ const filteredLogs = historyLogs.filter((log) => {
   ) {
     return (
       <View
-        style={styles.loadingContainer}
+        style={
+          styles.loadingContainer
+        }
       >
         <ActivityIndicator
           size="large"
@@ -843,7 +1196,9 @@ const filteredLogs = historyLogs.filter((log) => {
         />
 
         <Text
-          style={styles.loadingText}
+          style={
+            styles.loadingText
+          }
         >
           กำลังโหลดข้อมูล Dashboard...
         </Text>
@@ -852,14 +1207,17 @@ const filteredLogs = historyLogs.filter((log) => {
   }
 
   const graphLogs =
-  filteredLogs
-    .slice(0, 10)
-    .reverse();
+    filteredLogs
+      .slice(0, 10)
+      .reverse();
 
-const displayedLogs =
-  isExpanded
-    ? filteredLogs
-    : filteredLogs.slice(0, 3);
+  const displayedLogs =
+    isExpanded
+      ? filteredLogs
+      : filteredLogs.slice(
+          0,
+          3
+        );
 
   return (
     <ScrollView
@@ -881,35 +1239,45 @@ const displayedLogs =
       >
         {/* Header */}
         <Text
-          style={styles.headerTitle}
+          style={
+            styles.headerTitle
+          }
         >
           Clinical Dashboard
         </Text>
 
         <Text
-          style={styles.subHeaderTitle}
+          style={
+            styles.subHeaderTitle
+          }
         >
           รายงานวิเคราะห์พฤติกรรมทางการแพทย์
         </Text>
 
         {/* Tab */}
         <View
-          style={styles.tabContainer}
+          style={
+            styles.tabContainer
+          }
         >
           <TouchableOpacity
             style={[
               styles.tabButton,
-              activeTab === 'today' &&
+              activeTab ===
+                'today' &&
                 styles.activeTabButton,
             ]}
             onPress={() =>
-              setActiveTab('today')
+              setActiveTab(
+                'today'
+              )
             }
           >
             <Text
               style={[
                 styles.tabText,
-                activeTab === 'today' &&
+                activeTab ===
+                  'today' &&
                   styles.activeTabText,
               ]}
             >
@@ -920,17 +1288,21 @@ const displayedLogs =
           <TouchableOpacity
             style={[
               styles.tabButton,
-              activeTab === 'week' &&
+              activeTab ===
+                'week' &&
                 styles.activeTabButton,
             ]}
             onPress={() =>
-              setActiveTab('week')
+              setActiveTab(
+                'week'
+              )
             }
           >
             <Text
               style={[
                 styles.tabText,
-                activeTab === 'week' &&
+                activeTab ===
+                  'week' &&
                   styles.activeTabText,
               ]}
             >
@@ -941,28 +1313,41 @@ const displayedLogs =
 
         {/* Summary Cards */}
         <View
-          style={styles.gridContainer}
+          style={
+            styles.gridContainer
+          }
         >
           <View
             style={[
               styles.summaryCard,
-              { width: cardWidth },
+              {
+                width:
+                  cardWidth,
+              },
             ]}
           >
             <Text
-              style={styles.cardIcon}
+              style={
+                styles.cardIcon
+              }
             >
               ⏱️
             </Text>
 
             <Text
-              style={styles.cardValueText}
+              style={
+                styles.cardValueText
+              }
             >
-              {stats.sittingTimeStr}
+              {
+                stats.sittingTimeStr
+              }
             </Text>
 
             <Text
-              style={styles.cardLabelText}
+              style={
+                styles.cardLabelText
+              }
             >
               เวลานั่งรวม
             </Text>
@@ -971,23 +1356,33 @@ const displayedLogs =
           <View
             style={[
               styles.summaryCard,
-              { width: cardWidth },
+              {
+                width:
+                  cardWidth,
+              },
             ]}
           >
             <Text
-              style={styles.cardIcon}
+              style={
+                styles.cardIcon
+              }
             >
               🚶
             </Text>
 
             <Text
-              style={styles.cardValueText}
+              style={
+                styles.cardValueText
+              }
             >
-              {stats.moveCount} ครั้ง
+              {stats.moveCount}{' '}
+              ครั้ง
             </Text>
 
             <Text
-              style={styles.cardLabelText}
+              style={
+                styles.cardLabelText
+              }
             >
               ขยับเปลี่ยนท่า
             </Text>
@@ -996,11 +1391,16 @@ const displayedLogs =
           <View
             style={[
               styles.summaryCard,
-              { width: cardWidth },
+              {
+                width:
+                  cardWidth,
+              },
             ]}
           >
             <Text
-              style={styles.cardIcon}
+              style={
+                styles.cardIcon
+              }
             >
               🌡️
             </Text>
@@ -1008,14 +1408,20 @@ const displayedLogs =
             <Text
               style={[
                 styles.cardValueText,
-                { color: '#FF9500' },
+                {
+                  color:
+                    '#FF9500',
+                },
               ]}
             >
-              {stats.avgTemp} °C
+              {stats.avgTemp}{' '}
+              °C
             </Text>
 
             <Text
-              style={styles.cardLabelText}
+              style={
+                styles.cardLabelText
+              }
             >
               อุณหภูมิเฉลี่ย
             </Text>
@@ -1024,11 +1430,16 @@ const displayedLogs =
           <View
             style={[
               styles.summaryCard,
-              { width: cardWidth },
+              {
+                width:
+                  cardWidth,
+              },
             ]}
           >
             <Text
-              style={styles.cardIcon}
+              style={
+                styles.cardIcon
+              }
             >
               🚨
             </Text>
@@ -1036,14 +1447,20 @@ const displayedLogs =
             <Text
               style={[
                 styles.cardValueText,
-                { color: '#FF3B30' },
+                {
+                  color:
+                    '#FF3B30',
+                },
               ]}
             >
-              {stats.alertCount} ครั้ง
+              {stats.alertCount}{' '}
+              ครั้ง
             </Text>
 
             <Text
-              style={styles.cardLabelText}
+              style={
+                styles.cardLabelText
+              }
             >
               เตือนวิกฤต/ชื้น
             </Text>
@@ -1052,27 +1469,45 @@ const displayedLogs =
 
         {/* Pressure Balance */}
         <View
-          style={styles.cardSection}
+          style={
+            styles.cardSection
+          }
         >
           <Text
-            style={styles.sectionTitle}
+            style={
+              styles.sectionTitle
+            }
           >
             ⚖ สัดส่วนการพบแรงกดสูง
           </Text>
 
           <View
-            style={styles.balanceHeader}
+            style={
+              styles.balanceHeader
+            }
           >
             <Text
-              style={styles.leftPercentText}
+              style={
+                styles.leftPercentText
+              }
             >
-              ซ้าย {stats.leftPercent}%
+              ซ้าย{' '}
+              {
+                stats.leftPercent
+              }
+              %
             </Text>
 
             <Text
-              style={styles.rightPercentText}
+              style={
+                styles.rightPercentText
+              }
             >
-              ขวา {stats.rightPercent}%
+              ขวา{' '}
+              {
+                stats.rightPercent
+              }
+              %
             </Text>
           </View>
 
@@ -1105,7 +1540,9 @@ const displayedLogs =
           </View>
 
           <Text
-            style={styles.evalText}
+            style={
+              styles.evalText
+            }
           >
             💡 ประเมิน:{' '}
             {Math.abs(
@@ -1119,16 +1556,22 @@ const displayedLogs =
 
         {/* Daily Trend */}
         <View
-          style={styles.cardSection}
+          style={
+            styles.cardSection
+          }
         >
           <Text
-            style={styles.sectionTitle}
+            style={
+              styles.sectionTitle
+            }
           >
             📈 ภาพรวมวันนี้ (Daily Trend)
           </Text>
 
           <Text
-            style={styles.graphSubTitle}
+            style={
+              styles.graphSubTitle
+            }
           >
             เลือกกดเลือกระบุตัวแปรที่ต้องการดูแนวโน้ม
           </Text>
@@ -1225,31 +1668,45 @@ const displayedLogs =
           />
 
           <Text
-            style={styles.graphDescription}
+            style={
+              styles.graphDescription
+            }
           >
             แสดงแนวโน้มจากข้อมูลล่าสุด{' '}
-            {graphLogs.length} รายการ
+            {
+              graphLogs.length
+            }{' '}
+            รายการ
           </Text>
         </View>
 
         {/* Recent Logs */}
         <View
-          style={styles.cardSection}
+          style={
+            styles.cardSection
+          }
         >
           <View
-            style={styles.logHeaderRow}
+            style={
+              styles.logHeaderRow
+            }
           >
             <Text
-              style={styles.sectionTitle}
+              style={
+                styles.sectionTitle
+              }
             >
               📋 ประวัติบันทึกเหตุการณ์
             </Text>
 
             <TouchableOpacity
-              style={styles.exportBadge}
+              style={
+                styles.exportBadge
+              }
               onPress={() =>
                 setIsExpanded(
-                  (prev) => !prev
+                  (prev) =>
+                    !prev
                 )
               }
             >
@@ -1265,9 +1722,12 @@ const displayedLogs =
             </TouchableOpacity>
           </View>
 
-          {displayedLogs.length === 0 ? (
+          {displayedLogs.length ===
+          0 ? (
             <Text
-              style={styles.emptyText}
+              style={
+                styles.emptyText
+              }
             >
               ยังไม่มีข้อมูลบันทึก
             </Text>
@@ -1390,7 +1850,9 @@ const displayedLogs =
                               : styles.textDark
                           }
                         >
-                          {item.temperature}{' '}
+                          {
+                            item.temperature
+                          }{' '}
                           °C
                         </Text>
 
@@ -1404,7 +1866,9 @@ const displayedLogs =
                               : styles.textDark
                           }
                         >
-                          {item.humidity}%
+                          {
+                            item.humidity
+                          }%
                           💧
                         </Text>
                       </Text>
@@ -1418,7 +1882,9 @@ const displayedLogs =
                         }
                       >
                         🪑 นั่งตรงกลางต่อเนื่อง:{' '}
-                        {item.sittingSeconds}{' '}
+                        {
+                          item.sittingSeconds
+                        }{' '}
                         วินาที
                       </Text>
                     )}
@@ -1476,7 +1942,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Tab
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#E0E5EC',
@@ -1507,7 +1972,6 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
   },
 
-  // Summary Cards
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1550,7 +2014,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // Pressure Balance
   cardSection: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -1605,7 +2068,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
-  // Metric Toggle Buttons
   graphSubTitle: {
     fontSize: 12,
     color: '#8E8E93',
@@ -1651,7 +2113,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF9500',
   },
 
-  // Chart Wrapper
   chartWrapper: {
     alignItems: 'center',
     marginTop: 4,
@@ -1681,7 +2142,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
-  // Logs Section
   logHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

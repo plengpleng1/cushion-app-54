@@ -58,7 +58,11 @@ export const saveHistory = async (
       storageKey,
       JSON.stringify(logs)
     );
-} catch {
-  return [];           // ไม่แสดง error ใน Terminal
-}
+  } catch {
+    // ไม่แสดง error ใน Terminal
+  }
 };
+
+//======================================================== \\
+                  //  เก็บข้อมูลให้สะสมใน week \\
+//======================================================== \\

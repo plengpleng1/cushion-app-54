@@ -48,7 +48,7 @@ export default function HomeScreen() {
   let isMounted = true;
   let lastFetchedTime: string | null = null;
 
-  const loadData = async () => {
+    const loadData = async () => {
     try {
       const data = await fetchSensorData();
 
@@ -80,24 +80,36 @@ export default function HomeScreen() {
 
       // -----------------------------
       // อ่านแรงกดจาก Sensor
-      // สำคัญ: ต้องคำนวณทุกครั้งที่ fetch สำเร็จ
-      // ไม่ใช่เฉพาะตอนที่เป็นข้อมูลใหม่
       // -----------------------------
       const isLeftPressed = (data.sensor1 ?? 4095) < 500;
       const isRightPressed = (data.sensor2 ?? 4095) < 500;
 
+      // ถ้ามีเซนเซอร์ตัวใดตัวหนึ่งต่ำกว่า 500 ให้ตีเป็น 'HIGH' ทันที
+      const correctedPressure = (isLeftPressed || isRightPressed) ? "HIGH" : "LOW";
+      // จากนั้นก็นำค่า correctedPressure นี้ไปใช้งานหรือบันทึกลง Async Storage แทนค่าเดิมที่มาจาก API ได้เลยครับ
+      // 🎯 นำค่าที่ถูกต้องไปทับค่าเดิมในตัวแปร data ซะเลย
+      data.pressure = correctedPressure;
+
+      let calcPos: 'left' | 'right' | 'both' | 'none' = 'none';
+
       if (isLeftPressed && isRightPressed) {
-        // กดทั้งสองข้าง = Center
-        setPressureSide('both');
+        calcPos = 'both';   // กดทั้งสองข้าง (ตรงกลาง)
       } else if (isLeftPressed) {
-        // กดด้านซ้าย
-        setPressureSide('left');
+        calcPos = 'left';   // ฝั่งซ้าย
       } else if (isRightPressed) {
-        // กดด้านขวา
-        setPressureSide('right');
+        calcPos = 'right';  // ฝั่งขวา
       } else {
-        // ไม่มีแรงกด
-        setPressureSide('none');
+        calcPos = 'none';   // ไม่มีแรงกด
+      }
+
+      setPressureSide(calcPos); 
+
+      // -----------------------------
+      // Status (อิงค่าตาม Google Sheets/API ตรงๆ)
+      // -----------------------------
+      if (data && data.status) {
+        const normalizedStatus = String(data.status).toUpperCase() as 'ACTIVE' | 'STANDBY';
+        setMainStatus(normalizedStatus);
       }
 
       // -----------------------------
@@ -105,20 +117,6 @@ export default function HomeScreen() {
       // -----------------------------
       const tempHigh = (data.temperature || 0) > 28;
       setIsTempHigh(tempHigh);
-
-      // -----------------------------
-      // Status
-      // -----------------------------
-      // ใช้แรงกดจริงเป็นตัวบอก ACTIVE
-      // เพื่อไม่ให้ ACTIVE กลายเป็น STANDBY
-      // เพียงเพราะข้อมูลจาก Sheet ยังไม่ใช่แถวใหม่
-      const isSitting = isLeftPressed || isRightPressed;
-
-      if (isSitting && data.status === 'ACTIVE') {
-        setMainStatus('ACTIVE');
-      } else {
-        setMainStatus('STANDBY');
-      }
 
     } catch (error) {
       console.error('โหลดข้อมูล Sensor ไม่สำเร็จ:', error);
@@ -137,19 +135,19 @@ export default function HomeScreen() {
   };
 }, []);
 
-  const getDisplayPosition = () => {
-    switch (pressureSide) {
-      case 'left':
-        return 'LEFT';
-      case 'right':
-        return 'RIGHT';
-      case 'both':
-        return 'CENTER';
-      case 'none':
-      default:
-        return sensorData?.position || 'NONE';
-    }
-  };
+const getDisplayPosition = () => {
+  switch (pressureSide) {
+    case 'left':
+      return 'LEFT';
+    case 'right':
+      return 'RIGHT';
+    case 'both':
+      return 'CENTER';
+    case 'none':
+    default:
+      return 'NONE'; // บังคับให้คืนค่า 'NONE' ตรงๆ ทันทีเมื่อไม่มีการกด
+  }
+};
 
   const getTimerCardStyle = () => {
     if (pressureSide === 'none') {
@@ -192,22 +190,52 @@ export default function HomeScreen() {
 
   const isActive = mainStatus === 'ACTIVE';
 
-  const formatUpdateTime = (time?: string) => {
-    if (!time) return '-';
+  // แก้ไขตรงอัปเดตล่าสุด
+  // แก้ไขฟังก์ชันอัปเดตล่าสุดให้ปลอดภัยจากวันที่เพี้ยน (ปี 1899)
+  const formatUpdateTime = (
+    dateString?: string,
+    timeString?: string
+  ) => {
+    // ถ้าไม่มีค่า หรือตัวหนังสือติดค่าปี 1899 ที่เป็นบั๊ก ให้ใช้เวลาปัจจุบันแทนทันที
+    if (!dateString || !timeString || String(dateString).includes('1899')) {
+      const now = new Date();
+      return `${now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} น. ${now.toLocaleDateString('en-GB')}`;
+    }
 
     try {
-      const date = new Date(time);
-      if (isNaN(date.getTime())) {
-        return time;
+      // ตรวจสอบว่าถ้า timeString เป็นแค่วินาที/เวลา (เช่น "02:38:50") ให้แปะวันที่เข้าไปด้วยเพื่อให้ new Date() อ่านออก
+      const fullDateTimeString = timeString.includes('T') || timeString.includes('-') 
+        ? timeString 
+        : `${dateString.split('T')[0]}T${timeString}`;
+
+      const time = new Date(fullDateTimeString);
+      
+      // ถ้าแปลงแล้วได้ปี 1899 (Invalid Date) ให้ fallback ไปใช้เวลาปัจจุบัน
+      if (isNaN(time.getTime()) || time.getFullYear() <= 1900) {
+        throw new Error('Invalid date');
       }
-      return date.toLocaleTimeString('th-TH', {
+
+      const formattedTime = time.toLocaleTimeString('th-TH', {
+        timeZone: 'Asia/Bangkok',
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
         hour12: false,
       });
+
+      const date = new Date(dateString);
+      const formattedDate = date.toLocaleDateString('en-GB', {
+        timeZone: 'Asia/Bangkok',
+        day: 'numeric',
+        month: 'numeric',
+        year: 'numeric',
+      });
+
+      return `${formattedTime} น. ${formattedDate}`;
     } catch {
-      return time;
+      // กรณีแปลงไม่ผ่านจริงๆ ให้โชว์ค่าเดิมแบบกันพัง หรือดึงเวลาปัจจุบันมาโชว์
+      const now = new Date();
+      return `${now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} น. ${now.toLocaleDateString('en-GB')}`;
     }
   };
 
@@ -221,7 +249,7 @@ export default function HomeScreen() {
           Cushion <Text style={styles.sense}>Sense</Text>
         </Text>
         <Text style={styles.lastUpdateText}>
-          อัปเดตล่าสุด: {formatUpdateTime(sensorData?.time)}
+          อัปเดตล่าสุด: {formatUpdateTime(sensorData?.date, sensorData?.time)}
         </Text>
 
         {(isHumidHigh || isTempHigh || seconds >= 120) && (
