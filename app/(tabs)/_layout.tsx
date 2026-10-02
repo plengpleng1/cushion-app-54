@@ -15,7 +15,7 @@ export default function TabLayout() {
           left: 20,             // ระยะห่างจากขอบซ้าย
           right: 20,            // ระยะห่างจากขอบขวา
           elevation: 5,         // เงาสำหรับ Android
-          backgroundColor: '#FFFDF9', // สีพื้นหลังแคปซูล (ปรับเปลี่ยนได้ตามชอบ) เดิม #FFFDF9
+          backgroundColor: 'rgba(255, 253, 249, 0.8)', // สีพื้นหลังแคปซูล (ปรับเปลี่ยนได้ตามชอบ) เดิม #FFFDF9
           borderRadius: 40,     // ความโค้งมนของขอบแคปซูล
           height: 75,           // ความสูงของบาร์
           paddingBottom: 10,    // ปรับระยะด้านล่างของไอคอน/ข้อความ

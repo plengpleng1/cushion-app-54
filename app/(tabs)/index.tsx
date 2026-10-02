@@ -42,12 +42,12 @@ export default function HomeScreen() {
   const [isTempHigh, setIsTempHigh] = useState<boolean>(false);
 
   useEffect(() => {
-    console.log("Dashboard: loadSelectedPatient started");
+    //console.log("Dashboard: loadSelectedPatient started");
     const loadSelectedPatient = async () => {
       try {
         const savedPatientId = await AsyncStorage.getItem(SELECTED_PATIENT_KEY);
 
-        console.log("Selected Patient ID:", savedPatientId);
+        //console.log("Selected Patient ID:", savedPatientId);
 
         setSelectedPatientId(savedPatientId);
       } catch (error) {

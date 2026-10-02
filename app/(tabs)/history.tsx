@@ -359,10 +359,7 @@ const TrendChart = ({
 // History Screen
 // =====================================================
 export default function HistoryScreen() {
-  console.log(
-  'History service function:',
-  loadHistoryFromSupabase
-);
+  //console.log('History service function:',loadHistoryFromSupabase);
   const {
     width: windowWidth,
   } = useWindowDimensions();
@@ -564,10 +561,7 @@ useEffect(() => {
   // =====================================================
 // เมื่อเข้า History
 // =====================================================
-console.log(
-  'loadHistoryFromSupabase:',
-  loadHistoryFromSupabase
-);
+//console.log('loadHistoryFromSupabase:',loadHistoryFromSupabase);
 
 useFocusEffect(
   useCallback(() => {
@@ -599,10 +593,7 @@ useFocusEffect(
         // ---------------------------------------------
         patientIdRef.current = selectedPatientId;
 
-        console.log(
-          '🟢 History started for patient:',
-          selectedPatientId
-        );
+        //console.log('🟢 History started for patient:',selectedPatientId);
 
         // ---------------------------------------------
         // 3. โหลด History จาก Supabase
@@ -710,36 +701,6 @@ useFocusEffect(
           tempSum / total
         ).toFixed(1);
 
-      console.log(
-    '🪑 Sitting summary:',
-    {
-      total: filteredLogs.length,
-      centerCount: filteredLogs.filter(
-        (log) => log.calculatedPosition === 'CENTER'
-      ).length,
-      centerSeconds: filteredLogs
-        .filter(
-          (log) => log.calculatedPosition === 'CENTER'
-        )
-        .map((log) => log.sittingSeconds)
-        .slice(0, 20),
-    }
-  );
-  console.log(
-  '🪑 Position summary:',
-  filteredLogs.reduce(
-    (acc, log) => {
-      const position =
-        log.calculatedPosition || 'EMPTY';
-
-      acc[position] =
-        (acc[position] || 0) + 1;
-
-      return acc;
-    },
-    {} as Record<string, number>
-  )
-);
       const totalMinutes =
   Math.floor(
     (filteredLogs.length * 3) / 60
