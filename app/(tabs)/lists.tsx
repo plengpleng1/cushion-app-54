@@ -1,3 +1,4 @@
+import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -594,7 +595,7 @@ export default function PatientListScreen() {
                       onPress={() => editPatient(patient)}
                     >
                       <MaterialCommunityIcons
-                        name="account-edit-outline"
+                        name="account-edit"
                         size={20}
                         color="#2D69CA"
                       />
@@ -604,11 +605,7 @@ export default function PatientListScreen() {
                       style={styles.deleteButton}
                       onPress={() => deletePatient(patient)}
                     >
-                      <MaterialCommunityIcons
-                        name="delete-outline"
-                        size={20}
-                        color="#9c1717"
-                      />
+                      <FontAwesome5 name="trash" size={15} color="#9c1717" />
                     </TouchableOpacity>
                   </View>
                 </View>
