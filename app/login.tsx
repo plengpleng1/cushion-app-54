@@ -530,12 +530,6 @@ export default function LoginScreen() {
             ? "Sign Up"
             : "Sign In"}
         </Text>
-
-        <Image
-          source={require("../assets/images/logo-app.jpg")}
-          style={styles.topRightLogo}
-          resizeMode="contain"
-        />
       </View>
 
       <View style={styles.headerLine as ViewStyle} />
@@ -550,10 +544,11 @@ export default function LoginScreen() {
           <View style={styles.headerContainer}>
             <Text style={styles.welcomeText}>Welcome</Text>
 
-            <Text style={styles.brandContainer}>
-              <Text style={styles.brandBold}>Cushion </Text>
-              <Text style={styles.brandLight}>Sense</Text>
-            </Text>
+            <Image
+              source={require("../assets/images/cushion.png")}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
 
           {/* FORM CONTAINER */}
@@ -1004,8 +999,8 @@ const styles = StyleSheet.create({
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 15,
+    justifyContent: "flex-start",
+    paddingHorizontal: 20,
     backgroundColor: "#fffefe",
   },
   topHeaderTitle: {
@@ -1013,11 +1008,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#000000",
   } as TextStyle,
-  topRightLogo: {
-    width: 105,
-    height: 35,
-    marginRight: 25,
-  },
   headerLine: {
     height: 1,
     width: "100%",
@@ -1026,44 +1016,54 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    alignItems: "center",
+    paddingVertical: 30,
+    paddingHorizontal: 16,
   },
   headerContainer: {
     alignItems: "center",
-    marginBottom: 32,
+    marginBottom: 24,
   },
   welcomeText: {
-    fontSize: 58,
-    fontWeight: "900",
+    fontSize: 70,
+    fontWeight: "800",
     color: "#2D69CA",
     textAlign: "center",
+    marginBottom: 8,
   },
-  brandContainer: {
-    textAlign: "center",
-    marginTop: 4,
-  },
-  brandBold: {
-    fontSize: 42,
-    fontStyle: "italic",
-    fontWeight: "700",
-    color: "#2D69CA",
-  },
-  brandLight: {
-    fontSize: 42,
-    fontStyle: "italic",
-    fontWeight: "400",
-    color: "#2D69CA",
+  logoImage: {
+    width: 280,
+    height: 100,
+    alignSelf: "center",
+    marginBottom: 5,
   },
   formContainer: {
     width: "100%",
-    maxWidth: 380,
-    alignSelf: "center",
+    maxWidth: 400,
     backgroundColor: "#FFFFFF",
-    padding: 24,
     borderRadius: 12,
+    padding: 24,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  otpTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1A1A1A",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  otpSubTitle: {
+    fontSize: 14,
+    color: "#666666",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24,
   },
   inputGroup: {
     marginBottom: 16,
@@ -1071,32 +1071,27 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#444444",
+    color: "#333333",
     marginBottom: 6,
   },
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: "#CCCCCC",
+    borderColor: "#D1D5DB",
     borderRadius: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     fontSize: 15,
+    color: "#333333",
     backgroundColor: "#FAFAFA",
   },
   inputError: {
-    borderColor: "#D92D20",
-    backgroundColor: "#FFF5F5",
+    borderColor: "#E53E3E",
   },
-  fieldErrorText: {
-    color: "#D92D20",
-    fontSize: 12,
-    fontWeight: "500",
-    marginTop: 4,
-  },
-  infoText: {
-    color: "#666666",
-    fontSize: 12,
-    marginTop: 4,
+  otpInput: {
+    textAlign: "center",
+    letterSpacing: 8,
+    fontSize: 20,
+    fontWeight: "700",
   },
   passwordWrapper: {
     position: "relative",
@@ -1111,30 +1106,22 @@ const styles = StyleSheet.create({
     height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 4,
   },
   forgotPasswordContainer: {
     alignSelf: "flex-start",
     marginTop: 8,
   },
   forgotPasswordText: {
+    fontSize: 13.5,
     color: "#2D69CA",
-    fontSize: 13,
     fontWeight: "600",
-  },
-  errorText: {
-    color: "#D92D20",
-    fontSize: 13,
-    fontWeight: "500",
-    marginBottom: 12,
-    textAlign: "center",
   },
   primaryButton: {
     height: 48,
     backgroundColor: "#2D69CA",
+    borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 8,
     marginTop: 8,
   },
   primaryButtonText: {
@@ -1145,36 +1132,32 @@ const styles = StyleSheet.create({
   toggleContainer: {
     flexDirection: "row",
     justifyContent: "center",
+    alignItems: "center",
     marginTop: 20,
   },
   toggleText: {
-    color: "#666666",
     fontSize: 14,
+    color: "#666666",
   },
   toggleLink: {
+    fontSize: 14,
+    fontWeight: "700",
     color: "#2D69CA",
-    fontSize: 14,
-    fontWeight: "700",
   },
-  otpTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#333333",
+  errorText: {
+    color: "#E53E3E",
+    fontSize: 13,
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  otpSubTitle: {
-    fontSize: 14,
+  fieldErrorText: {
+    color: "#E53E3E",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  infoText: {
     color: "#666666",
-    textAlign: "center",
-    marginBottom: 20,
-    lineHeight: 20,
-  },
-  otpInput: {
-    textAlign: "center",
-    fontSize: 24,
-    letterSpacing: 10,
-    fontWeight: "700",
-    color: "#2D69CA",
+    fontSize: 12,
+    marginTop: 4,
   },
 });
