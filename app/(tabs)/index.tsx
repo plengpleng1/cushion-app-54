@@ -32,6 +32,7 @@ export default function HomeScreen() {
   const [seconds, setSeconds] = useState(0);
   const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [sensorConnected, setSensorConnected] = useState<boolean>(false);
 
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(
     null,
@@ -60,19 +61,32 @@ export default function HomeScreen() {
   }, []);
 
   // timer
-  useEffect(() => {
-    let timer: ReturnType<typeof setInterval> | null = null;
+    useEffect(() => {
+  console.log("⏱️ TIMER EFFECT:", {
+    pressureSide,
+    mainStatus,
+  });
+
+  let timer: ReturnType<typeof setInterval> | null = null;
 
     if (pressureSide === "both") {
+      console.log("⏱️ TIMER START");
+
       timer = setInterval(() => {
-        setSeconds((prev) => prev + 1);
+        setSeconds((prev) => {
+          console.log("⏱️ TIMER COUNT:", prev + 1);
+          return prev + 1;
+        });
       }, 1000);
-    } else if (pressureSide === "none") {
+    } else {
+      console.log("⏱️ TIMER RESET");
       setSeconds(0);
     }
 
     return () => {
-      if (timer) clearInterval(timer);
+      if (timer) {
+        clearInterval(timer);
+      }
     };
   }, [pressureSide]);
 
@@ -103,15 +117,22 @@ export default function HomeScreen() {
         // ถ้าดึงข้อมูลไม่ได้ เช่น 404
         // ไม่ต้อง reset ค่าเดิม
         if (!data || !isMounted) {
-          return;
-        }
+        setSensorConnected(false);
+        setPressureSide("none");
+        setSeconds(0);
+        setMainStatus("STANDBY");
+        return;
+      }
+      setSensorConnected(true);
 
         // เช็กว่ามีข้อมูลใหม่เข้ามาหรือไม่
-        const isNewData = !!data.time && data.time !== lastFetchedTime;
+        const isNewData =
+        !!data.time &&
+        data.time !== lastFetchedTime;
 
-        if (isNewData) {
-          lastFetchedTime = data.time;
-        }
+      if (isNewData) {
+        lastFetchedTime = data.time;
+      }
 
         // -----------------------------
         // เก็บข้อมูล Sensor ล่าสุด
@@ -149,7 +170,15 @@ export default function HomeScreen() {
         } else {
           calcPos = "none"; // ไม่มีแรงกด
         }
-
+        //console.log("🧪 TIMER CHECK:", {
+        //sensor1: data.sensor1,
+        //sensor2: data.sensor2,
+        //isLeftPressed,
+        //isRightPressed,
+        //calcPos,
+        //status: data.status,
+      //});
+        
         setPressureSide(calcPos);
 
         // -----------------------------
@@ -177,14 +206,16 @@ export default function HomeScreen() {
 
     // โหลดข้อมูลทุก 2 วินาที
     const interval = setInterval(loadData, 2000);
-
+ 
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
   }, []);
 
-  const getDisplayPosition = () => {
+  const [hasFreshSensorData, setHasFreshSensorData] = useState(false);   
+  
+const getDisplayPosition = () => {
     switch (pressureSide) {
       case "left":
         return "LEFT";
