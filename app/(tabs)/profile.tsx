@@ -173,6 +173,7 @@ const styles = StyleSheet.create({
     height: 200, // ปรับความสูงของโลโก้ตามสัดส่วนจริง
     alignSelf: "center", // จัดให้อยู่กึ่งกลางหน้าจอ
     marginTop: -130,
+    marginLeft: 8,
   },
   cardContainer: {
     width: "80%",
