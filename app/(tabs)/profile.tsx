@@ -27,7 +27,9 @@ export default function ProfileScreen() {
       const loadProfile = async () => {
         try {
           // 1. ดึงข้อมูลจาก Supabase Auth
-          const { data: { user } } = await supabase.auth.getUser();
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
 
           if (user) {
             const fetchedEmail = user.email || "";
@@ -39,15 +41,19 @@ export default function ProfileScreen() {
           }
 
           // 2. ดึงข้อมูลจาก AsyncStorage (กรณีล็อกอินแบบ Local/Custom)
-          const currentUserJson = await AsyncStorage.getItem(STORAGE_CURRENT_USER);
+          const currentUserJson =
+            await AsyncStorage.getItem(STORAGE_CURRENT_USER);
 
           if (currentUserJson) {
             const currentUser = JSON.parse(currentUserJson);
 
             setUsername(currentUser.username || "");
-            
+
             // ซ่อน email ภายในระบบถ้ามี
-            if (currentUser.email && !currentUser.email.includes("@cushionsense.internal")) {
+            if (
+              currentUser.email &&
+              !currentUser.email.includes("@cushionsense.internal")
+            ) {
               setEmail(currentUser.email);
             } else {
               setEmail("");
@@ -65,7 +71,7 @@ export default function ProfileScreen() {
       };
 
       loadProfile();
-    }, [])
+    }, []),
   );
 
   const performLogout = async () => {
@@ -84,11 +90,11 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     if (Platform.OS === "web") {
-      if (window.confirm("Are you sure you want to sign out?")) {
+      if (window.confirm("ต้องการออกจากระบบใช่หรือไม่?")) {
         performLogout();
       }
     } else {
-      Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      Alert.alert("Sign Out", "ต้องการออกจากระบบใช่หรือไม่?", [
         {
           text: "Cancel",
           style: "cancel",
@@ -107,11 +113,11 @@ export default function ProfileScreen() {
       <View style={styles.content}>
         {/* Logo */}
         <Text style={styles.logoImage}>
-          <Image 
-          source={require('../../assets/images/cushion.png')} // เปลี่ยน path ไปยังไฟล์รูปโลโก้ของคุณ
-          style={styles.logoImage}
-          resizeMode="contain"
-        />
+          <Image
+            source={require("../../assets/images/cushion.png")} // เปลี่ยน path ไปยังไฟล์รูปโลโก้ของคุณ
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </Text>
 
         <View style={styles.cardContainer}>
@@ -123,7 +129,7 @@ export default function ProfileScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.infoScrollContent}
               >
-                <Text style={styles.infoText}>Username: {username}</Text>
+                <Text style={styles.infoText}>Username : {username}</Text>
               </ScrollView>
             </View>
           ) : null}
@@ -136,7 +142,7 @@ export default function ProfileScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.infoScrollContent}
               >
-                <Text style={styles.infoText}>Email: {email}</Text>
+                <Text style={styles.infoText}>Email : {email}</Text>
               </ScrollView>
             </View>
           ) : null}
@@ -163,31 +169,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   logoImage: {
-    width: 350,  // ปรับความกว้างของโลโก้ตามต้องการ
-    height: 200,  // ปรับความสูงของโลโก้ตามสัดส่วนจริง
-    alignSelf: 'center', // จัดให้อยู่กึ่งกลางหน้าจอ
-    marginBottom: 5,
+    width: 350, // ปรับความกว้างของโลโก้ตามต้องการ
+    height: 200, // ปรับความสูงของโลโก้ตามสัดส่วนจริง
+    alignSelf: "center", // จัดให้อยู่กึ่งกลางหน้าจอ
+    marginTop: -130,
   },
   cardContainer: {
-    width: "100%",
+    width: "80%",
     maxWidth: 355,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#D8D8D8",
     borderRadius: 15,
     paddingHorizontal: 30,
     paddingVertical: 30,
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    marginTop: -150,
   },
   infoBoxWrapper: {
     width: "100%",
     height: 50,
     borderWidth: 1,
-    borderColor: "#C9C9C9",
     borderRadius: 10,
     marginBottom: 16,
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     overflow: "hidden",
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   infoScrollContent: {
     alignItems: "center",
@@ -202,16 +219,22 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     width: "100%",
-    height: 70,
+    height: 50,
     backgroundColor: "#C82828",
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 10,
     marginTop: 8,
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   logoutButtonText: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
   },
 });

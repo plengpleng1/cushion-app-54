@@ -89,7 +89,12 @@ export default function SelectScreen() {
   // =========================================================
 
   const goToNewPatient = () => {
-    router.push("/patient-info");
+    router.push({
+      pathname: "/patient-info",
+      params: {
+        from: "select",
+      },
+    });
   };
 
   // =========================================================
@@ -113,7 +118,7 @@ export default function SelectScreen() {
       // =====================================================
 
       if (Platform.OS === "web") {
-        const confirmed = window.confirm("คุณต้องการออกจากระบบใช่หรือไม่?");
+        const confirmed = window.confirm("ต้องการออกจากระบบใช่หรือไม่?");
 
         if (!confirmed) {
           return;
@@ -136,7 +141,7 @@ export default function SelectScreen() {
       // Mobile / iOS / Android
       // =====================================================
 
-      Alert.alert("Logout", "คุณต้องการออกจากระบบใช่หรือไม่?", [
+      Alert.alert("Logout", "Are you sure you want to sign out?", [
         {
           text: "ยกเลิก",
           style: "cancel",
@@ -192,7 +197,7 @@ export default function SelectScreen() {
 
     headerLeft: () => (
       <Image
-        source={require("../assets/images/logo-app.jpg")}
+        source={require("../assets/images/cushion.png")}
         style={styles.headerLogo}
         resizeMode="contain"
       />
@@ -245,9 +250,7 @@ export default function SelectScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Select Patient</Text>
 
-          <Text style={styles.logo}>
-            Cushion <Text style={styles.sense}>Sense</Text>
-          </Text>
+          <Text style={styles.subtitle}>กรุณาเลือกผู้ป่วย</Text>
         </View>
 
         {/* ===================================================
@@ -354,26 +357,21 @@ const styles = StyleSheet.create({
 
   header: {
     alignItems: "center",
-    marginBottom: 35,
+    marginBottom: 25,
   },
 
   title: {
-    fontSize: 38,
+    fontSize: 48,
     fontWeight: "700",
     color: BLUE,
-    marginBottom: 4,
+    marginTop: -285,
   },
 
-  logo: {
-    fontSize: 32,
-    fontStyle: "italic",
-    fontWeight: "700",
-    color: BLUE,
-  },
-
-  sense: {
-    fontStyle: "italic",
-    fontWeight: "400",
+  subtitle: {
+    fontSize: 15,
+    color: "#888",
+    marginTop: 5,
+    textAlign: "center",
   },
 
   // =======================================================
@@ -382,13 +380,21 @@ const styles = StyleSheet.create({
 
   card: {
     width: "100%",
-    maxWidth: 475,
+    maxWidth: 325,
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#D8D8D8",
+    borderWidth: 0.5,
     borderRadius: 15,
-    paddingHorizontal: 38,
-    paddingVertical: 35,
+    paddingHorizontal: 28,
+    paddingVertical: 15,
+    marginTop: -200,
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   // =======================================================
@@ -396,13 +402,20 @@ const styles = StyleSheet.create({
   // =======================================================
 
   button: {
-    height: 60,
-    width: "100%",
-    borderRadius: 10,
+    height: 50,
+    width: "95%",
+    borderRadius: 15,
     backgroundColor: BLUE,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 18,
+    marginBottom: 13,
+    marginTop: 12,
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   disabledButton: {
@@ -411,8 +424,8 @@ const styles = StyleSheet.create({
 
   buttonText: {
     color: "#FFFFFF",
-    fontSize: 19,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "500",
   },
 
   disabledText: {

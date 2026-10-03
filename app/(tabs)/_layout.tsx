@@ -125,7 +125,7 @@ export default function TabLayout() {
         headerShown: false,
       }}
     >
-//======================= ชื่อแถบ ============================\\
+  {/* ======================= ชื่อแถบ ============================ */}
       <Tabs.Screen
         name="index"
         options={{

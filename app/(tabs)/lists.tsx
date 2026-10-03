@@ -164,7 +164,7 @@ export default function PatientListScreen() {
 
   const validateName = (value: string) => {
     if (!value.trim()) {
-      return "กรุณากรอกชื่อ - นามสกุล";
+      return "กรุณาระบุชื่อ - นามสกุล";
     }
 
     return "";
@@ -172,11 +172,11 @@ export default function PatientListScreen() {
 
   const validateCitizenId = (value: string) => {
     if (!value) {
-      return "กรุณากรอกเลขบัตรประชาชนให้ถูกต้อง";
+      return "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง";
     }
 
     if (!/^\d{13}$/.test(value)) {
-      return "กรุณากรอกเลขบัตรประชาชนให้ถูกต้อง";
+      return "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง";
     }
 
     return "";
@@ -192,13 +192,13 @@ export default function PatientListScreen() {
 
   const validateAge = (value: string) => {
     if (!value) {
-      return "กรุณากรอกอายุให้ถูกต้อง";
+      return "กรุณาระบุอายุให้ถูกต้อง";
     }
 
     const number = Number(value);
 
     if (number < 1 || number > 120) {
-      return "กรุณากรอกอายุให้ถูกต้อง";
+      return "กรุณาระบุอายุให้ถูกต้อง";
     }
 
     return "";
@@ -206,11 +206,11 @@ export default function PatientListScreen() {
 
   const validatePhone = (value: string) => {
     if (!value) {
-      return "กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง";
+      return "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง";
     }
 
     if (!/^0\d{9}$/.test(value)) {
-      return "กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง";
+      return "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง";
     }
 
     return "";
@@ -280,7 +280,7 @@ export default function PatientListScreen() {
       if (duplicateCitizen) {
         setErrors((prev) => ({
           ...prev,
-          citizenId: "เลขบัตรประชาชนนี้มีอยู่แล้ว",
+          citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
         }));
 
         return;
@@ -314,7 +314,7 @@ export default function PatientListScreen() {
         if (duplicatePatientId) {
           setErrors((prev) => ({
             ...prev,
-            patientId: "Patient ID นี้มีอยู่แล้ว",
+            patientId: " กรุณาระบุ Patient ID ให้ถูกต้อง",
           }));
 
           return;
@@ -348,7 +348,7 @@ export default function PatientListScreen() {
       if (duplicatePhone) {
         setErrors((prev) => ({
           ...prev,
-          phone: "เบอร์โทรศัพท์นี้มีอยู่แล้ว",
+          phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
         }));
 
         return;
@@ -396,9 +396,7 @@ export default function PatientListScreen() {
       }
 
       await loadPatients();
-
-      setModalVisible(false);
-      clearForm();
+      closeModal();
     } catch (error: any) {
       console.error("Save patient error:", error);
 
@@ -425,6 +423,7 @@ export default function PatientListScreen() {
         pathname: "/patient-info",
         params: {
           citizenId: patient.citizenId,
+          from: "patient-list",
         },
       });
     } catch (error) {
@@ -524,6 +523,13 @@ export default function PatientListScreen() {
   };
 
   // =========================
+  // Close Modal
+  // =========================
+  const closeModal = () => {
+    setModalVisible(false);
+  };
+
+  // =========================
   // Open Add Modal
   // =========================
   const openAddModal = () => {
@@ -543,11 +549,11 @@ export default function PatientListScreen() {
       <ScrollView
         style={styles.list}
         contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
       >
         {patients.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>ยังไม่มีข้อมูลผู้ป่วย</Text>
+            <Text style={styles.emptyText}>ไม่มีรายการผู้ป่วย</Text>
           </View>
         ) : (
           patients.map((patient) => {
@@ -562,18 +568,22 @@ export default function PatientListScreen() {
                   <Text style={styles.patientName}>{patient.name}</Text>
 
                   <Text style={styles.patientText}>
-                    Patient ID: {patient.patientId || "-"}
+                    Patient ID : {patient.patientId || "-"}
                   </Text>
 
                   <Text style={styles.patientText}>
-                    Citizen ID: {patient.citizenId}
+                    เลขบัตรประชาชน : {patient.citizenId}
                   </Text>
 
-                  <Text style={styles.patientText}>เพศ: {patient.gender}</Text>
+                  <Text style={styles.patientText}>เพศ : {patient.gender}</Text>
 
-                  <Text style={styles.patientText}>อายุ: {patient.age} ปี</Text>
+                  <Text style={styles.patientText}>
+                    อายุ : {patient.age} ปี
+                  </Text>
 
-                  <Text style={styles.patientText}>โทร: {patient.phone}</Text>
+                  <Text style={styles.patientText}>
+                    เบอร์โทรศัพท์ : {patient.phone}
+                  </Text>
                 </View>
 
                 <View style={styles.cardButtons}>
@@ -596,7 +606,7 @@ export default function PatientListScreen() {
                     >
                       <MaterialCommunityIcons
                         name="account-edit"
-                        size={20}
+                        size={22}
                         color="#2D69CA"
                       />
                     </TouchableOpacity>
@@ -617,7 +627,7 @@ export default function PatientListScreen() {
 
       {/* Add Button */}
       <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
-        <Ionicons name="person-add" size={20} color="#ffffff" />
+        <Ionicons name="person-add" size={22} color="#ffffff" />
       </TouchableOpacity>
 
       {/* Add / Edit Modal */}
@@ -625,19 +635,19 @@ export default function PatientListScreen() {
         visible={modalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => {
-          setModalVisible(false);
+        onRequestClose={closeModal}
+        onDismiss={() => {
           clearForm();
         }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <ScrollView
-              showsVerticalScrollIndicator={false}
+              showsVerticalScrollIndicator={true}
               keyboardShouldPersistTaps="handled"
             >
               <Text style={styles.modalTitle}>
-                {editingId ? "Edit Patient" : "Edit Patient"}
+                {editingId ? "Edit Patient" : "Add Patient"}
               </Text>
 
               {/* Patient ID */}
@@ -904,7 +914,6 @@ export default function PatientListScreen() {
                   style={styles.cancelButton}
                   onPress={() => {
                     setModalVisible(false);
-                    clearForm();
                   }}
                 >
                   <Text style={styles.cancelText}>Cancel</Text>
@@ -915,7 +924,7 @@ export default function PatientListScreen() {
                   onPress={savePatient}
                 >
                   <Text style={styles.saveText}>
-                    {editingId ? "Save" : "Save"}
+                    {editingId ? "Save" : "Add"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -941,7 +950,7 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 38,
+    fontSize: 48,
     fontWeight: "700",
     color: BLUE,
     textAlign: "center",
@@ -956,10 +965,12 @@ const styles = StyleSheet.create({
 
   list: {
     flex: 1,
+    marginRight: -25,
   },
 
   listContent: {
-    paddingBottom: 100,
+    paddingBottom: 150,
+    paddingRight: 25,
   },
 
   emptyContainer: {
@@ -974,14 +985,22 @@ const styles = StyleSheet.create({
 
   patientCard: {
     backgroundColor: "#FFFFFF",
+    width: "75%",
     borderWidth: 1.5,
-    borderColor: "#D5D5D5",
     borderRadius: 15,
     padding: 20,
     marginBottom: 15,
+    marginLeft: "auto",
+    marginRight: "auto",
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   selectedCard: {
@@ -1016,12 +1035,12 @@ const styles = StyleSheet.create({
     backgroundColor: BLUE,
     paddingHorizontal: 15,
     paddingVertical: 9,
-    borderRadius: 8,
+    borderRadius: 10,
     marginBottom: 10,
   },
 
   selectedButton: {
-    backgroundColor: "#6F85DE",
+    backgroundColor: "#6691d7",
   },
 
   selectButtonText: {
@@ -1038,7 +1057,7 @@ const styles = StyleSheet.create({
   editButton: {
     width: 40,
     height: 36,
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: "#EEF2FF",
     alignItems: "center",
     justifyContent: "center",
@@ -1053,7 +1072,7 @@ const styles = StyleSheet.create({
   deleteButton: {
     width: 40,
     height: 36,
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: "#FDECEC",
     alignItems: "center",
     justifyContent: "center",
@@ -1065,11 +1084,11 @@ const styles = StyleSheet.create({
 
   addButton: {
     position: "absolute",
-    right: 30,
+    right: 38,
     bottom: 110,
     width: 58,
     height: 58,
-    borderRadius: 29,
+    borderRadius: 40,
     backgroundColor: BLUE,
     alignItems: "center",
     justifyContent: "center",
@@ -1083,13 +1102,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
 
-  plus: {
-    color: "#FFFFFF",
-    fontSize: 38,
-    fontWeight: "300",
-    lineHeight: 42,
-  },
-
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
@@ -1099,16 +1111,22 @@ const styles = StyleSheet.create({
   },
 
   modalCard: {
-    width: "100%",
+    width: "90%",
     maxWidth: 500,
     maxHeight: "90%",
     backgroundColor: "#FFFFFF",
     borderRadius: 18,
     padding: 30,
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   modalTitle: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: "700",
     color: BLUE,
     marginBottom: 20,
@@ -1119,13 +1137,18 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 52,
     borderWidth: 1,
-    borderColor: "#C9C9C9",
     borderRadius: 10,
     paddingHorizontal: 20,
     fontSize: 17,
     color: "#222",
     backgroundColor: "#FFFFFF",
     marginBottom: 12,
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   patientIdNote: {
@@ -1220,9 +1243,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     borderRadius: 9,
     borderWidth: 1,
-    borderColor: "#BBBBBB",
     alignItems: "center",
     justifyContent: "center",
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   cancelText: {
@@ -1238,6 +1266,12 @@ const styles = StyleSheet.create({
     backgroundColor: BLUE,
     alignItems: "center",
     justifyContent: "center",
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   saveText: {

@@ -129,6 +129,7 @@ export default function ExistingPatientScreen() {
       pathname: "/patient-info",
       params: {
         citizenId: patient.citizenId,
+        from: "existing",
       },
     });
   };
@@ -153,11 +154,11 @@ export default function ExistingPatientScreen() {
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={23} color="#222222" />
+          <Ionicons name="arrow-back" size={24} color="#222222" />
         </TouchableOpacity>
 
         <Image
-          source={require("../assets/images/logo-app.jpg")}
+          source={require("../assets/images/cushion.png")}
           style={styles.headerLogo}
           resizeMode="contain"
         />
@@ -214,7 +215,8 @@ export default function ExistingPatientScreen() {
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="handled"
         >
           {patients.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -238,23 +240,23 @@ export default function ExistingPatientScreen() {
                     <Text style={styles.patientName}>{patient.name}</Text>
 
                     <Text style={styles.patientText}>
-                      Patient ID: {patient.patientId || "-"}
+                      Patient ID : {patient.patientId || "-"}
                     </Text>
 
                     <Text style={styles.patientText}>
-                      เลขบัตรประชาชน: {patient.citizenId}
+                      เลขบัตรประชาชน : {patient.citizenId}
                     </Text>
 
                     <Text style={styles.patientText}>
-                      เพศ: {patient.gender}
+                      เพศ : {patient.gender}
                     </Text>
 
                     <Text style={styles.patientText}>
-                      อายุ: {patient.age} ปี
+                      อายุ : {patient.age} ปี
                     </Text>
 
                     <Text style={styles.patientText}>
-                      เบอร์โทรศัพท์: {patient.phone}
+                      เบอร์โทรศัพท์ : {patient.phone}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -327,14 +329,14 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 38,
+    fontSize: 48,
     fontWeight: "700",
     color: BLUE,
     textAlign: "center",
   },
 
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#888",
     marginTop: 4,
   },
@@ -345,10 +347,14 @@ const styles = StyleSheet.create({
 
   scrollView: {
     flex: 1,
+    marginRight: -20,
   },
 
   scrollContent: {
     paddingBottom: 40,
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
   },
 
   // =======================================================
@@ -370,13 +376,23 @@ const styles = StyleSheet.create({
   // =======================================================
 
   patientCard: {
-    width: "100%",
+    width: "75%",
     backgroundColor: "#FFFFFF",
     borderWidth: 1.5,
-    borderColor: "#D5D5D5",
     borderRadius: 15,
-    padding: 20,
+    padding: 15,
     marginBottom: 15,
+    marginTop: -10,
+    marginLeft: "auto",
+    marginRight: "auto",
+    alignItems: "center",
+    justifyContent: "center",
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   selectedCard: {
@@ -396,7 +412,7 @@ const styles = StyleSheet.create({
   },
 
   patientText: {
-    fontSize: 15,
+    fontSize: 16,
     color: "#666",
     marginBottom: 5,
   },

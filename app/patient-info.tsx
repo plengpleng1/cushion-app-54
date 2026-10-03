@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -29,8 +30,9 @@ type UserPatientRow = {
 export default function PatientInfo() {
   const router = useRouter();
 
-  const { citizenId: selectedCitizenId } = useLocalSearchParams<{
+  const { citizenId: selectedCitizenId, from } = useLocalSearchParams<{
     citizenId?: string;
+    from?: string;
   }>();
 
   // =========================================================
@@ -172,7 +174,7 @@ export default function PatientInfo() {
 
     // อนุญาตเฉพาะ A-Z, a-z และ 0-9
     if (!/^[a-zA-Z0-9]+$/.test(value)) {
-      return "Patient ID ใช้ได้เฉพาะตัวอักษรภาษาอังกฤษและตัวเลข";
+      return "กรุณาระบุ Patient ID ให้ถูกต้อง";
     }
 
     return "";
@@ -180,7 +182,7 @@ export default function PatientInfo() {
 
   const validateName = (value: string) => {
     if (!value.trim()) {
-      return "กรุณากรอกชื่อ - นามสกุล";
+      return "กรุณาระบุชื่อ - นามสกุล";
     }
 
     return "";
@@ -188,11 +190,11 @@ export default function PatientInfo() {
 
   const validateCitizenId = (value: string) => {
     if (!value) {
-      return "กรุณากรอกเลขบัตรประชาชนให้ถูกต้อง";
+      return "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง";
     }
 
     if (!/^\d{13}$/.test(value)) {
-      return "กรุณากรอกเลขบัตรประชาชนให้ถูกต้อง";
+      return "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง";
     }
 
     return "";
@@ -208,13 +210,13 @@ export default function PatientInfo() {
 
   const validateAge = (value: string) => {
     if (!value) {
-      return "กรุณากรอกอายุให้ถูกต้อง";
+      return "กรุณาระบุอายุให้ถูกต้อง";
     }
 
     const number = Number(value);
 
     if (number < 1 || number > 120) {
-      return "กรุณากรอกอายุให้ถูกต้อง";
+      return "กรุณาระบุอายุให้ถูกต้อง";
     }
 
     return "";
@@ -222,12 +224,12 @@ export default function PatientInfo() {
 
   const validatePhone = (value: string) => {
     if (!value) {
-      return "กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง";
+      return "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง";
     }
 
     // ต้องเป็นตัวเลข 10 หลัก และขึ้นต้นด้วย 0
     if (!/^0\d{9}$/.test(value)) {
-      return "กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง";
+      return "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง";
     }
 
     return "";
@@ -297,7 +299,6 @@ export default function PatientInfo() {
         const { data: citizenExists, error: citizenError } = await supabase
           .from("user_patients")
           .select("id")
-          .eq("user_id", user.id)
           .eq("citizen_id", patientData.citizen_id)
           .maybeSingle();
 
@@ -312,7 +313,7 @@ export default function PatientInfo() {
         if (citizenExists) {
           setErrors({
             ...newErrors,
-            citizenId: "เลขบัตรประชาชนนี้มีอยู่แล้ว",
+            citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
           });
 
           return;
@@ -327,7 +328,6 @@ export default function PatientInfo() {
             await supabase
               .from("user_patients")
               .select("id")
-              .eq("user_id", user.id)
               .eq("patient_id", patientData.patient_id)
               .maybeSingle();
 
@@ -342,7 +342,7 @@ export default function PatientInfo() {
           if (patientIdExists) {
             setErrors({
               ...newErrors,
-              patientId: "Patient ID นี้มีอยู่แล้ว",
+              patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
             });
 
             return;
@@ -356,7 +356,6 @@ export default function PatientInfo() {
         const { data: phoneExists, error: phoneError } = await supabase
           .from("user_patients")
           .select("id")
-          .eq("user_id", user.id)
           .eq("phone", patientData.phone)
           .maybeSingle();
 
@@ -371,7 +370,7 @@ export default function PatientInfo() {
         if (phoneExists) {
           setErrors({
             ...newErrors,
-            phone: "เบอร์โทรศัพท์นี้มีอยู่แล้ว",
+            phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
           });
 
           return;
@@ -437,7 +436,6 @@ export default function PatientInfo() {
             await supabase
               .from("user_patients")
               .select("id")
-              .eq("user_id", user.id)
               .eq("patient_id", patientData.patient_id)
               .neq("id", existingPatientId)
               .maybeSingle();
@@ -453,11 +451,38 @@ export default function PatientInfo() {
           if (duplicatePatientId) {
             setErrors({
               ...newErrors,
-              patientId: "Patient ID นี้มีอยู่แล้ว",
+              patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
             });
 
             return;
           }
+        }
+
+        // ===================================================
+        // ตรวจ Citizen ID ซ้ำ
+        // ===================================================
+
+        const { data: citizenExists, error: citizenError } = await supabase
+          .from("user_patients")
+          .select("id")
+          .eq("citizen_id", patientData.citizen_id)
+          .maybeSingle();
+
+        if (citizenError) {
+          console.error("Check citizen ID error:", citizenError);
+
+          Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถตรวจสอบเลขบัตรประชาชนได้");
+
+          return;
+        }
+
+        if (citizenExists) {
+          setErrors({
+            ...newErrors,
+            citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
+          });
+
+          return;
         }
 
         // ===================================================
@@ -468,7 +493,7 @@ export default function PatientInfo() {
           await supabase
             .from("user_patients")
             .select("id")
-            .eq("user_id", user.id)
+
             .eq("phone", patientData.phone)
             .neq("id", existingPatientId)
             .maybeSingle();
@@ -484,7 +509,7 @@ export default function PatientInfo() {
         if (duplicatePhone) {
           setErrors({
             ...newErrors,
-            phone: "เบอร์โทรศัพท์นี้มีอยู่แล้ว",
+            phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
           });
 
           return;
@@ -547,9 +572,26 @@ export default function PatientInfo() {
           // โลโก้อยู่ด้านซ้าย ถัดจากลูกศร Back
           headerTitleAlign: "left",
 
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => {
+                if (from === "patient-list") {
+                  router.back();
+                } else if (from === "existing") {
+                  router.replace("/existing-patient");
+                } else {
+                  router.replace("/select");
+                }
+              }}
+              style={{ marginLeft: 15 }}
+            >
+              <Ionicons name="arrow-back" size={24} color="#222222" />
+            </TouchableOpacity>
+          ),
+
           headerTitle: () => (
             <Image
-              source={require("../assets/images/logo-app.jpg")}
+              source={require("../assets/images/cushion.png")}
               style={styles.headerLogo}
               resizeMode="contain"
             />
@@ -561,6 +603,7 @@ export default function PatientInfo() {
         style={styles.background}
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         {/* ===================================================
             Page Header
@@ -568,10 +611,7 @@ export default function PatientInfo() {
 
         <View style={styles.header}>
           <Text style={styles.welcome}>Patient Information</Text>
-
-          <Text style={styles.logo}>
-            Cushion <Text style={styles.sense}>Sense</Text>
-          </Text>
+          <Text style={styles.subtitle}>กรุณาระบุข้อมูลผู้ป่วย</Text>
         </View>
 
         {/* ===================================================
@@ -860,7 +900,7 @@ const styles = StyleSheet.create({
   headerLogo: {
     width: 105,
     height: 35,
-    marginLeft: 0,
+    marginLeft: 11,
   },
 
   // =======================================================
@@ -877,9 +917,9 @@ const styles = StyleSheet.create({
   // =======================================================
 
   scrollContainer: {
+    flex: 1,
     alignItems: "center",
-    paddingVertical: 55,
-    paddingHorizontal: 20,
+    justifyContent: "center",
   },
 
   // =======================================================
@@ -890,24 +930,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 35,
   },
+  subtitle: {
+    fontSize: 15,
+    color: "#888",
+    marginTop: 4,
+    textAlign: "center",
+  },
 
   welcome: {
-    fontSize: 38,
+    fontSize: 48,
     fontWeight: "700",
     color: BLUE,
-    marginBottom: 4,
-  },
-
-  logo: {
-    fontSize: 32,
-    fontStyle: "italic",
-    fontWeight: "700",
-    color: BLUE,
-  },
-
-  sense: {
-    fontStyle: "italic",
-    fontWeight: "400",
+    marginTop: 118,
   },
 
   // =======================================================
@@ -915,14 +949,21 @@ const styles = StyleSheet.create({
   // =======================================================
 
   card: {
-    width: "100%",
-    maxWidth: 475,
+    width: "70%",
+    maxWidth: 460,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#D8D8D8",
     borderRadius: 15,
     paddingHorizontal: 38,
-    paddingVertical: 35,
+    paddingVertical: 20,
+    marginBottom: 100,
+    marginTop: -10,
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   // =======================================================
@@ -931,15 +972,22 @@ const styles = StyleSheet.create({
 
   input: {
     width: "100%",
-    height: 60,
+    height: 50,
     borderWidth: 1,
-    borderColor: "#C9C9C9",
     borderRadius: 10,
     paddingHorizontal: 20,
+    paddingVertical: 25,
     fontSize: 17,
     color: "#222",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FAFAFA",
     marginBottom: 15,
+    marginTop: 8,
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   inputError: {
@@ -1041,19 +1089,25 @@ const styles = StyleSheet.create({
   // =======================================================
 
   nextButton: {
-    width: "40%",
+    width: "25%",
     height: 40,
     backgroundColor: BLUE,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "flex-end",
-    marginTop: 20,
+    marginTop: 10,
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   nextText: {
     color: "#FFFFFF",
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: "600",
   },
 });
