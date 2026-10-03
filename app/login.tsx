@@ -1025,14 +1025,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   welcomeText: {
-    fontSize: 70,
+    fontSize: 80,
     fontWeight: "800",
     color: "#2D69CA",
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: -12,
   },
   logoImage: {
-    width: 280,
+    width: 290,
     height: 100,
     alignSelf: "center",
     marginBottom: 5,
