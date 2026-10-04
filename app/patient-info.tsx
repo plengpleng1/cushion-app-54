@@ -371,7 +371,7 @@ export default function PatientInfo() {
         if (phoneExists && phoneExists.length > 0) {
           setErrors({
             ...newErrors,
-            phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
+            phone: "เบอร์โทรศัพท์นี้ถูกลงทะเบียนในระบบแล้ว",
           });
 
           return;
@@ -418,7 +418,7 @@ export default function PatientInfo() {
             if (message.includes("phone")) {
               setErrors({
                 ...newErrors,
-                phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
+                phone: "เบอร์โทรศัพท์นี้ถูกลงทะเบียนในระบบแล้ว",
               });
               return;
             }
@@ -544,7 +544,7 @@ export default function PatientInfo() {
         if (duplicatePhone && duplicatePhone.length > 0) {
           setErrors({
             ...newErrors,
-            phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
+            phone: "เบอร์โทรศัพท์นี้ถูกลงทะเบียนในระบบแล้ว",
           });
 
           return;
@@ -589,7 +589,7 @@ export default function PatientInfo() {
             if (message.includes("phone")) {
               setErrors({
                 ...newErrors,
-                phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
+                phone: "เบอร์โทรศัพท์นี้ถูกลงทะเบียนในระบบแล้ว",
               });
               return;
             }

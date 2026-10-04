@@ -350,7 +350,7 @@ export default function PatientListScreen() {
       if (duplicatePhone && duplicatePhone.length > 0) {
         setErrors((prev) => ({
           ...prev,
-          phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
+          phone: "เบอร์โทรศัพท์นี้ถูกลงทะเบียนในระบบแล้ว",
         }));
 
         return;
@@ -406,7 +406,7 @@ export default function PatientListScreen() {
             if (message.includes("phone")) {
               setErrors((prev) => ({
                 ...prev,
-                phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
+                phone: "เบอร์โทรศัพท์นี้ถูกลงทะเบียนในระบบแล้ว",
               }));
               return;
             }
@@ -455,7 +455,7 @@ export default function PatientListScreen() {
             if (message.includes("phone")) {
               setErrors((prev) => ({
                 ...prev,
-                phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
+                phone: "เบอร์โทรศัพท์นี้ถูกลงทะเบียนในระบบแล้ว",
               }));
               return;
             }
