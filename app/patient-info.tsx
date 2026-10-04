@@ -314,7 +314,7 @@ export default function PatientInfo() {
         if (duplicateCitizenId && duplicateCitizenId.length > 0) {
           setErrors({
             ...newErrors,
-            citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
+            citizenId: "เลขบัตรประชาชนนี้ถูกลงทะเบียนในระบบแล้ว",
           });
 
           return;
@@ -343,7 +343,7 @@ export default function PatientInfo() {
           if (patientIdExists && patientIdExists.length > 0) {
             setErrors({
               ...newErrors,
-              patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
+              patientId: "Patient ID นี้ถูกลงทะเบียนในระบบแล้ว",
             });
 
             return;
@@ -400,7 +400,7 @@ export default function PatientInfo() {
             if (message.includes("citizen_id")) {
               setErrors({
                 ...newErrors,
-                citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
+                citizenId: "เลขบัตรประชาชนนี้ถูกลงทะเบียนในระบบแล้ว",
               });
               return;
             }
@@ -409,7 +409,7 @@ export default function PatientInfo() {
             if (message.includes("patient_id")) {
               setErrors({
                 ...newErrors,
-                patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
+                patientId: "Patient ID นี้ถูกลงทะเบียนในระบบแล้ว",
               });
               return;
             }
@@ -486,7 +486,7 @@ export default function PatientInfo() {
           if (duplicatePatientId && duplicatePatientId.length > 0) {
             setErrors({
               ...newErrors,
-              patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
+              patientId: "Patient ID นี้ถูกลงทะเบียนในระบบแล้ว",
             });
 
             return;
@@ -515,7 +515,7 @@ export default function PatientInfo() {
         if (duplicateCitizenId && duplicateCitizenId.length > 0) {
           setErrors({
             ...newErrors,
-            citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
+            citizenId: "เลขบัตรประชาชนนี้ถูกลงทะเบียนในระบบแล้ว",
           });
 
           return;
@@ -571,7 +571,7 @@ export default function PatientInfo() {
             if (message.includes("citizen_id")) {
               setErrors({
                 ...newErrors,
-                citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
+                citizenId: "เลขบัตรประชาชนนี้ถูกลงทะเบียนในระบบแล้ว",
               });
               return;
             }
@@ -580,7 +580,7 @@ export default function PatientInfo() {
             if (message.includes("patient_id")) {
               setErrors({
                 ...newErrors,
-                patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
+                patientId: "Patient ID นี้ถูกลงทะเบียนในระบบแล้ว",
               });
               return;
             }

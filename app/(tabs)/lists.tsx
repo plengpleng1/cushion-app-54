@@ -281,7 +281,7 @@ export default function PatientListScreen() {
       if (duplicateCitizen && duplicateCitizen.length > 0) {
         setErrors((prev) => ({
           ...prev,
-          citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
+          citizenId: "เลขบัตรประชาชนนี้ถูกลงทะเบียนในระบบแล้ว",
         }));
 
         return;
@@ -316,7 +316,7 @@ export default function PatientListScreen() {
         if (duplicatePatientId && duplicatePatientId.length > 0) {
           setErrors((prev) => ({
             ...prev,
-            patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
+            patientId: "Patient ID นี้ถูกลงทะเบียนในระบบแล้ว",
           }));
 
           return;
@@ -390,7 +390,7 @@ export default function PatientListScreen() {
             if (message.includes("citizen_id")) {
               setErrors((prev) => ({
                 ...prev,
-                citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
+                citizenId: "เลขบัตรประชาชนนี้ถูกลงทะเบียนในระบบแล้ว",
               }));
               return;
             }
@@ -398,7 +398,7 @@ export default function PatientListScreen() {
             if (message.includes("patient_id")) {
               setErrors((prev) => ({
                 ...prev,
-                patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
+                patientId: "Patient ID นี้ถูกลงทะเบียนในระบบแล้ว",
               }));
               return;
             }
@@ -439,7 +439,7 @@ export default function PatientListScreen() {
             if (message.includes("citizen_id")) {
               setErrors((prev) => ({
                 ...prev,
-                citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
+                citizenId: "เลขบัตรประชาชนนี้ถูกลงทะเบียนในระบบแล้ว",
               }));
               return;
             }
@@ -447,7 +447,7 @@ export default function PatientListScreen() {
             if (message.includes("patient_id")) {
               setErrors((prev) => ({
                 ...prev,
-                patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
+                patientId: "Patient ID นี้ถูกลงทะเบียนในระบบแล้ว",
               }));
               return;
             }
