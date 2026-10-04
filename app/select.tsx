@@ -361,10 +361,10 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 48,
+    fontSize: 37,
     fontWeight: "700",
     color: BLUE,
-    marginTop: -285,
+    marginTop: -232,
   },
 
   subtitle: {
@@ -380,15 +380,15 @@ const styles = StyleSheet.create({
 
   card: {
     width: "100%",
-    maxWidth: 325,
+    maxWidth: 400,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#FFFFFF",
     borderWidth: 0.5,
-    borderRadius: 15,
+    borderRadius: 12,
     paddingHorizontal: 28,
     paddingVertical: 15,
-    marginTop: -200,
+    marginTop: -162,
     borderColor: "#EAEAEA",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -403,8 +403,8 @@ const styles = StyleSheet.create({
 
   button: {
     height: 50,
-    width: "95%",
-    borderRadius: 15,
+    width: "100%",
+    borderRadius: 12,
     backgroundColor: BLUE,
     alignItems: "center",
     justifyContent: "center",
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
 
   buttonText: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "500",
   },
 

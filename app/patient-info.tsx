@@ -670,7 +670,7 @@ export default function PatientInfo() {
         style={styles.background}
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
       >
         {/* ===================================================
             Page Header
@@ -1005,10 +1005,10 @@ const styles = StyleSheet.create({
   },
 
   welcome: {
-    fontSize: 48,
+    fontSize: 37,
     fontWeight: "700",
     color: BLUE,
-    marginTop: 118,
+    marginTop: 153,
   },
 
   // =======================================================
@@ -1016,14 +1016,15 @@ const styles = StyleSheet.create({
   // =======================================================
 
   card: {
-    width: "70%",
-    maxWidth: 460,
+    width: "100%",
+    maxWidth: 325,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderRadius: 15,
+    padding: 10,
     paddingHorizontal: 38,
     paddingVertical: 20,
-    marginBottom: 100,
+    marginBottom: 145,
     marginTop: -10,
     borderColor: "#EAEAEA",
     shadowColor: "#000",
@@ -1039,16 +1040,16 @@ const styles = StyleSheet.create({
 
   input: {
     width: "100%",
-    height: 50,
+    height: 48,
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 20,
-    paddingVertical: 25,
+    paddingVertical: 20,
     fontSize: 17,
     color: "#222",
     backgroundColor: "#FAFAFA",
-    marginBottom: 15,
-    marginTop: 8,
+    marginBottom: 14,
+    marginTop: 1,
     borderColor: "#EAEAEA",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -1070,7 +1071,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#888",
     marginTop: -10,
-    marginBottom: 12,
+    marginBottom: 15,
     marginLeft: 5,
   },
 
@@ -1157,13 +1158,13 @@ const styles = StyleSheet.create({
 
   nextButton: {
     width: "25%",
-    height: 40,
+    height: 36,
     backgroundColor: BLUE,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "flex-end",
-    marginTop: 10,
+    marginTop: 1,
     borderColor: "#EAEAEA",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -1174,7 +1175,7 @@ const styles = StyleSheet.create({
 
   nextText: {
     color: "#FFFFFF",
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "600",
   },
 });

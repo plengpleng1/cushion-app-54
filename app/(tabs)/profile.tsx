@@ -6,7 +6,6 @@ import {
   Image,
   Platform,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -123,27 +122,23 @@ export default function ProfileScreen() {
         <View style={styles.cardContainer}>
           {/* แสดง Username */}
           {username ? (
-            <View style={styles.infoBoxWrapper}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.infoScrollContent}
-              >
-                <Text style={styles.infoText}>Username : {username}</Text>
-              </ScrollView>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.fieldLabel}>Username</Text>
+
+              <View style={styles.infoBoxWrapper}>
+                <Text style={styles.infoText}>{username}</Text>
+              </View>
             </View>
           ) : null}
 
           {/* แสดง Email */}
           {email ? (
-            <View style={styles.infoBoxWrapper}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.infoScrollContent}
-              >
-                <Text style={styles.infoText}>Email : {email}</Text>
-              </ScrollView>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.fieldLabel}>Email</Text>
+
+              <View style={styles.infoBoxWrapper}>
+                <Text style={styles.infoText}>{email}</Text>
+              </View>
             </View>
           ) : null}
 
@@ -169,18 +164,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   logoImage: {
-    width: 350, // ปรับความกว้างของโลโก้ตามต้องการ
+    width: 325, // ปรับความกว้างของโลโก้ตามต้องการ
     height: 200, // ปรับความสูงของโลโก้ตามสัดส่วนจริง
     alignSelf: "center", // จัดให้อยู่กึ่งกลางหน้าจอ
-    marginTop: -130,
-    marginLeft: 8,
+    marginTop: -80,
+    marginLeft: 3,
   },
   cardContainer: {
-    width: "80%",
-    maxWidth: 355,
+    width: "108%",
+    maxWidth: 470,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderRadius: 15,
+    borderRadius: 12,
     paddingHorizontal: 30,
     paddingVertical: 30,
     borderColor: "#EAEAEA",
@@ -189,23 +184,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
-    marginTop: -150,
+    marginTop: -110,
   },
   infoBoxWrapper: {
     width: "100%",
     height: 50,
     borderWidth: 1,
     borderRadius: 10,
-    marginBottom: 16,
-    backgroundColor: "#FFFFFF",
+    padding: -5,
+    marginBottom: 15,
+    backgroundColor: "#FAFAFA",
     justifyContent: "center",
+    alignItems: "flex-start",
+
     overflow: "hidden",
-    borderColor: "#EAEAEA",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: "#D1D5DB",
   },
   infoScrollContent: {
     alignItems: "center",
@@ -215,8 +208,9 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "500",
     color: "#333333",
+    marginLeft: 8,
   },
   logoutButton: {
     width: "100%",
@@ -236,6 +230,17 @@ const styles = StyleSheet.create({
   logoutButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
+    fontWeight: "500",
+  },
+  fieldContainer: {
+    width: "100%",
+    marginBottom: -5,
+  },
+
+  fieldLabel: {
+    fontSize: 14,
     fontWeight: "600",
+    color: "#333333",
+    marginBottom: 6,
   },
 });

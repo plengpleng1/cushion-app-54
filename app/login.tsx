@@ -1031,7 +1031,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   welcomeText: {
-    fontSize: 80,
+    fontSize: 76,
     fontWeight: "800",
     color: "#2D69CA",
     textAlign: "center",

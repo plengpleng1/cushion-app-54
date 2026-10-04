@@ -329,10 +329,11 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 48,
+    fontSize: 37,
     fontWeight: "700",
     color: BLUE,
     textAlign: "center",
+    marginTop: -10,
   },
 
   subtitle: {
@@ -376,13 +377,13 @@ const styles = StyleSheet.create({
   // =======================================================
 
   patientCard: {
-    width: "75%",
+    width: "100%",
     backgroundColor: "#FFFFFF",
     borderWidth: 1.5,
     borderRadius: 15,
     padding: 15,
     marginBottom: 15,
-    marginTop: -10,
+    marginTop: -8,
     marginLeft: "auto",
     marginRight: "auto",
     alignItems: "center",

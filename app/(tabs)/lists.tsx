@@ -856,7 +856,7 @@ export default function PatientListScreen() {
                         gender ? styles.selectedText : styles.placeholderText
                       }
                     >
-                      {gender || "เลือกเพศ"}
+                      {gender || "เพศ"}
                     </Text>
 
                     <Text style={styles.arrow}>{genderOpen ? "▲" : "▼"}</Text>
@@ -1029,10 +1029,11 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 48,
-    fontWeight: "700",
+    fontSize: 35,
+    fontWeight: "800",
     color: BLUE,
     textAlign: "center",
+    marginTop: 18,
   },
 
   subtitle: {
@@ -1064,7 +1065,7 @@ const styles = StyleSheet.create({
 
   patientCard: {
     backgroundColor: "#FFFFFF",
-    width: "75%",
+    width: "100%",
     borderWidth: 1.5,
     borderRadius: 15,
     padding: 20,
@@ -1116,6 +1117,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 10,
     marginBottom: 10,
+    right: -10,
   },
 
   selectedButton: {
@@ -1136,6 +1138,7 @@ const styles = StyleSheet.create({
   editButton: {
     width: 40,
     height: 36,
+    right: -9,
     borderRadius: 10,
     backgroundColor: "#EEF2FF",
     alignItems: "center",
@@ -1151,6 +1154,7 @@ const styles = StyleSheet.create({
   deleteButton: {
     width: 40,
     height: 36,
+    right: -10,
     borderRadius: 10,
     backgroundColor: "#FDECEC",
     alignItems: "center",
@@ -1163,7 +1167,7 @@ const styles = StyleSheet.create({
 
   addButton: {
     position: "absolute",
-    right: 38,
+    right: 15,
     bottom: 110,
     width: 58,
     height: 58,
@@ -1205,7 +1209,7 @@ const styles = StyleSheet.create({
   },
 
   modalTitle: {
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: "700",
     color: BLUE,
     marginBottom: 20,
