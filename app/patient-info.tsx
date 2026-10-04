@@ -296,21 +296,22 @@ export default function PatientInfo() {
         // ตรวจ Citizen ID ซ้ำ
         // ===================================================
 
-        const { data: citizenExists, error: citizenError } = await supabase
-          .from("user_patients")
-          .select("id")
-          .eq("citizen_id", patientData.citizen_id)
-          .maybeSingle();
+        const { data: duplicateCitizenId, error: duplicateCitizenError } =
+          await supabase
+            .from("user_patients")
+            .select("id")
+            .eq("citizen_id", patientData.citizen_id)
+            .limit(1);
 
-        if (citizenError) {
-          console.error("Check citizen ID error:", citizenError);
+        if (duplicateCitizenError) {
+          console.error("Check citizen ID error:", duplicateCitizenError);
 
           Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถตรวจสอบเลขบัตรประชาชนได้");
 
           return;
         }
 
-        if (citizenExists) {
+        if (duplicateCitizenId && duplicateCitizenId.length > 0) {
           setErrors({
             ...newErrors,
             citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
@@ -329,7 +330,7 @@ export default function PatientInfo() {
               .from("user_patients")
               .select("id")
               .eq("patient_id", patientData.patient_id)
-              .maybeSingle();
+              .limit(1);
 
           if (patientIdError) {
             console.error("Check patient ID error:", patientIdError);
@@ -339,7 +340,7 @@ export default function PatientInfo() {
             return;
           }
 
-          if (patientIdExists) {
+          if (patientIdExists && patientIdExists.length > 0) {
             setErrors({
               ...newErrors,
               patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
@@ -357,7 +358,7 @@ export default function PatientInfo() {
           .from("user_patients")
           .select("id")
           .eq("phone", patientData.phone)
-          .maybeSingle();
+          .limit(1);
 
         if (phoneError) {
           console.error("Check phone error:", phoneError);
@@ -367,7 +368,7 @@ export default function PatientInfo() {
           return;
         }
 
-        if (phoneExists) {
+        if (phoneExists && phoneExists.length > 0) {
           setErrors({
             ...newErrors,
             phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
@@ -388,8 +389,42 @@ export default function PatientInfo() {
           } as never);
 
         if (insertError) {
-          console.error("Insert patient error:", insertError);
+          // ============================================
+          // ข้อมูลซ้ำจาก UNIQUE constraint
+          // ============================================
 
+          if (insertError.code === "23505") {
+            const message = insertError.message;
+
+            // Citizen ID ซ้ำ
+            if (message.includes("citizen_id")) {
+              setErrors({
+                ...newErrors,
+                citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
+              });
+              return;
+            }
+
+            // Patient ID ซ้ำ
+            if (message.includes("patient_id")) {
+              setErrors({
+                ...newErrors,
+                patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
+              });
+              return;
+            }
+
+            // Phone ซ้ำ
+            if (message.includes("phone")) {
+              setErrors({
+                ...newErrors,
+                phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
+              });
+              return;
+            }
+          }
+
+          // Error อื่น ๆ ที่ไม่ใช่ข้อมูลซ้ำ
           Alert.alert("บันทึกไม่สำเร็จ", insertError.message);
 
           return;
@@ -438,7 +473,7 @@ export default function PatientInfo() {
               .select("id")
               .eq("patient_id", patientData.patient_id)
               .neq("id", existingPatientId)
-              .maybeSingle();
+              .limit(1);
 
           if (duplicateError) {
             console.error("Duplicate patient ID error:", duplicateError);
@@ -448,7 +483,7 @@ export default function PatientInfo() {
             return;
           }
 
-          if (duplicatePatientId) {
+          if (duplicatePatientId && duplicatePatientId.length > 0) {
             setErrors({
               ...newErrors,
               patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
@@ -457,26 +492,27 @@ export default function PatientInfo() {
             return;
           }
         }
-
         // ===================================================
         // ตรวจ Citizen ID ซ้ำ
         // ===================================================
 
-        const { data: citizenExists, error: citizenError } = await supabase
-          .from("user_patients")
-          .select("id")
-          .eq("citizen_id", patientData.citizen_id)
-          .maybeSingle();
+        const { data: duplicateCitizenId, error: duplicateCitizenError } =
+          await supabase
+            .from("user_patients")
+            .select("id")
+            .eq("citizen_id", patientData.citizen_id)
+            .neq("id", existingPatientId)
+            .limit(1);
 
-        if (citizenError) {
-          console.error("Check citizen ID error:", citizenError);
+        if (duplicateCitizenError) {
+          console.error("Duplicate citizen ID error:", duplicateCitizenError);
 
           Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถตรวจสอบเลขบัตรประชาชนได้");
 
           return;
         }
 
-        if (citizenExists) {
+        if (duplicateCitizenId && duplicateCitizenId.length > 0) {
           setErrors({
             ...newErrors,
             citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
@@ -493,10 +529,9 @@ export default function PatientInfo() {
           await supabase
             .from("user_patients")
             .select("id")
-
-            .eq("phone", patientData.phone)
             .neq("id", existingPatientId)
-            .maybeSingle();
+            .eq("phone", patientData.phone)
+            .limit(1);
 
         if (duplicatePhoneError) {
           console.error("Duplicate phone error:", duplicatePhoneError);
@@ -506,7 +541,7 @@ export default function PatientInfo() {
           return;
         }
 
-        if (duplicatePhone) {
+        if (duplicatePhone && duplicatePhone.length > 0) {
           setErrors({
             ...newErrors,
             phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
@@ -514,7 +549,6 @@ export default function PatientInfo() {
 
           return;
         }
-
         // ===================================================
         // UPDATE
         // ===================================================
@@ -526,7 +560,40 @@ export default function PatientInfo() {
           .eq("user_id", user.id);
 
         if (updateError) {
-          console.error("Update patient error:", updateError);
+          // ============================================
+          // ข้อมูลซ้ำจาก UNIQUE constraint
+          // ============================================
+
+          if (updateError.code === "23505") {
+            const message = updateError.message;
+
+            // Citizen ID ซ้ำ
+            if (message.includes("citizen_id")) {
+              setErrors({
+                ...newErrors,
+                citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
+              });
+              return;
+            }
+
+            // Patient ID ซ้ำ
+            if (message.includes("patient_id")) {
+              setErrors({
+                ...newErrors,
+                patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
+              });
+              return;
+            }
+
+            // Phone ซ้ำ
+            if (message.includes("phone")) {
+              setErrors({
+                ...newErrors,
+                phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
+              });
+              return;
+            }
+          }
 
           Alert.alert("บันทึกไม่สำเร็จ", updateError.message);
 

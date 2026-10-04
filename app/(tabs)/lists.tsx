@@ -255,19 +255,20 @@ export default function PatientListScreen() {
 
       // =========================
       // Check duplicate Citizen ID
+      // ตรวจทั้งตาราง ไม่จำกัด user_id
       // =========================
       let citizenQuery = supabase
         .from("user_patients")
         .select("id")
-        .eq("user_id", user.id)
-        .eq("citizen_id", trimmedCitizenId);
+        .eq("citizen_id", trimmedCitizenId)
+        .limit(1);
 
       if (editingId) {
         citizenQuery = citizenQuery.neq("id", editingId);
       }
 
       const { data: duplicateCitizen, error: citizenError } =
-        await citizenQuery.maybeSingle();
+        await citizenQuery;
 
       if (citizenError) {
         console.error("Check Citizen ID error:", citizenError);
@@ -277,7 +278,7 @@ export default function PatientListScreen() {
         return;
       }
 
-      if (duplicateCitizen) {
+      if (duplicateCitizen && duplicateCitizen.length > 0) {
         setErrors((prev) => ({
           ...prev,
           citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
@@ -288,20 +289,21 @@ export default function PatientListScreen() {
 
       // =========================
       // Check duplicate Patient ID
+      // ตรวจทั้งตาราง ไม่จำกัด user_id
       // =========================
       if (trimmedPatientId) {
         let patientIdQuery = supabase
           .from("user_patients")
           .select("id")
-          .eq("user_id", user.id)
-          .eq("patient_id", trimmedPatientId);
+          .eq("patient_id", trimmedPatientId)
+          .limit(1);
 
         if (editingId) {
           patientIdQuery = patientIdQuery.neq("id", editingId);
         }
 
         const { data: duplicatePatientId, error: patientIdError } =
-          await patientIdQuery.maybeSingle();
+          await patientIdQuery;
 
         if (patientIdError) {
           console.error("Check Patient ID error:", patientIdError);
@@ -311,10 +313,10 @@ export default function PatientListScreen() {
           return;
         }
 
-        if (duplicatePatientId) {
+        if (duplicatePatientId && duplicatePatientId.length > 0) {
           setErrors((prev) => ({
             ...prev,
-            patientId: " กรุณาระบุ Patient ID ให้ถูกต้อง",
+            patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
           }));
 
           return;
@@ -323,19 +325,19 @@ export default function PatientListScreen() {
 
       // =========================
       // Check duplicate Phone
+      // ตรวจทั้งตาราง ไม่จำกัด user_id
       // =========================
       let phoneQuery = supabase
         .from("user_patients")
         .select("id")
-        .eq("user_id", user.id)
-        .eq("phone", trimmedPhone);
+        .eq("phone", trimmedPhone)
+        .limit(1);
 
       if (editingId) {
         phoneQuery = phoneQuery.neq("id", editingId);
       }
 
-      const { data: duplicatePhone, error: phoneError } =
-        await phoneQuery.maybeSingle();
+      const { data: duplicatePhone, error: phoneError } = await phoneQuery;
 
       if (phoneError) {
         console.error("Check phone error:", phoneError);
@@ -345,7 +347,7 @@ export default function PatientListScreen() {
         return;
       }
 
-      if (duplicatePhone) {
+      if (duplicatePhone && duplicatePhone.length > 0) {
         setErrors((prev) => ({
           ...prev,
           phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
@@ -370,32 +372,109 @@ export default function PatientListScreen() {
       // Edit Existing Patient
       // =========================
       if (editingId) {
-        const { error } = await supabase
+        const { error: updateError } = await supabase
           .from("user_patients")
           .update(patientData as never)
           .eq("id", editingId)
           .eq("user_id", user.id);
 
-        if (error) {
-          console.error("Update patient error:", error);
-          throw error;
-        }
-      } else {
-        // =========================
-        // Add New Patient
-        // =========================
-        const { error } = await supabase.from("user_patients").insert({
-          user_id: user.id,
-          ...patientData,
-        } as never);
+        if (updateError) {
+          console.error("Update patient error:", updateError);
 
-        if (error) {
-          console.error("Insert patient error:", error);
-          throw error;
+          // =========================
+          // UNIQUE constraint
+          // =========================
+          if (updateError.code === "23505") {
+            const message = updateError.message;
+
+            if (message.includes("citizen_id")) {
+              setErrors((prev) => ({
+                ...prev,
+                citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
+              }));
+              return;
+            }
+
+            if (message.includes("patient_id")) {
+              setErrors((prev) => ({
+                ...prev,
+                patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
+              }));
+              return;
+            }
+
+            if (message.includes("phone")) {
+              setErrors((prev) => ({
+                ...prev,
+                phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
+              }));
+              return;
+            }
+          }
+
+          Alert.alert("บันทึกไม่สำเร็จ", updateError.message);
+
+          return;
         }
       }
 
+      // =========================
+      // Add New Patient
+      // =========================
+      else {
+        const { error: insertError } = await supabase
+          .from("user_patients")
+          .insert({
+            user_id: user.id,
+            ...patientData,
+          } as never);
+
+        if (insertError) {
+          // =========================
+          // UNIQUE constraint
+          // =========================
+          if (insertError.code === "23505") {
+            const message = insertError.message;
+
+            if (message.includes("citizen_id")) {
+              setErrors((prev) => ({
+                ...prev,
+                citizenId: "กรุณาระบุเลขบัตรประชาชนให้ถูกต้อง",
+              }));
+              return;
+            }
+
+            if (message.includes("patient_id")) {
+              setErrors((prev) => ({
+                ...prev,
+                patientId: "กรุณาระบุ Patient ID ให้ถูกต้อง",
+              }));
+              return;
+            }
+
+            if (message.includes("phone")) {
+              setErrors((prev) => ({
+                ...prev,
+                phone: "กรุณาระบุเบอร์โทรศัพท์ให้ถูกต้อง",
+              }));
+              return;
+            }
+          }
+
+          Alert.alert("บันทึกไม่สำเร็จ", insertError.message);
+
+          return;
+        }
+      }
+
+      // =========================
+      // Reload Patient List
+      // =========================
       await loadPatients();
+
+      // =========================
+      // Close Modal
+      // =========================
       closeModal();
     } catch (error: any) {
       console.error("Save patient error:", error);
