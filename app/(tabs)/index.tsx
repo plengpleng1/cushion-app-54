@@ -1,18 +1,21 @@
-import { useEffect, useRef, useState } from "react"; // useRef เสียงร้องใน app
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from "react-native";
-import { Image } from 'react-native';
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fetchSensorData, SensorData } from "../../services/sensorService";
+import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { useAudioPlayer } from 'expo-audio';
+import { useAudioPlayer } from "expo-audio";
 
 type PrimaryStatus = "ACTIVE" | "STANDBY";
 type PressureSide = "left" | "right" | "both" | "none";
@@ -23,8 +26,13 @@ export default function HomeScreen() {
   const player = useAudioPlayer(
     require("../../assets/sounds/change-position.mp3")
   );
+  const alarm2Player = useAudioPlayer(
+  require('../../assets/sounds/alarm.mp3')
+  );
 
-  const alarmPlayedRef = useRef(false); // เชื่อมเสียงจ้า
+  const alarmPlayedRef = useRef(false);
+  const alarmFlashAnim = useRef(new Animated.Value(0)).current;
+  const warningBlinkAnim = useRef(new Animated.Value(1)).current;
 
   const { width: windowWidth } = useWindowDimensions();
   const maxContainerWidth = Math.min(windowWidth - 32, 500);
@@ -35,21 +43,30 @@ export default function HomeScreen() {
   const [sensorConnected, setSensorConnected] = useState<boolean>(false);
 
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(
-    null,
+    null
   );
 
-  const [mainStatus, setMainStatus] = useState<PrimaryStatus>("STANDBY");
-  const [pressureSide, setPressureSide] = useState<PressureSide>("none");
-  const [isHumidHigh, setIsHumidHigh] = useState<boolean>(false);
-  const [isTempHigh, setIsTempHigh] = useState<boolean>(false);
+  const [mainStatus, setMainStatus] =
+    useState<PrimaryStatus>("STANDBY");
 
+  const [pressureSide, setPressureSide] =
+    useState<PressureSide>("none");
+
+  const [isHumidHigh, setIsHumidHigh] =
+    useState<boolean>(false);
+
+  const [isTempHigh, setIsTempHigh] =
+    useState<boolean>(false);
+
+  // ==================================================
+  // โหลด Patient ที่เลือกจาก AsyncStorage
+  // ==================================================
   useEffect(() => {
-    //console.log("Dashboard: loadSelectedPatient started");
     const loadSelectedPatient = async () => {
       try {
-        const savedPatientId = await AsyncStorage.getItem(SELECTED_PATIENT_KEY);
-
-        //console.log("Selected Patient ID:", savedPatientId);
+        const savedPatientId = await AsyncStorage.getItem(
+          SELECTED_PATIENT_KEY
+        );
 
         setSelectedPatientId(savedPatientId);
       } catch (error) {
@@ -60,26 +77,17 @@ export default function HomeScreen() {
     loadSelectedPatient();
   }, []);
 
-  // timer
-    useEffect(() => {
-  console.log("⏱️ TIMER EFFECT:", {
-    pressureSide,
-    mainStatus,
-  });
-
-  let timer: ReturnType<typeof setInterval> | null = null;
+  // ==================================================
+  // Timer
+  // ==================================================
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
 
     if (pressureSide === "both") {
-      console.log("⏱️ TIMER START");
-
       timer = setInterval(() => {
-        setSeconds((prev) => {
-          console.log("⏱️ TIMER COUNT:", prev + 1);
-          return prev + 1;
-        });
+        setSeconds((prev) => prev + 1);
       }, 1000);
     } else {
-      console.log("⏱️ TIMER RESET");
       setSeconds(0);
     }
 
@@ -90,22 +98,115 @@ export default function HomeScreen() {
     };
   }, [pressureSide]);
 
-  // alarm เมื่อครบ 2 นาที
+
+  // ==================================================
+  // Alarm เมื่ออยู่ตรงกลางครบ 2 นาที
+  // ==================================================
   useEffect(() => {
-    if (pressureSide === "both" && seconds >= 120) {
+    if (pressureSide === "both" && seconds >= 10) {
       if (!alarmPlayedRef.current) {
         alarmPlayedRef.current = true;
 
         player.seekTo(0);
         player.play();
-              }
-            }
+      }
+    }
 
     if (pressureSide !== "both") {
       alarmPlayedRef.current = false;
     }
   }, [seconds, pressureSide]);
-  //==================================================\\
+
+  //================ all alarm ========================
+  const isAlarmActive =
+  pressureSide === "both" &&
+  seconds >= 10;       // red flash 120
+  
+  const isSecondAlarmActive =
+  pressureSide === "both" &&
+  seconds >= 25;       // 135
+
+  useEffect(() => {
+  if (isSecondAlarmActive) {
+    alarm2Player.seekTo(0);
+    alarm2Player.play();
+  } else {
+    alarm2Player.pause();
+    alarm2Player.seekTo(0);
+  }
+  }, [isSecondAlarmActive]);
+
+   // ==================================================
+  // Alarm Flash Animation
+  // ==================================================
+  useEffect(() => {
+    if (isAlarmActive) {
+      const animation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(alarmFlashAnim, {
+            toValue: 0.35,
+            duration: 350,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+
+          Animated.timing(alarmFlashAnim, {
+            toValue: 0,
+            duration: 350,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+
+      animation.start();
+
+      return () => {
+        animation.stop();
+      };
+    }
+
+    alarmFlashAnim.stopAnimation();
+    alarmFlashAnim.setValue(0);
+ }, [isAlarmActive]);
+
+// ==================================================
+// Warning Blink Animation
+// ==================================================
+    useEffect(() => {
+      if (isSecondAlarmActive) {
+        const animation = Animated.loop(
+          Animated.sequence([
+            Animated.timing(warningBlinkAnim, {
+              toValue: 0,
+              duration: 350,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+
+            Animated.timing(warningBlinkAnim, {
+              toValue: 1,
+              duration: 350,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+          ])
+        );
+
+        animation.start();
+
+        return () => {
+          animation.stop();
+        };
+      }
+
+      warningBlinkAnim.stopAnimation();
+      warningBlinkAnim.setValue(1);
+    }, [isSecondAlarmActive]);
+
+  // ==================================================
+  // ดึงข้อมูล Sensor
+  // ==================================================
   useEffect(() => {
     let isMounted = true;
     let lastFetchedTime: string | null = null;
@@ -114,155 +215,209 @@ export default function HomeScreen() {
       try {
         const data = await fetchSensorData();
 
-        // ถ้าดึงข้อมูลไม่ได้ เช่น 404
-        // ไม่ต้อง reset ค่าเดิม
+        // ถ้าดึงข้อมูลไม่ได้
         if (!data || !isMounted) {
-        setSensorConnected(false);
-        setPressureSide("none");
-        setSeconds(0);
-        setMainStatus("STANDBY");
-        return;
-      }
-      setSensorConnected(true);
+          setSensorConnected(false);
+          setPressureSide("none");
+          setSeconds(0);
+          setMainStatus("STANDBY");
+          return;
+        }
+
+        setSensorConnected(true);
 
         // เช็กว่ามีข้อมูลใหม่เข้ามาหรือไม่
         const isNewData =
-        !!data.time &&
-        data.time !== lastFetchedTime;
+          !!data.time &&
+          data.time !== lastFetchedTime;
 
-      if (isNewData) {
-        lastFetchedTime = data.time;
-      }
+        if (isNewData) {
+          lastFetchedTime = data.time;
+        }
 
-        // -----------------------------
+        // ==================================================
         // เก็บข้อมูล Sensor ล่าสุด
-        // -----------------------------
+        // ==================================================
         setSensorData(data);
         setLoading(false);
 
-        // -----------------------------
+        // ==================================================
         // Humidity
-        // -----------------------------
-        const humidHigh = (data.humidity || 0) > 75;
+        // ==================================================
+        const humidHigh =
+          (data.humidity || 0) > 75;
+
         setIsHumidHigh(humidHigh);
 
-        // -----------------------------
-        // อ่านแรงกดจาก Sensor
-        // -----------------------------
-        const isLeftPressed = (data.sensor1 ?? 4095) < 500;
-        const isRightPressed = (data.sensor2 ?? 4095) < 500;
+        // ==================================================
+        // Pressure Sensor
+        // ==================================================
+        const isLeftPressed =
+          (data.sensor1 ?? 4095) < 500;
 
-        // ถ้ามีเซนเซอร์ตัวใดตัวหนึ่งต่ำกว่า 500 ให้ตีเป็น 'HIGH' ทันที
+        const isRightPressed =
+          (data.sensor2 ?? 4095) < 500;
+
         const correctedPressure =
-          isLeftPressed || isRightPressed ? "HIGH" : "LOW";
-        // จากนั้นก็นำค่า correctedPressure นี้ไปใช้งานหรือบันทึกลง Async Storage แทนค่าเดิมที่มาจาก API ได้เลยครับ
-        // 🎯 นำค่าที่ถูกต้องไปทับค่าเดิมในตัวแปร data ซะเลย
+          isLeftPressed || isRightPressed
+            ? "HIGH"
+            : "LOW";
+
+        // แก้ค่า Pressure ให้ตรงกับ Sensor จริง
         data.pressure = correctedPressure;
 
-        let calcPos: "left" | "right" | "both" | "none" = "none";
+        let calcPos:
+          | "left"
+          | "right"
+          | "both"
+          | "none" = "none";
 
         if (isLeftPressed && isRightPressed) {
-          calcPos = "both"; // กดทั้งสองข้าง (ตรงกลาง)
+          calcPos = "both";
         } else if (isLeftPressed) {
-          calcPos = "left"; // ฝั่งซ้าย
+          calcPos = "left";
         } else if (isRightPressed) {
-          calcPos = "right"; // ฝั่งขวา
+          calcPos = "right";
         } else {
-          calcPos = "none"; // ไม่มีแรงกด
+          calcPos = "none";
         }
-        //console.log("🧪 TIMER CHECK:", {
-        //sensor1: data.sensor1,
-        //sensor2: data.sensor2,
-        //isLeftPressed,
-        //isRightPressed,
-        //calcPos,
-        //status: data.status,
-      //});
-        
+
         setPressureSide(calcPos);
 
-        // -----------------------------
-        // Status (อิงค่าตาม Google Sheets/API ตรงๆ)
-        // -----------------------------
-        if (data && data.status) {
-          const normalizedStatus = String(data.status).toUpperCase() as
-            | "ACTIVE"
-            | "STANDBY";
+        // ==================================================
+        // Status
+        // ==================================================
+        if (data.status) {
+          const normalizedStatus =
+            String(data.status).toUpperCase() as
+              | "ACTIVE"
+              | "STANDBY";
+
           setMainStatus(normalizedStatus);
         }
 
-        // -----------------------------
+        // ==================================================
         // Temperature
-        // -----------------------------
-        const tempHigh = (data.temperature || 0) > 28;
+        // ==================================================
+        const tempHigh =
+          (data.temperature || 0) > 28;
+
         setIsTempHigh(tempHigh);
       } catch (error) {
-        console.error("โหลดข้อมูล Sensor ไม่สำเร็จ:", error);
+        console.error(
+          "โหลดข้อมูล Sensor ไม่สำเร็จ:",
+          error
+        );
       }
     };
 
     // โหลดครั้งแรกทันที
     loadData();
 
-    // โหลดข้อมูลทุก 2 วินาที
+    // โหลดทุก 2 วินาที
     const interval = setInterval(loadData, 2000);
- 
+
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
   }, []);
 
-  const [hasFreshSensorData, setHasFreshSensorData] = useState(false);   
-  
-const getDisplayPosition = () => {
+  // ==================================================
+  // Position
+  // ==================================================
+  const getDisplayPosition = () => {
     switch (pressureSide) {
       case "left":
         return "LEFT";
+
       case "right":
         return "RIGHT";
+
       case "both":
         return "CENTER";
+
       case "none":
       default:
-        return "NONE"; // บังคับให้คืนค่า 'NONE' ตรงๆ ทันทีเมื่อไม่มีการกด
+        return "NONE";
     }
   };
 
+  // ==================================================
+  // Timer Card Style
+  // ==================================================
   const getTimerCardStyle = () => {
     if (pressureSide === "none") {
-      return { backgroundColor: "#F2F2F7" };
+      return {
+        backgroundColor: "#F2F2F7",
+      };
     }
-    if (pressureSide === "left" || pressureSide === "right") {
-      return { backgroundColor: "#E5E5EA" };
+
+    if (
+      pressureSide === "left" ||
+      pressureSide === "right"
+    ) {
+      return {
+        backgroundColor: "#E5E5EA",
+      };
     }
+
     if (seconds >= 120) {
-      return { backgroundColor: "#FF3B30" };
+      return {
+        backgroundColor: "#FF3B30",
+      };
     }
-    return { backgroundColor: "#34C759" };
+
+    return {
+      backgroundColor: "#34C759",
+    };
   };
 
+  // ==================================================
+  // Timer Text Color
+  // ==================================================
   const getTimerTextColor = () => {
     if (pressureSide === "both") {
       return "#FFFFFF";
     }
+
     return "#8E8E93";
   };
 
+  // ==================================================
+  // Format Timer
+  // ==================================================
   const formatTime = (totalSeconds: number) => {
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const hours = Math.floor(
+      totalSeconds / 3600
+    );
+
+    const minutes = Math.floor(
+      (totalSeconds % 3600) / 60
+    );
+
     const secs = totalSeconds % 60;
 
-    return `${hours.toString().padStart(2, "0")}:${minutes
+    return `${hours
       .toString()
-      .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+      .padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
   };
 
+  // ==================================================
+  // Loading
+  // ==================================================
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4464D0" />
+        <ActivityIndicator
+          size="large"
+          color="#4464D0"
+        />
+
         <Text style={styles.loadingText}>
           กำลังโหลดข้อมูลจาก Google Sheet...
         </Text>
@@ -270,293 +425,508 @@ const getDisplayPosition = () => {
     );
   }
 
-  const isActive = mainStatus === "ACTIVE";
+  const isActive =
+    mainStatus === "ACTIVE";
 
-  // แก้ไขตรงอัปเดตล่าสุด
-  // แก้ไขฟังก์ชันอัปเดตล่าสุดให้ปลอดภัยจากวันที่เพี้ยน (ปี 1899)
-  const formatUpdateTime = (dateString?: string, timeString?: string) => {
-    // ถ้าไม่มีค่า หรือตัวหนังสือติดค่าปี 1899 ที่เป็นบั๊ก ให้ใช้เวลาปัจจุบันแทนทันที
-    if (!dateString || !timeString || String(dateString).includes("1899")) {
+  // ==================================================
+  // Format Update Time
+  // ==================================================
+  const formatUpdateTime = (
+    dateString?: string,
+    timeString?: string
+  ) => {
+    // ถ้าไม่มีข้อมูล หรือเจอปี 1899
+    if (
+      !dateString ||
+      !timeString ||
+      String(dateString).includes("1899")
+    ) {
       const now = new Date();
-      return `${now.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })} น. ${now.toLocaleDateString("en-GB")}`;
+
+      return `${now.toLocaleTimeString(
+        "th-TH",
+        {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        }
+      )} น. ${now.toLocaleDateString(
+        "en-GB"
+      )}`;
     }
 
     try {
-      // ตรวจสอบว่าถ้า timeString เป็นแค่วินาที/เวลา (เช่น "02:38:50") ให้แปะวันที่เข้าไปด้วยเพื่อให้ new Date() อ่านออก
       const fullDateTimeString =
-        timeString.includes("T") || timeString.includes("-")
+        timeString.includes("T") ||
+        timeString.includes("-")
           ? timeString
           : `${dateString.split("T")[0]}T${timeString}`;
 
-      const time = new Date(fullDateTimeString);
+      const time = new Date(
+        fullDateTimeString
+      );
 
-      // ถ้าแปลงแล้วได้ปี 1899 (Invalid Date) ให้ fallback ไปใช้เวลาปัจจุบัน
-      if (isNaN(time.getTime()) || time.getFullYear() <= 1900) {
+      if (
+        isNaN(time.getTime()) ||
+        time.getFullYear() <= 1900
+      ) {
         throw new Error("Invalid date");
       }
 
-      const formattedTime = time.toLocaleTimeString("th-TH", {
-        timeZone: "Asia/Bangkok",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      });
+      const formattedTime =
+        time.toLocaleTimeString(
+          "th-TH",
+          {
+            timeZone: "Asia/Bangkok",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+          }
+        );
 
-      const date = new Date(dateString);
-      const formattedDate = date.toLocaleDateString("en-GB", {
-        timeZone: "Asia/Bangkok",
-        day: "numeric",
-        month: "numeric",
-        year: "numeric",
-      });
+      const date = new Date(
+        dateString
+      );
+
+      const formattedDate =
+        date.toLocaleDateString(
+          "en-GB",
+          {
+            timeZone: "Asia/Bangkok",
+            day: "numeric",
+            month: "numeric",
+            year: "numeric",
+          }
+        );
 
       return `${formattedTime} น. ${formattedDate}`;
     } catch {
-      // กรณีแปลงไม่ผ่านจริงๆ ให้โชว์ค่าเดิมแบบกันพัง หรือดึงเวลาปัจจุบันมาโชว์
       const now = new Date();
-      return `${now.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })} น. ${now.toLocaleDateString("en-GB")}`;
+
+      return `${now.toLocaleTimeString(
+        "th-TH",
+        {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        }
+      )} น. ${now.toLocaleDateString(
+        "en-GB"
+      )}`;
     }
   };
 
+  // ==================================================
+  // UI
+  // ==================================================
   return (
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={styles.container}
-      showsVerticalScrollIndicator={true}
-    >
-      <View style={[styles.mainWrapper, { width: maxContainerWidth }]}>
-        <Image 
-          source={require('../../assets/images/cushion.png')} // เปลี่ยน path ไปยังไฟล์รูปโลโก้ของคุณ
-          style={styles.logoImage}
-          resizeMode="contain"
-        />
-        <Text style={styles.lastUpdateText}>
-          อัปเดตล่าสุด: {formatUpdateTime(sensorData?.date, sensorData?.time)}
-        </Text>
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={true}
+      >
+        <View
+          style={[
+            styles.mainWrapper,
+            {
+              width: maxContainerWidth,
+            },
+          ]}
+        >
+          {/* Logo */}
+          <Image
+            source={require("../../assets/images/cushion.png")}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
 
-        {(isHumidHigh || isTempHigh || seconds >= 120) && (
-          <View style={styles.alarmCard}>
-            <Text style={styles.alarmTitle}>
-              🚨 แจ้งเตือนระบบ (Alarm Alert)
-            </Text>
-            {seconds >= 120 && (
-              <Text style={styles.alarmText}>
-                • นั่งตรงกลางเกิน 2 นาทีแล้ว กรุณาปรับเปลี่ยนท่านั่ง
-              </Text>
+          {/* Last Update */}
+          <Text style={styles.lastUpdateText}>
+            อัปเดตล่าสุด:{" "}
+            {formatUpdateTime(
+              sensorData?.date,
+              sensorData?.time
             )}
-            {isHumidHigh && (
-              <Text style={styles.alarmText}>
-                • ตรวจพบความชื้นสูงเกินกำหนด ({sensorData?.humidity ?? 0}%)
+          </Text>
+
+          {/* ==================================================
+              Alarm Alert
+          ================================================== */}
+          {(isHumidHigh ||
+            isTempHigh ||
+            seconds >= 120) && (
+            <View style={styles.alarmCard}>
+              <Text style={styles.alarmTitle}>
+                🚨 แจ้งเตือนระบบ (Alarm Alert)
               </Text>
-            )}
-            {isTempHigh && (
-              <Text style={styles.alarmText}>
-                • ตรวจพบอุณหภูมิสูงเกินกำหนด ({sensorData?.temperature ?? 0} °C)
-              </Text>
-            )}
-          </View>
-        )}
 
-        <View style={styles.row}>
-          <View
-            style={[
-              styles.card,
-              styles.thirdCard,
-              {
-                backgroundColor: isActive ? "#EAF9EC" : "#F2F2F7",
-              },
-            ]}
-          >
-            <Text style={styles.cardLabel}>Status</Text>
-            <Text
-              style={[
-                styles.cardValue,
-                {
-                  color: isActive ? "#34C759" : "#8E8E93",
-                },
-              ]}
-            >
-              {mainStatus}
-            </Text>
-            <Text style={styles.subText}>
-              {isActive ? "มีการลงน้ำหนัก" : "ไม่มีการลงน้ำหนัก"}
-            </Text>
-          </View>
+              {seconds >= 120 && (
+                <Text style={styles.alarmText}>
+                  • นั่งตรงกลางเกิน 2 นาทีแล้ว กรุณาปรับเปลี่ยนท่านั่ง
+                </Text>
+              )}
 
-          <View
-            style={[styles.card, styles.twoThirdsCard, getTimerCardStyle()]}
-          >
-            <Text
-              style={[
-                styles.cardLabel,
-                {
-                  color: getTimerTextColor(),
-                },
-              ]}
-            >
-              Timer
-            </Text>
-
-            <Text
-              style={[
-                styles.timerValue,
-                {
-                  color: getTimerTextColor(),
-                },
-              ]}
-            >
-              {formatTime(seconds)}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.positionHeader}>
-            <Text style={styles.cardLabel}>
-              Position & Pressure Map ({getDisplayPosition()})
-            </Text>
-            <View style={styles.badgeContainer}>
               {isHumidHigh && (
-                <Text style={styles.humidBadge}>💧 Humid High</Text>
+                <Text style={styles.alarmText}>
+                  • ตรวจพบความชื้นสูงเกินกำหนด (
+                  {sensorData?.humidity ?? 0}
+                  %)
+                </Text>
               )}
-              {isTempHigh && <Text style={styles.tempBadge}>🌡️ Temp High</Text>}
-            </View>
-          </View>
 
-          <View
-            style={[
-              styles.cushionContainer,
-              pressureSide === "both" &&
-                seconds < 120 &&
-                styles.centerCushionContainer,
-              isTempHigh && styles.warningBorder,
-              isHumidHigh && styles.humidWarningBorder,
-            ]}
-          >
+              {isTempHigh && (
+                <Text style={styles.alarmText}>
+                  • ตรวจพบอุณหภูมิสูงเกินกำหนด (
+                  {sensorData?.temperature ?? 0}
+                  °C)
+                </Text>
+              )}
+            </View>
+          )}
+
+          {/* ==================================================
+              Status + Timer
+          ================================================== */}
+          <View style={styles.row}>
+            {/* Status */}
             <View
               style={[
-                styles.cushionHalf,
-                styles.leftHalf,
-                (pressureSide === "left" || pressureSide === "both") &&
-                  styles.activePressureHalf,
-                pressureSide === "both" &&
-                  seconds < 120 &&
-                  styles.centerPressureHalf,
+                styles.card,
+                styles.thirdCard,
+                {
+                  backgroundColor: isActive
+                    ? "#EAF9EC"
+                    : "#F2F2F7",
+                },
               ]}
             >
-              {(pressureSide === "left" || pressureSide === "both") && (
-                <View
-                  style={[
-                    styles.heatSpot,
-                    pressureSide === "both" &&
-                      seconds < 120 &&
-                      styles.centerHeatSpot,
-                  ]}
-                />
-              )}
+              <Text style={styles.cardLabel}>
+                Status
+              </Text>
+
+              <Text
+                style={[
+                  styles.cardValue,
+                  {
+                    color: isActive
+                      ? "#34C759"
+                      : "#8E8E93",
+                  },
+                ]}
+              >
+                {mainStatus}
+              </Text>
+
+              <Text style={styles.subText}>
+                {isActive
+                  ? "มีการลงน้ำหนัก"
+                  : "ไม่มีการลงน้ำหนัก"}
+              </Text>
+            </View>
+
+            {/* Timer */}
+            <View
+              style={[
+                styles.card,
+                styles.twoThirdsCard,
+                getTimerCardStyle(),
+              ]}
+            >
+              <Text
+                style={[
+                  styles.cardLabel,
+                  {
+                    color:
+                      getTimerTextColor(),
+                  },
+                ]}
+              >
+                Timer
+              </Text>
+
+              <Text
+                style={[
+                  styles.timerValue,
+                  {
+                    color:
+                      getTimerTextColor(),
+                  },
+                ]}
+              >
+                {formatTime(seconds)}
+              </Text>
+            </View>
+          </View>
+
+          {/* ==================================================
+              Position & Pressure Map
+          ================================================== */}
+          <View style={styles.card}>
+            <View style={styles.positionHeader}>
+              <Text style={styles.cardLabel}>
+                Position & Pressure Map (
+                {getDisplayPosition()})
+              </Text>
+
+              <View
+                style={styles.badgeContainer}
+              >
+                {isHumidHigh && (
+                  <Text
+                    style={styles.humidBadge}
+                  >
+                    💧 Humid High
+                  </Text>
+                )}
+
+                {isTempHigh && (
+                  <Text
+                    style={styles.tempBadge}
+                  >
+                    🌡️ Temp High
+                  </Text>
+                )}
+              </View>
             </View>
 
             <View
               style={[
-                styles.cushionHalf,
-                styles.rightHalf,
-                (pressureSide === "right" || pressureSide === "both") &&
-                  styles.activePressureHalf,
+                styles.cushionContainer,
+
                 pressureSide === "both" &&
                   seconds < 120 &&
-                  styles.centerPressureHalf,
+                  styles.centerCushionContainer,
+
+                isTempHigh &&
+                  styles.warningBorder,
+
+                isHumidHigh &&
+                  styles.humidWarningBorder,
               ]}
             >
-              {(pressureSide === "right" || pressureSide === "both") && (
-                <View
-                  style={[
-                    styles.heatSpot,
-                    pressureSide === "both" &&
-                      seconds < 120 &&
-                      styles.centerHeatSpot,
-                  ]}
-                />
-              )}
+              {/* Left */}
+              <View
+                style={[
+                  styles.cushionHalf,
+                  styles.leftHalf,
+
+                  (pressureSide === "left" ||
+                    pressureSide === "both") &&
+                    styles.activePressureHalf,
+
+                  pressureSide === "both" &&
+                    seconds < 120 &&
+                    styles.centerPressureHalf,
+                ]}
+              >
+                {(pressureSide === "left" ||
+                  pressureSide === "both") && (
+                  <View
+                    style={[
+                      styles.heatSpot,
+
+                      pressureSide ===
+                        "both" &&
+                        seconds < 120 &&
+                        styles.centerHeatSpot,
+                    ]}
+                  />
+                )}
+              </View>
+
+              {/* Right */}
+              <View
+                style={[
+                  styles.cushionHalf,
+                  styles.rightHalf,
+
+                  (pressureSide === "right" ||
+                    pressureSide === "both") &&
+                    styles.activePressureHalf,
+
+                  pressureSide === "both" &&
+                    seconds < 120 &&
+                    styles.centerPressureHalf,
+                ]}
+              >
+                {(pressureSide === "right" ||
+                  pressureSide === "both") && (
+                  <View
+                    style={[
+                      styles.heatSpot,
+
+                      pressureSide ===
+                        "both" &&
+                        seconds < 120 &&
+                        styles.centerHeatSpot,
+                    ]}
+                  />
+                )}
+              </View>
             </View>
           </View>
-        </View>
 
-        <View style={styles.sensorRow}>
-          <View style={[styles.card, styles.pressureCard]}>
-            <Text style={styles.cardLabel}>Pressure</Text>
-            <Text style={styles.cardValue}>
-              {pressureSide === "none" ? "LOW" : "HIGH"}
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.card,
-              styles.thirdCard,
-              isTempHigh && styles.tempWarningCard,
-            ]}
-          >
-            <Text style={styles.cardLabel}>Temperature</Text>
-            <Text
-              style={[styles.cardValue, isTempHigh && styles.tempWarningText]}
+          {/* ==================================================
+              Sensor Cards
+          ================================================== */}
+          <View style={styles.sensorRow}>
+            {/* Pressure */}
+            <View
+              style={[
+                styles.card,
+                styles.pressureCard,
+              ]}
             >
-              {sensorData?.temperature ?? 0} °C
-            </Text>
-          </View>
+              <Text style={styles.cardLabel}>
+                Pressure
+              </Text>
 
-          <View
-            style={[
-              styles.card,
-              styles.thirdCard,
-              isHumidHigh && styles.humidWarningCard,
-            ]}
-          >
-            <Text style={styles.cardLabel}>Humid</Text>
-            <Text
-              style={[styles.cardValue, isHumidHigh && styles.humidWarningText]}
+              <Text style={styles.cardValue}>
+                {pressureSide === "none"
+                  ? "LOW"
+                  : "HIGH"}
+              </Text>
+            </View>
+
+            {/* Temperature */}
+            <View
+              style={[
+                styles.card,
+                styles.thirdCard,
+                isTempHigh &&
+                  styles.tempWarningCard,
+              ]}
             >
-              {sensorData?.humidity ?? 0} %
-            </Text>
-          </View>
-        </View>
+              <Text style={styles.cardLabel}>
+                Temperature
+              </Text>
 
-        <Text style={styles.notMedicalInformation}>
+              <Text
+                style={[
+                  styles.cardValue,
+                  isTempHigh &&
+                    styles.tempWarningText,
+                ]}
+              >
+                {sensorData?.temperature ?? 0} °C
+              </Text>
+            </View>
+
+            {/* Humidity */}
+            <View
+              style={[
+                styles.card,
+                styles.thirdCard,
+                isHumidHigh &&
+                  styles.humidWarningCard,
+              ]}
+            >
+              <Text style={styles.cardLabel}>
+                Humid
+              </Text>
+
+              <Text
+                style={[
+                  styles.cardValue,
+                  isHumidHigh &&
+                    styles.humidWarningText,
+                ]}
+              >
+                {sensorData?.humidity ?? 0} %
+              </Text>
+            </View>
+          </View>
+
+          {/* ==================================================
+              Medical Note
+          ================================================== */}
+          <Text
+            style={styles.notMedicalInformation}
+          >
             หมายเหตุ: Cushion Sense เป็นระบบเฝ้าระวังปัจจัยเสี่ยงที่สามารถทำให้แผลกดทับเท่านั้น ไม่สามารถแทนการวินิจฉัยการเกิดโรคแผลกดทับหรือการรักษาทางการแพทย์ได้
-        </Text>
+          </Text>
+        </View>
+      </ScrollView>
+
+      {isSecondAlarmActive && (
+      <>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.alarmFlashOverlay,
+            {
+              opacity: alarmFlashAnim,
+            },
+          ]}
+        />
+
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.warningContent,
+            {
+              opacity: warningBlinkAnim,
+            },
+          ]}
+        >
+          <Ionicons
+            name="warning"
+            size={70}
+            color="#b40808"
+          />
+
+          <Text style={styles.warningText}>
+            WARNING
+          </Text>
+        </Animated.View>
+      </>
+    )}
+
       </View>
-    </ScrollView>
   );
 }
 
+// ======================================================
+// Styles
+// ======================================================
+
 const styles = StyleSheet.create({
   container: {
-  paddingTop: 30,
-  paddingHorizontal: 16,
-  paddingBottom: 130,
-  backgroundColor: "#F2F2F7",
-  flexGrow: 1,
-  alignItems: "center",
-},
+    paddingTop: 30,
+    paddingHorizontal: 16,
+    paddingBottom: 130,
+    backgroundColor: "#F4F6F9",
+    flexGrow: 1,
+    alignItems: "center",
+  },
+
   mainWrapper: {
     alignSelf: "center",
   },
+
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#F2F2F7",
   },
+
   loadingText: {
     marginTop: 10,
     color: "#8E8E93",
   },
+
   logoImage: {
-    width: 400,  // ปรับความกว้างของโลโก้ตามต้องการ
-    height: 150,  // ปรับความสูงของโลโก้ตามสัดส่วนจริง
-    alignSelf: 'center', // จัดให้อยู่กึ่งกลางหน้าจอ
+    width: 400,
+    height: 150,
+    alignSelf: "center",
     marginBottom: 5,
   },
+
   lastUpdateText: {
     fontSize: 14,
     color: "#8E8E93",
@@ -564,12 +934,18 @@ const styles = StyleSheet.create({
     marginBottom: 13,
     marginTop: 2,
   },
+
   notMedicalInformation: {
     fontSize: 14,
     color: "#8E8E93",
     marginBottom: 13,
     marginTop: 2,
   },
+
+  // ==================================================
+  // Alarm
+  // ==================================================
+
   alarmCard: {
     backgroundColor: "#FFE5E5",
     borderLeftWidth: 5,
@@ -578,84 +954,141 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 13,
   },
+
   alarmTitle: {
     fontSize: 14,
     fontWeight: "bold",
     color: "#FF3B30",
     marginBottom: 6,
   },
+
   alarmText: {
     fontSize: 13,
     color: "#D70000",
     fontWeight: "500",
     marginBottom: 3,
   },
+
+  alarmFlashOverlay: {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: "#FF3B30",
+  zIndex: 10,
+},
+warningContent: {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  justifyContent: "center",
+  alignItems: "center",
+  zIndex: 1000,
+  elevation: 1000,
+},
+
+warningText: {
+  fontSize: 28,
+  fontWeight: "bold",
+  color: "#FF3B30",
+  letterSpacing: 2,
+},
+
+
+  // ==================================================
+  // Cards
+  // ==================================================
+
   card: {
     backgroundColor: "#FFFFFF",
     padding: 16,
     borderRadius: 16,
     marginBottom: 13,
+
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
     shadowOpacity: 0.05,
     shadowRadius: 8,
+
     elevation: 3,
   },
+
   cardLabel: {
     fontSize: 13,
     color: "#8E8E93",
     fontWeight: "600",
     marginBottom: 6,
   },
+
   cardValue: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#1C1C1E",
   },
+
   subText: {
     fontSize: 11,
     color: "#8E8E93",
     marginTop: 4,
   },
+
   timerValue: {
     fontSize: 22,
     fontWeight: "bold",
   },
+
   row: {
     flexDirection: "row",
     gap: 8,
     justifyContent: "space-between",
   },
+
   sensorRow: {
     flexDirection: "row",
     gap: 8,
     justifyContent: "space-between",
   },
+
   thirdCard: {
     flex: 1,
     minHeight: 90,
     justifyContent: "center",
   },
+
   pressureCard: {
     flex: 1,
     minHeight: 90,
     justifyContent: "center",
   },
+
   twoThirdsCard: {
     flex: 2,
     minHeight: 90,
     justifyContent: "center",
   },
+
+  // ==================================================
+  // Position
+  // ==================================================
+
   positionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,      //ระยะกล่องตำแหน่ง
+    marginBottom: 10,
   },
+
   badgeContainer: {
     flexDirection: "row",
     gap: 5,
   },
+
   humidBadge: {
     fontSize: 12,
     fontWeight: "bold",
@@ -665,6 +1098,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 6,
   },
+
   tempBadge: {
     fontSize: 12,
     fontWeight: "bold",
@@ -674,6 +1108,11 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 6,
   },
+
+  // ==================================================
+  // Cushion
+  // ==================================================
+
   cushionContainer: {
     height: 150,
     flexDirection: "row",
@@ -684,25 +1123,31 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     padding: 2,
   },
+
   warningBorder: {
     borderColor: "#FF3B30",
     borderWidth: 3,
   },
+
   cushionHalf: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#F1F3F5",
   },
+
   leftHalf: {
     borderRightWidth: 1,
     borderRightColor: "#c3c5c9",
     borderStyle: "dashed",
   },
+
   rightHalf: {},
+
   activePressureHalf: {
     backgroundColor: "#FFD8D8",
   },
+
   heatSpot: {
     width: 55,
     height: 55,
@@ -710,29 +1155,45 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF8A80",
     opacity: 0.85,
   },
+
   centerCushionContainer: {
     borderColor: "#34C759",
     borderWidth: 2.5,
   },
+
   centerPressureHalf: {
     backgroundColor: "#E8F5E9",
   },
+
   centerHeatSpot: {
     backgroundColor: "#81C784",
   },
+
+  // ==================================================
+  // Temperature
+  // ==================================================
+
   tempWarningCard: {
     backgroundColor: "#FFF0F0",
   },
+
   tempWarningText: {
     color: "#FF3B30",
   },
+
+  // ==================================================
+  // Humidity
+  // ==================================================
+
   humidWarningCard: {
     backgroundColor: "#E0F7FA",
   },
+
   humidWarningBorder: {
     borderColor: "#0288D1",
     borderWidth: 3,
   },
+
   humidWarningText: {
     color: "#0288D1",
   },
