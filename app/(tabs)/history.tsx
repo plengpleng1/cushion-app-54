@@ -69,8 +69,13 @@ const clamp = (value: number) => {
 // =====================================================
 // Dynamic Trend Chart
 // =====================================================
+interface GraphLog extends HistoryLog {
+  graphLabel?: string;
+  graphPressure?: number;
+}
+
 interface TrendChartProps {
-  logs: HistoryLog[];
+  logs: GraphLog[];
   selectedMetric: MetricType;
   containerWidth: number;
 }
@@ -85,12 +90,12 @@ const TrendChart = ({
     280
   );
 
-  const chartHeight = 220;
+  const chartHeight = 240;
 
   const paddingLeft = 45;
   const paddingRight = 20;
   const paddingTop = 20;
-  const paddingBottom = 40;
+  const paddingBottom = 60;
 
   const plotWidth =
     chartWidth -
@@ -129,11 +134,12 @@ const TrendChart = ({
       yMax: 100,
       unit: '',
       gridValues: [100, 75, 50, 25, 0],
-      getValue: (item: HistoryLog) =>
-        item.leftPressed ||
+      getValue: (item: GraphLog) =>
+        item.graphPressure ??
+        (item.leftPressed ||
         item.rightPressed
           ? 80
-          : 20,
+          : 20),
     },
 
     temperature: {
@@ -327,22 +333,43 @@ const TrendChart = ({
         {logs.map(
           (item, index) => {
             const x = getX(index);
-            const time =
-              formatTime(item.time);
+
+            const label =
+              item.graphLabel ??
+              formatTime(item.time).slice(0, 5);
+
+            // 🔥 เพิ่มเงื่อนไขกรองการแสดงผล เพื่อไม่ให้ตัวเลขเบียดทับกัน
+            // เช่น ถ้าข้อมูลยาวมาก ให้แสดงเฉพาะ index ที่หาร 3 ลงตัว, จุดแรก (0) หรือจุดสุดท้าย
+            const shouldShowLabel = 
+              index === 0 || 
+              index === logs.length - 1 || 
+              index % 6 === 0; // ปรับเลข 4 ให้มาก/น้อยขึ้นอยู่กับจำนวนจุดข้อมูล
+
+            if (!shouldShowLabel) return null;
 
             return (
-              <SvgText
-                key={`time-${index}`}
-                x={x}
-                y={
-                  chartHeight - 12
-                }
-                fontSize="9"
-                fill="#8E8E93"
-                textAnchor="middle"
-              >
-                {time.slice(0, 5)}
-              </SvgText>
+              <React.Fragment key={`time-${index}`}>
+                {/* ขีดบอกตำแหน่งเล็กๆ บนแกน X (ถ้าต้องการ) */}
+                <Line
+                  x1={x}
+                  y1={paddingTop + plotHeight}
+                  x2={x}
+                  y2={paddingTop + plotHeight + 4}
+                  stroke="#8E8E93"
+                  strokeWidth={1}
+                />
+                
+                <SvgText
+                  x={x}
+                  y={chartHeight - 32}
+                  fontSize="9"
+                  fill="#8E8E93"
+                  textAnchor="middle" // ปรับเป็น middle เพื่อให้ตัวเลขอยู่กึ่งกลางเส้นพอดี
+                  transform={`rotate(45 ${x} ${chartHeight - 32})`} // เอียงมุม 45 องศาเล็กน้อย ช่วยให้ไม่ชนกัน
+                >
+                  {label}
+                </SvgText>
+              </React.Fragment>
             );
           }
         )}
@@ -355,6 +382,161 @@ const TrendChart = ({
       </Text>
     </View>
   );
+};
+
+// =====================================================
+// จัดข้อมูลสำหรับกราฟ "วันนี้"
+// แสดงข้อมูลห่างกันประมาณ 2 นาที
+// =====================================================
+const getLogDateKeyForGraph = (
+  dateString: string
+) => {
+  if (!dateString) {
+    return '';
+  }
+
+  if (dateString.includes('/')) {
+    const [
+      day,
+      month,
+      year,
+    ] = dateString.split('/');
+
+    return `${year}-${month}-${day}`;
+  }
+
+  return dateString.split('T')[0];
+};
+const getTodayGraphLogs = (
+  logs: HistoryLog[]
+): GraphLog[] => {
+  if (logs.length === 0) {
+    return [];
+  }
+
+  const result: HistoryLog[] = [];
+  let lastTime = 0;
+
+  // historyLogs เป็นข้อมูลใหม่ → เก่า
+  const sortedLogs = [...logs].reverse();
+
+  sortedLogs.forEach((log) => {
+    const [day, month, year] =
+      log.date.split('/');
+
+    const logTime = new Date(
+      `${year}-${month}-${day}T${log.time}+07:00`
+    ).getTime();
+
+    // เก็บจุดแรก หรือเมื่อห่างจากจุดก่อนหน้า ≥ 2 นาที
+    if (
+      lastTime === 0 ||
+      logTime - lastTime >= 5 * 60 * 1000
+    ) {
+      result.push(log);
+      lastTime = logTime;
+    }
+  });
+
+  return result;
+};
+
+
+// =====================================================
+// จัดข้อมูลสำหรับกราฟ "สัปดาห์นี้"
+// 1 จุด = ค่าเฉลี่ยของแต่ละวัน
+// =====================================================
+const getWeeklyGraphLogs = (
+  logs: HistoryLog[]
+): GraphLog[] => {
+  if (logs.length === 0) {
+    return [];
+  }
+
+  const grouped: {
+    [key: string]: HistoryLog[];
+  } = {};
+
+  logs.forEach((log) => {
+    const dateKey =
+      getLogDateKeyForGraph(log.date);
+
+    if (!grouped[dateKey]) {
+      grouped[dateKey] = [];
+    }
+
+    grouped[dateKey].push(log);
+  });
+
+  return Object.entries(grouped)
+    .sort(
+      ([dateA], [dateB]) =>
+        new Date(dateA).getTime() -
+        new Date(dateB).getTime()
+    )
+    .map(([date, dayLogs]) => {
+      const avgTemperature =
+        dayLogs.reduce(
+          (sum, log) =>
+            sum +
+            (Number(log.temperature) || 0),
+          0
+        ) / dayLogs.length;
+
+      const avgHumidity =
+        dayLogs.reduce(
+          (sum, log) =>
+            sum +
+            (Number(log.humidity) || 0),
+          0
+        ) / dayLogs.length;
+
+      // คำนวณแรงกดเฉลี่ยของวัน
+      const pressureValues =
+        dayLogs.map((log) =>
+          log.leftPressed ||
+          log.rightPressed
+            ? 80
+            : 20
+        );
+
+      const avgPressure =
+        pressureValues.reduce(
+          (sum, value) =>
+            sum + value,
+          0
+        ) / pressureValues.length;
+
+      // แปลงวันที่เป็น DD/MM
+      const [
+        year,
+        month,
+        day,
+      ] = date.split('-');
+
+      const graphLabel =
+        `${day}/${month}`;
+
+      return {
+        ...dayLogs[dayLogs.length - 1],
+
+        date,
+
+        temperature: Number(
+          avgTemperature.toFixed(1)
+        ),
+
+        humidity: Number(
+          avgHumidity.toFixed(1)
+        ),
+
+        graphPressure: Number(
+          avgPressure.toFixed(1)
+        ),
+
+        graphLabel,
+      };
+    });
 };
 
 // =====================================================
@@ -864,10 +1046,10 @@ useFocusEffect(
   }
 
 
-  const graphLogs =
-    filteredLogs
-      .slice(0, 10)
-      .reverse();
+  const graphLogs =            // กราฟ
+  activeTab === 'today'
+    ? getTodayGraphLogs(filteredLogs)
+    : getWeeklyGraphLogs(filteredLogs);
 
   const displayedLogs =
   isExpanded
@@ -1209,32 +1391,18 @@ useFocusEffect(
         </View>
 
         {/* Daily Trend */}
-        <View
-          style={
-            styles.cardSection
-          }
-        >
-          <Text
-            style={
-              styles.sectionTitle
-            }
-          >
-            📈 ภาพรวมวันนี้ (Daily Trend)
+        <View style={styles.cardSection}>
+          <Text style={styles.sectionTitle}>
+            📈 {activeTab === 'today'
+              ? 'ภาพรวมวันนี้ (Daily Trend)'
+              : 'ภาพรวมสัปดาห์นี้ (Weekly Trend)'}
           </Text>
 
-          <Text
-            style={
-              styles.graphSubTitle
-            }
-          >
+          <Text style={styles.graphSubTitle}>
             เลือกกดเลือกระบุตัวแปรที่ต้องการดูแนวโน้ม
           </Text>
 
-          <View
-            style={
-              styles.metricToggleContainer
-            }
-          >
+          <View style={styles.metricToggleContainer}>
             <TouchableOpacity
               style={[
                 styles.metricButton,
@@ -1321,16 +1489,10 @@ useFocusEffect(
             }
           />
 
-          <Text
-            style={
-              styles.graphDescription
-            }
-          >
-            แสดงแนวโน้มจากข้อมูลล่าสุด{' '}
-            {
-              graphLogs.length
-            }{' '}
-            รายการ
+          <Text style={styles.graphDescription}>
+            {activeTab === 'today'
+              ? `แสดงแนวโน้มจากข้อมูลทุกประมาณ 5 นาที จำนวน ${graphLogs.length} จุด`
+              : `แสดงค่าเฉลี่ยของแต่ละวัน จำนวน ${graphLogs.length} วัน`}
           </Text>
         </View>
 
