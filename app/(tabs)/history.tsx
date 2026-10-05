@@ -1907,7 +1907,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
   },
-
   // --- สไตล์สำหรับ Modal View All ---
   modalOverlay: {
     flex: 1,
