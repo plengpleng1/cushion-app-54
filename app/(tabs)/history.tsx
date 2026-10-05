@@ -1,33 +1,33 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from 'expo-router';
 import React, {
-  useCallback,
+  useState,
   useEffect,
   useRef,
-  useState,
+  useCallback,
 } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  ActivityIndicator,
-  Modal,
-  ScrollView,
-  StyleSheet,
+  View,
   Text,
+  StyleSheet,
+  ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
   useWindowDimensions,
-  View
+  Alert,
 } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import Svg, {
+  Path,
   Circle,
   Line,
-  Path,
   Text as SvgText,
 } from 'react-native-svg';
 
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 
 import {
-  HistoryLog,
   loadHistoryFromSupabase,
+  HistoryLog,
 } from '../../services/historyService';
 
 type TabType = 'today' | 'week';
@@ -338,15 +338,18 @@ const TrendChart = ({
               item.graphLabel ??
               formatTime(item.time).slice(0, 5);
 
+            // 🔥 เพิ่มเงื่อนไขกรองการแสดงผล เพื่อไม่ให้ตัวเลขเบียดทับกัน
+            // เช่น ถ้าข้อมูลยาวมาก ให้แสดงเฉพาะ index ที่หาร 3 ลงตัว, จุดแรก (0) หรือจุดสุดท้าย
             const shouldShowLabel = 
               index === 0 || 
               index === logs.length - 1 || 
-              index % 6 === 0;
+              index % 6 === 0; // ปรับเลข 4 ให้มาก/น้อยขึ้นอยู่กับจำนวนจุดข้อมูล
 
             if (!shouldShowLabel) return null;
 
             return (
               <React.Fragment key={`time-${index}`}>
+                {/* ขีดบอกตำแหน่งเล็กๆ บนแกน X (ถ้าต้องการ) */}
                 <Line
                   x1={x}
                   y1={paddingTop + plotHeight}
@@ -361,8 +364,8 @@ const TrendChart = ({
                   y={chartHeight - 32}
                   fontSize="9"
                   fill="#8E8E93"
-                  textAnchor="middle"
-                  transform={`rotate(45 ${x} ${chartHeight - 32})`}
+                  textAnchor="middle" // ปรับเป็น middle เพื่อให้ตัวเลขอยู่กึ่งกลางเส้นพอดี
+                  transform={`rotate(45 ${x} ${chartHeight - 32})`} // เอียงมุม 45 องศาเล็กน้อย ช่วยให้ไม่ชนกัน
                 >
                   {label}
                 </SvgText>
@@ -383,6 +386,7 @@ const TrendChart = ({
 
 // =====================================================
 // จัดข้อมูลสำหรับกราฟ "วันนี้"
+// แสดงข้อมูลห่างกันประมาณ 2 นาที
 // =====================================================
 const getLogDateKeyForGraph = (
   dateString: string
@@ -403,7 +407,6 @@ const getLogDateKeyForGraph = (
 
   return dateString.split('T')[0];
 };
-
 const getTodayGraphLogs = (
   logs: HistoryLog[]
 ): GraphLog[] => {
@@ -414,6 +417,7 @@ const getTodayGraphLogs = (
   const result: HistoryLog[] = [];
   let lastTime = 0;
 
+  // historyLogs เป็นข้อมูลใหม่ → เก่า
   const sortedLogs = [...logs].reverse();
 
   sortedLogs.forEach((log) => {
@@ -424,6 +428,7 @@ const getTodayGraphLogs = (
       `${year}-${month}-${day}T${log.time}+07:00`
     ).getTime();
 
+    // เก็บจุดแรก หรือเมื่อห่างจากจุดก่อนหน้า ≥ 2 นาที
     if (
       lastTime === 0 ||
       logTime - lastTime >= 5 * 60 * 1000
@@ -436,8 +441,10 @@ const getTodayGraphLogs = (
   return result;
 };
 
+
 // =====================================================
 // จัดข้อมูลสำหรับกราฟ "สัปดาห์นี้"
+// 1 จุด = ค่าเฉลี่ยของแต่ละวัน
 // =====================================================
 const getWeeklyGraphLogs = (
   logs: HistoryLog[]
@@ -484,6 +491,7 @@ const getWeeklyGraphLogs = (
           0
         ) / dayLogs.length;
 
+      // คำนวณแรงกดเฉลี่ยของวัน
       const pressureValues =
         dayLogs.map((log) =>
           log.leftPressed ||
@@ -499,6 +507,7 @@ const getWeeklyGraphLogs = (
           0
         ) / pressureValues.length;
 
+      // แปลงวันที่เป็น DD/MM
       const [
         year,
         month,
@@ -510,16 +519,21 @@ const getWeeklyGraphLogs = (
 
       return {
         ...dayLogs[dayLogs.length - 1],
+
         date,
+
         temperature: Number(
           avgTemperature.toFixed(1)
         ),
+
         humidity: Number(
           avgHumidity.toFixed(1)
         ),
+
         graphPressure: Number(
           avgPressure.toFixed(1)
         ),
+
         graphLabel,
       };
     });
@@ -529,6 +543,7 @@ const getWeeklyGraphLogs = (
 // History Screen
 // =====================================================
 export default function HistoryScreen() {
+  //console.log('History service function:',loadHistoryFromSupabase);
   const {
     width: windowWidth,
   } = useWindowDimensions();
@@ -584,11 +599,7 @@ export default function HistoryScreen() {
     setIsExpanded,
   ] = useState<boolean>(false);
 
-  // State ควบคุม Modal View All
-  const [
-    isModalVisible,
-    setIsModalVisible,
-  ] = useState<boolean>(false);
+  
 
   // =====================================================
   // วันที่ปัจจุบัน
@@ -598,23 +609,30 @@ export default function HistoryScreen() {
     setCurrentDate,
   ] = useState(() => {
     const now = new Date();
+
     return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
   });
 
-  // =====================================================
+  
+    // =====================================================
   // Patient ID ปัจจุบัน
   // =====================================================
   const patientIdRef =
     useRef<string | null>(null);
 
   const handleClearHistory = () => {
-    const now = Date.now();
-    setClearedAt((prev) => ({
-      ...prev,
-      [activeTab]: now,
-    }));
-    setIsExpanded(false);
-  };
+      //console.log('🗑️ CLEAR EVENT HISTORY');
+
+      const now = Date.now();
+
+      setClearedAt((prev) => ({
+        ...prev,
+        [activeTab]: now,
+      }));
+
+      setIsExpanded(false);
+    };
+
 
   // =====================================================
   // จัดรูปแบบวันที่สำหรับเปรียบเทียบ
@@ -626,6 +644,7 @@ export default function HistoryScreen() {
       return '';
     }
 
+    // กรณีวันที่จาก Supabase เป็น DD/MM/YYYY
     if (dateString.includes('/')) {
       const parts =
         dateString.split('/');
@@ -637,13 +656,21 @@ export default function HistoryScreen() {
           year,
         ] = parts;
 
-        return `${Number(year)}-${Number(month)}-${Number(day)}`;
+        return `${Number(
+          year
+        )}-${Number(
+          month
+        )}-${Number(day)}`;
       }
     }
 
-    const date = new Date(dateString);
+    // กรณีเป็น ISO Date เช่น 2026-10-02T...
+    const date =
+      new Date(dateString);
 
-    if (isNaN(date.getTime())) {
+    if (
+      isNaN(date.getTime())
+    ) {
       return '';
     }
 
@@ -651,7 +678,8 @@ export default function HistoryScreen() {
       new Intl.DateTimeFormat(
         'en-CA',
         {
-          timeZone: 'Asia/Bangkok',
+          timeZone:
+            'Asia/Bangkok',
           year: 'numeric',
           month: 'numeric',
           day: 'numeric',
@@ -660,136 +688,208 @@ export default function HistoryScreen() {
 
     const year =
       thailandDate.find(
-        (part) => part.type === 'year'
+        (part) =>
+          part.type === 'year'
       )?.value;
 
     const month =
       thailandDate.find(
-        (part) => part.type === 'month'
+        (part) =>
+          part.type === 'month'
       )?.value;
 
     const day =
       thailandDate.find(
-        (part) => part.type === 'day'
+        (part) =>
+          part.type === 'day'
       )?.value;
 
-    return `${year}-${Number(month)}-${Number(day)}`;
+    return `${year}-${Number(
+      month
+    )}-${Number(day)}`;
   };
 
+
+  // =====================================================
+  // ตรวจว่าเป็นข้อมูลของวันนี้หรือไม่
+  // =====================================================
   const isToday = (
     dateString: string
   ) => {
     return (
-      getLogDateKey(dateString) === currentDate
+      getLogDateKey(
+        dateString
+      ) === currentDate
     );
   };
 
+
+  // =====================================================
+  // ตรวจวันใหม่ทุก 1 นาที
+  // =====================================================
   useEffect(() => {
     const checkDate = () => {
-      const today = new Date();
-      const todayKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+      const today =
+        new Date();
+
+      const todayKey =
+        `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
 
       setCurrentDate(
         (prevDate) => {
-          if (prevDate !== todayKey) {
+          if (
+            prevDate !==
+            todayKey
+          ) {
             return todayKey;
           }
+
           return prevDate;
         }
       );
     };
 
     checkDate();
-    const interval = setInterval(checkDate, 60000);
-    return () => clearInterval(interval);
+
+    const interval =
+      setInterval(
+        checkDate,
+        60000
+      );
+
+    return () =>
+      clearInterval(interval);
   }, []);
 
-  const filteredLogs = historyLogs.filter((log) => {
-    if (
-      activeTab === 'today' &&
-      !isToday(log.date)
-    ) {
-      return false;
-    }
-    return true;
-  });
 
-  const eventLogs = filteredLogs.filter((log) => {
-    const clearTime = clearedAt[activeTab];
+// =====================================================
+// ข้อมูลสำหรับ Dashboard / Summary / Graph
+// ไม่ได้รับผลจากปุ่มล้างประวัติเหตุการณ์
+// =====================================================
+const filteredLogs = historyLogs.filter((log) => {
+  if (
+    activeTab === 'today' &&
+    !isToday(log.date)
+  ) {
+    return false;
+  }
 
-    if (!clearTime) {
-      return true;
-    }
+  return true;
+});
 
-    const [day, month, year] =
-      log.date.split('/');
+// =====================================================
+// ข้อมูลสำหรับ "ประวัติเหตุการณ์"
+// กรองเฉพาะข้อมูลที่เกิดหลังจากกดล้าง
+// =====================================================
+    const eventLogs = filteredLogs.filter((log) => {
+      const clearTime = clearedAt[activeTab];
 
-    const logDateTime = new Date(
-      `${year}-${month}-${day}T${log.time}+07:00`
-    ).getTime();
+      // ยังไม่เคยกดล้าง
+      if (!clearTime) {
+        return true;
+      }
 
-    return logDateTime > clearTime;
-  });
+      // แปลงวันที่ DD/MM/YYYY + เวลา HH:mm:ss
+      const [day, month, year] =
+        log.date.split('/');
 
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
+      const logDateTime = new Date(
+        `${year}-${month}-${day}T${log.time}+07:00`
+      ).getTime();
 
-      const startHistory = async () => {
-        try {
-          setLoading(true);
+      // แสดงเฉพาะข้อมูลที่เกิดหลังจากกดล้าง
+      return logDateTime > clearTime;
+    });
+  // =====================================================
+// เมื่อเข้า History
+// =====================================================
+//console.log('loadHistoryFromSupabase:',loadHistoryFromSupabase);
 
-          const selectedPatientId =
-            await AsyncStorage.getItem('selectedPatientId');
+useFocusEffect(
+  useCallback(() => {
+    let isActive = true;
 
-          if (!isActive) return;
+    const startHistory = async () => {
+      try {
+        setLoading(true);
 
-          if (!selectedPatientId) {
-            patientIdRef.current = null;
-            setHistoryLogs([]);
-            setLoading(false);
-            return;
-          }
+        // ---------------------------------------------
+        // 1. อ่าน Patient ที่เลือกอยู่
+        // ---------------------------------------------
+        const selectedPatientId =
+          await AsyncStorage.getItem('selectedPatientId');
 
-          patientIdRef.current = selectedPatientId;
-
-          const savedLogs =
-            await loadHistoryFromSupabase(
-              selectedPatientId
-            );
-
-          if (!isActive) return;
-
-          setHistoryLogs(savedLogs);
-          setLoading(false);
-
-        } catch (error) {
-          console.error(
-            'ไม่สามารถเริ่ม History ได้:',
-            error
-          );
-          setLoading(false);
+        if (!isActive) {
+          return;
         }
-      };
 
-      startHistory();
+        if (!selectedPatientId) {
+          patientIdRef.current = null;
+          setHistoryLogs([]);
+          setLoading(false);
+          return;
+        }
 
-      return () => {
-        isActive = false;
-      };
-    }, [])
-  );
+        // ---------------------------------------------
+        // 2. เก็บ Patient ID ปัจจุบัน
+        // ---------------------------------------------
+        patientIdRef.current = selectedPatientId;
 
-  useEffect(() => {
+        // ---------------------------------------------
+        // 3. โหลด History จาก Supabase
+        // ---------------------------------------------
+        const savedLogs =
+          await loadHistoryFromSupabase(
+            selectedPatientId
+          );
+
+        if (!isActive) {
+          return;
+        }
+
+        if (!isActive) {
+          return;
+        }
+
+        setHistoryLogs(savedLogs);
+
+        setLoading(false);
+
+      } catch (error) {
+        console.error(
+          'ไม่สามารถเริ่ม History ได้:',
+          error
+        );
+
+        setLoading(false);
+      }
+    };
+
+    startHistory();
+
+    return () => {
+      isActive = false;
+    };
+  }, [])
+);
+  // =====================================================
+  // Auto Refresh History
+  // =====================================================
+    useEffect(() => {
     const refreshHistory = async () => {
-      const patientId = patientIdRef.current;
-      if (!patientId) return;
+      const patientId =
+        patientIdRef.current;
+
+      if (!patientId) {
+        return;
+      }
 
       try {
         const savedLogs =
           await loadHistoryFromSupabase(
             patientId
           );
+
         setHistoryLogs(savedLogs);
       } catch (error) {
         console.error(
@@ -799,135 +899,221 @@ export default function HistoryScreen() {
       }
     };
 
-    const interval = setInterval(refreshHistory, 5000);
-    return () => clearInterval(interval);
+    const interval =
+      setInterval(
+        refreshHistory,
+        5000
+      );
+
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
-  const getDashboardStats = () => {
-    const total = filteredLogs.length || 1;
-    let leftCount = 0;
-    let rightCount = 0;
-    let tempSum = 0;
-    let alertCount = 0;
-    let moveCount = 0;
 
-    filteredLogs.forEach((log, idx) => {
-      if (log.leftPressed) leftCount++;
-      if (log.rightPressed) rightCount++;
-      tempSum += log.temperature || 0;
+  // =====================================================
+  // Dashboard Stats
+  // =====================================================
+  const getDashboardStats =
+    () => {
+      const total =
+        filteredLogs.length ||
+        1;
 
-      if (
-        log.isTempHigh ||
-        log.isHumidHigh ||
-        log.isSittingTooLong
-      ) {
-        alertCount++;
-      }
+      let leftCount = 0;
+      let rightCount = 0;
+      let tempSum = 0;
+      let alertCount = 0;
+      let moveCount = 0;
 
-      if (
-        idx > 0 &&
-        log.calculatedPosition !==
-          filteredLogs[idx - 1].calculatedPosition
-      ) {
-        moveCount++;
-      }
-    });
+      filteredLogs.forEach(
+        (log, idx) => {
+          if (
+            log.leftPressed
+          ) {
+            leftCount++;
+          }
 
-    const totalPressureSide =
-      leftCount + rightCount || 1;
+          if (
+            log.rightPressed
+          ) {
+            rightCount++;
+          }
 
-    const leftPercent = Math.round(
-      (leftCount / totalPressureSide) * 100
-    );
-    const rightPercent = 100 - leftPercent;
+          tempSum +=
+            log.temperature ||
+            0;
 
-    const avgTemp = (
-      tempSum / total
-    ).toFixed(1);
+          if (
+            log.isTempHigh ||
+            log.isHumidHigh ||
+            log.isSittingTooLong
+          ) {
+            alertCount++;
+          }
 
-    const totalMinutes = Math.floor(
-      (filteredLogs.length * 3) / 60
-    );
-    const hours = Math.floor(totalMinutes / 60);
-    const mins = totalMinutes % 60;
+          if (
+            idx > 0 &&
+            log.calculatedPosition !==
+              filteredLogs[
+                idx - 1
+              ].calculatedPosition
+          ) {
+            moveCount++;
+          }
+        }
+      );
 
-    const sittingTimeStr =
-      hours > 0
-        ? `${hours} ชม. ${mins} นาที`
-        : `${mins} นาที`;
+      const totalPressureSide =
+        leftCount +
+          rightCount || 1;
 
-    return {
-      sittingTimeStr,
-      moveCount,
-      avgTemp,
-      alertCount,
-      leftPercent,
-      rightPercent,
+      const leftPercent =
+        Math.round(
+          (leftCount /
+            totalPressureSide) *
+            100
+        );
+
+      const rightPercent =
+        100 - leftPercent;
+
+      const avgTemp =
+        (
+          tempSum / total
+        ).toFixed(1);
+
+      const totalMinutes =
+        Math.floor(
+          (filteredLogs.length * 3) /
+            60
+        );
+
+      const hours =
+        Math.floor(
+          totalMinutes / 60
+        );
+
+      const mins =
+        totalMinutes % 60;
+
+      const sittingTimeStr =
+        hours > 0
+          ? `${hours} ชม. ${mins} นาที`
+          : `${mins} นาที`;
+
+      return {
+        sittingTimeStr,
+        moveCount,
+        avgTemp,
+        alertCount,
+        leftPercent,
+        rightPercent,
+      };
     };
-  };
 
-  const stats = getDashboardStats();
+  const stats =
+    getDashboardStats();
 
+
+  // =====================================================
+  // Loading
+  // =====================================================
   if (
     loading &&
     historyLogs.length === 0
   ) {
     return (
-      <View style={styles.loadingContainer}>
+      <View
+        style={
+          styles.loadingContainer
+        }
+      >
         <ActivityIndicator
           size="large"
           color="#2D69CA"
         />
-        <Text style={styles.loadingText}>
+
+        <Text
+          style={
+            styles.loadingText
+          }
+        >
           กำลังโหลดข้อมูล Dashboard...
         </Text>
       </View>
     );
   }
 
-  const graphLogs =
-    activeTab === 'today'
-      ? getTodayGraphLogs(filteredLogs)
-      : getWeeklyGraphLogs(filteredLogs);
 
-  // บนหน้าจอหลักแสดงแค่ 3 รายการล่าสุด
-  const displayedLogs = eventLogs.slice(0, 3);
+  const graphLogs =            // กราฟ
+  activeTab === 'today'
+    ? getTodayGraphLogs(filteredLogs)
+    : getWeeklyGraphLogs(filteredLogs);
+
+  const displayedLogs =
+  isExpanded
+    ? eventLogs
+    : eventLogs.slice(0, 3);
 
   return (
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={styles.container}
-      showsVerticalScrollIndicator={true}
-    >
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={true}
+      >
       <View
         style={[
           styles.mainWrapper,
-          { width: maxContainerWidth },
+          {
+            width:
+              maxContainerWidth,
+          },
         ]}
       >
         {/* Header */}
-        <Text style={styles.headerTitle}>
+        <Text
+          style={
+            styles.headerTitle
+          }
+        >
           Clinical Dashboard
         </Text>
 
-        <Text style={styles.subHeaderTitle}>
+
+
+        <Text
+          style={
+            styles.subHeaderTitle
+          }
+        >
           รายงานวิเคราะห์พฤติกรรมทางการแพทย์
         </Text>
 
         {/* Tab */}
-        <View style={styles.tabContainer}>
+        <View
+          style={
+            styles.tabContainer
+          }
+        >
           <TouchableOpacity
             style={[
               styles.tabButton,
-              activeTab === 'today' &&
+              activeTab ===
+                'today' &&
                 styles.activeTabButton,
             ]}
-            onPress={() => setActiveTab('today')}
+            onPress={() =>
+              setActiveTab(
+                'today'
+              )
+            }
           >
             <Text
               style={[
                 styles.tabText,
-                activeTab === 'today' &&
+                activeTab ===
+                  'today' &&
                   styles.activeTabText,
               ]}
             >
@@ -938,15 +1124,21 @@ export default function HistoryScreen() {
           <TouchableOpacity
             style={[
               styles.tabButton,
-              activeTab === 'week' &&
+              activeTab ===
+                'week' &&
                 styles.activeTabButton,
             ]}
-            onPress={() => setActiveTab('week')}
+            onPress={() =>
+              setActiveTab(
+                'week'
+              )
+            }
           >
             <Text
               style={[
                 styles.tabText,
-                activeTab === 'week' &&
+                activeTab ===
+                  'week' &&
                   styles.activeTabText,
               ]}
             >
@@ -956,18 +1148,43 @@ export default function HistoryScreen() {
         </View>
 
         {/* Summary Cards */}
-        <View style={styles.gridContainer}>
+        <View
+          style={
+            styles.gridContainer
+          }
+        >
           <View
             style={[
               styles.summaryCard,
-              { width: cardWidth },
+              {
+                width:
+                  cardWidth,
+              },
             ]}
           >
-            <Text style={styles.cardIcon}>⏱️</Text>
-            <Text style={styles.cardValueText}>
-              {stats.sittingTimeStr}
+            <Text
+              style={
+                styles.cardIcon
+              }
+            >
+              ⏱️
             </Text>
-            <Text style={styles.cardLabelText}>
+
+            <Text
+              style={
+                styles.cardValueText
+              }
+            >
+              {
+                stats.sittingTimeStr
+              }
+            </Text>
+
+            <Text
+              style={
+                styles.cardLabelText
+              }
+            >
               เวลานั่งรวม
             </Text>
           </View>
@@ -975,14 +1192,34 @@ export default function HistoryScreen() {
           <View
             style={[
               styles.summaryCard,
-              { width: cardWidth },
+              {
+                width:
+                  cardWidth,
+              },
             ]}
           >
-            <Text style={styles.cardIcon}>🚶</Text>
-            <Text style={styles.cardValueText}>
-              {stats.moveCount} ครั้ง
+            <Text
+              style={
+                styles.cardIcon
+              }
+            >
+              🚶
             </Text>
-            <Text style={styles.cardLabelText}>
+
+            <Text
+              style={
+                styles.cardValueText
+              }
+            >
+              {stats.moveCount}{' '}
+              ครั้ง
+            </Text>
+
+            <Text
+              style={
+                styles.cardLabelText
+              }
+            >
               ขยับเปลี่ยนท่า
             </Text>
           </View>
@@ -990,19 +1227,38 @@ export default function HistoryScreen() {
           <View
             style={[
               styles.summaryCard,
-              { width: cardWidth },
+              {
+                width:
+                  cardWidth,
+              },
             ]}
           >
-            <Text style={styles.cardIcon}>🌡️</Text>
+            <Text
+              style={
+                styles.cardIcon
+              }
+            >
+              🌡️
+            </Text>
+
             <Text
               style={[
                 styles.cardValueText,
-                { color: '#FF9500' },
+                {
+                  color:
+                    '#FF9500',
+                },
               ]}
             >
-              {stats.avgTemp} °C
+              {stats.avgTemp}{' '}
+              °C
             </Text>
-            <Text style={styles.cardLabelText}>
+
+            <Text
+              style={
+                styles.cardLabelText
+              }
+            >
               อุณหภูมิเฉลี่ย
             </Text>
           </View>
@@ -1010,55 +1266,120 @@ export default function HistoryScreen() {
           <View
             style={[
               styles.summaryCard,
-              { width: cardWidth },
+              {
+                width:
+                  cardWidth,
+              },
             ]}
           >
-            <Text style={styles.cardIcon}>🚨</Text>
+            <Text
+              style={
+                styles.cardIcon
+              }
+            >
+              🚨
+            </Text>
+
             <Text
               style={[
                 styles.cardValueText,
-                { color: '#FF3B30' },
+                {
+                  color:
+                    '#FF3B30',
+                },
               ]}
             >
-              {stats.alertCount} ครั้ง
+              {stats.alertCount}{' '}
+              ครั้ง
             </Text>
-            <Text style={styles.cardLabelText}>
+
+            <Text
+              style={
+                styles.cardLabelText
+              }
+            >
               เตือนวิกฤต/ชื้น
             </Text>
           </View>
         </View>
 
         {/* Pressure Balance */}
-        <View style={styles.cardSection}>
-          <Text style={styles.sectionTitle}>
+        <View
+          style={
+            styles.cardSection
+          }
+        >
+          <Text
+            style={
+              styles.sectionTitle
+            }
+          >
             ⚖ สัดส่วนการพบแรงกดสูง
           </Text>
 
-          <View style={styles.balanceHeader}>
-            <Text style={styles.leftPercentText}>
-              ซ้าย {stats.leftPercent}%
+          <View
+            style={
+              styles.balanceHeader
+            }
+          >
+            <Text
+              style={
+                styles.leftPercentText
+              }
+            >
+              ซ้าย{' '}
+              {
+                stats.leftPercent
+              }
+              %
             </Text>
-            <Text style={styles.rightPercentText}>
-              ขวา {stats.rightPercent}%
+
+            <Text
+              style={
+                styles.rightPercentText
+              }
+            >
+              ขวา{' '}
+              {
+                stats.rightPercent
+              }
+              %
             </Text>
           </View>
 
-          <View style={styles.balanceBarContainer}>
+          <View
+            style={
+              styles.balanceBarContainer
+            }
+          >
             <View
               style={[
                 styles.leftBar,
-                { flex: stats.leftPercent || 1 },
+                {
+                  flex:
+                    stats.leftPercent ||
+                    1,
+                },
               ]}
             />
+
             <View
               style={[
                 styles.rightBar,
-                { flex: stats.rightPercent || 1 },
+                {
+                  flex:
+                    stats.rightPercent ||
+                    1,
+                },
               ]}
             />
           </View>
 
-          <Text style={styles.evalText}>
+          <Text
+            style={
+              styles.evalText
+            }
+          >
             💡 ประเมิน:{' '}
             {Math.abs(
               stats.leftPercent -
@@ -1072,8 +1393,7 @@ export default function HistoryScreen() {
         {/* Daily Trend */}
         <View style={styles.cardSection}>
           <Text style={styles.sectionTitle}>
-            📈{' '}
-            {activeTab === 'today'
+            📈 {activeTab === 'today'
               ? 'ภาพรวมวันนี้ (Daily Trend)'
               : 'ภาพรวมสัปดาห์นี้ (Weekly Trend)'}
           </Text>
@@ -1086,17 +1406,21 @@ export default function HistoryScreen() {
             <TouchableOpacity
               style={[
                 styles.metricButton,
-                selectedMetric === 'humidity' &&
+                selectedMetric ===
+                  'humidity' &&
                   styles.humidityActiveBtn,
               ]}
               onPress={() =>
-                setSelectedMetric('humidity')
+                setSelectedMetric(
+                  'humidity'
+                )
               }
             >
               <Text
                 style={[
                   styles.metricButtonText,
-                  selectedMetric === 'humidity' &&
+                  selectedMetric ===
+                    'humidity' &&
                     styles.activeMetricText,
                 ]}
               >
@@ -1107,17 +1431,21 @@ export default function HistoryScreen() {
             <TouchableOpacity
               style={[
                 styles.metricButton,
-                selectedMetric === 'pressure' &&
+                selectedMetric ===
+                  'pressure' &&
                   styles.pressureActiveBtn,
               ]}
               onPress={() =>
-                setSelectedMetric('pressure')
+                setSelectedMetric(
+                  'pressure'
+                )
               }
             >
               <Text
                 style={[
                   styles.metricButtonText,
-                  selectedMetric === 'pressure' &&
+                  selectedMetric ===
+                    'pressure' &&
                     styles.activeMetricText,
                 ]}
               >
@@ -1128,17 +1456,21 @@ export default function HistoryScreen() {
             <TouchableOpacity
               style={[
                 styles.metricButton,
-                selectedMetric === 'temperature' &&
+                selectedMetric ===
+                  'temperature' &&
                   styles.tempActiveBtn,
               ]}
               onPress={() =>
-                setSelectedMetric('temperature')
+                setSelectedMetric(
+                  'temperature'
+                )
               }
             >
               <Text
                 style={[
                   styles.metricButtonText,
-                  selectedMetric === 'temperature' &&
+                  selectedMetric ===
+                    'temperature' &&
                     styles.activeMetricText,
                 ]}
               >
@@ -1149,8 +1481,12 @@ export default function HistoryScreen() {
 
           <TrendChart
             logs={graphLogs}
-            selectedMetric={selectedMetric}
-            containerWidth={maxContainerWidth}
+            selectedMetric={
+              selectedMetric
+            }
+            containerWidth={
+              maxContainerWidth
+            }
           />
 
           <Text style={styles.graphDescription}>
@@ -1160,345 +1496,245 @@ export default function HistoryScreen() {
           </Text>
         </View>
 
-        {/* Recent Logs */}
-        <View style={styles.cardSection}>
-          <View style={styles.logHeaderRow}>
-            <Text style={styles.sectionTitle}>
+                {/* Recent Logs */}
+        <View
+          style={
+            styles.cardSection
+          }
+        >
+          <View
+            style={
+              styles.logHeaderRow
+            }
+          >
+            <Text
+              style={
+                styles.sectionTitle
+              }
+            >
               📋 ประวัติบันทึกเหตุการณ์
             </Text>
 
-            <View style={styles.logHeaderButtons}>
+            <View
+              style={
+                styles.logHeaderButtons
+              }
+            >
               {/* ปุ่มล้างประวัติ */}
               <TouchableOpacity
-                style={styles.clearHistoryBadge}
-                onPress={handleClearHistory}
-              >
-                <View
-                  style={
-                    styles.clearHistoryBadgeContent
-                  }
-                >
-                  <FontAwesome5
-                    name="trash"
-                    size={16}
-                    color="#9c1717"
-                  />
-                </View>
-              </TouchableOpacity>
-
-              {/* ปุ่มดูทั้งหมด (เปิด Modal) */}
-              <TouchableOpacity
-                style={styles.exportBadge}
-                onPress={() =>
-                  setIsModalVisible(true)
+                style={
+                  styles.clearHistoryBadge
+                }
+                onPress={
+                  handleClearHistory
                 }
               >
-                <Text style={styles.exportBadgeText}>
-                  View All
+                <View style={styles.clearHistoryBadgeContent}>
+                <FontAwesome5
+                  name="trash"
+                  size={16}
+                  color="#9c1717"
+                />
+              </View>
+              </TouchableOpacity>
+
+              {/* ปุ่มดูทั้งหมด */}
+              <TouchableOpacity
+                style={
+                  styles.exportBadge
+                }
+                onPress={() =>
+                  setIsExpanded(
+                    (prev) =>
+                      !prev
+                  )
+                }
+              >
+                <Text
+                  style={
+                    styles.exportBadgeText
+                  }
+                >
+                  {isExpanded
+                    ? 'Show Less'
+                    : 'View All'}
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {displayedLogs.length === 0 ? (
-            <Text style={styles.emptyText}>
+          {displayedLogs.length ===
+          0 ? (
+            <Text
+              style={
+                styles.emptyText
+              }
+            >
               ยังไม่มีข้อมูลบันทึก
             </Text>
           ) : (
-            displayedLogs.map((item) => (
-              <View
-                key={item.id}
-                style={styles.logItemCard}
-              >
+            displayedLogs.map(
+              (item) => (
                 <View
-                  style={[
-                    styles.sideIndicator,
-                    {
-                      backgroundColor:
-                        item.isTempHigh
-                          ? '#FF3B30'
-                          : item.isSittingTooLong
-                          ? '#FF9500'
-                          : item.isHumidHigh
-                          ? '#0288D1'
-                          : '#34C759',
-                    },
-                  ]}
-                />
-
-                <View style={styles.logContent}>
-                  <View style={styles.logTopRow}>
-                    <Text style={styles.logTimeText}>
-                      {formatTime(item.time)} น.
-                    </Text>
-
-                    {item.isTempHigh && (
-                      <Text style={styles.criticalBadge}>
-                        🚨 วิกฤต
-                      </Text>
-                    )}
-
-                    {!item.isTempHigh &&
-                      item.isSittingTooLong && (
-                        <Text style={styles.warningBadge}>
-                          ⚠️ นั่งนานเกินไป
-                        </Text>
-                      )}
-                  </View>
-
-                  <View style={styles.logSubRow}>
-                    <Text style={styles.logDetailText}>
-                      แรงกด: ซ้าย{' '}
-                      <Text
-                        style={
-                          item.leftPressed
-                            ? styles.textRed
-                            : styles.textGreen
-                        }
-                      >
-                        {item.leftPressed
-                          ? 'High'
-                          : 'Low'}
-                      </Text>
-
-                      {' | '}ขวา{' '}
-
-                      <Text
-                        style={
-                          item.rightPressed
-                            ? styles.textRed
-                            : styles.textGreen
-                        }
-                      >
-                        {item.rightPressed
-                          ? 'High'
-                          : 'Low'}
-                      </Text>
-                    </Text>
-                  </View>
-
-                  <View style={styles.logSubRow}>
-                    <Text style={styles.logMetricText}>
-                      อุณหภูมิ:{' '}
-                      <Text
-                        style={
-                          item.isTempHigh
-                            ? styles.textRed
-                            : styles.textDark
-                        }
-                      >
-                        {item.temperature} °C
-                      </Text>
-
-                      {'  '}ชื้น:{' '}
-
-                      <Text
-                        style={
-                          item.isHumidHigh
-                            ? styles.textBlue
-                            : styles.textDark
-                        }
-                      >
-                        {item.humidity}% 💧
-                      </Text>
-                    </Text>
-                  </View>
-
-                  {item.calculatedPosition ===
-                    'CENTER' && (
-                    <Text
-                      style={styles.sittingTimerText}
-                    >
-                      🪑 นั่งตรงกลางต่อเนื่อง:{' '}
-                      {item.sittingSeconds} วินาที
-                    </Text>
-                  )}
-                </View>
-              </View>
-            ))
-          )}
-        </View>
-
-        {/* ===================================================== */}
-        {/* Modal แสดงประวัติเหตุการณ์ทั้งหมด (View All) */}
-        {/* ===================================================== */}
-        <Modal
-          visible={isModalVisible}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() =>
-            setIsModalVisible(false)
-          }
-        >
-          <View style={styles.modalOverlay}>
-            <View
-              style={[
-                styles.modalContent,
-                { width: maxContainerWidth },
-              ]}
-            >
-              {/* Header ของ Modal */}
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitleText}>
-                  📋 ประวัติเหตุการณ์ทั้งหมด ({eventLogs.length} รายการ)
-                </Text>
-                <TouchableOpacity
-                  style={styles.modalCloseButton}
-                  onPress={() =>
-                    setIsModalVisible(false)
+                  key={item.id}
+                  style={
+                    styles.logItemCard
                   }
                 >
-                  <Text style={styles.modalCloseButtonText}>
-                    ✕
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                  <View
+                    style={[
+                      styles.sideIndicator,
+                      {
+                        backgroundColor:
+                          item.isTempHigh
+                            ? '#FF3B30'
+                            : item.isSittingTooLong
+                            ? '#FF9500'
+                            : item.isHumidHigh
+                            ? '#0288D1'
+                            : '#34C759',
+                      },
+                    ]}
+                  />
 
-              {/* รายการทั้งหมดแบบ Scroll ได้ */}
-              <ScrollView
-                style={styles.modalScrollView}
-                showsVerticalScrollIndicator={true}
-              >
-                {eventLogs.length === 0 ? (
-                  <Text style={styles.emptyText}>
-                    ยังไม่มีข้อมูลบันทึก
-                  </Text>
-                ) : (
-                  eventLogs.map((item) => (
+                  <View
+                    style={
+                      styles.logContent
+                    }
+                  >
                     <View
-                      key={`modal-${item.id}`}
-                      style={styles.logItemCard}
+                      style={
+                        styles.logTopRow
+                      }
                     >
-                      <View
-                        style={[
-                          styles.sideIndicator,
-                          {
-                            backgroundColor:
-                              item.isTempHigh
-                                ? '#FF3B30'
-                                : item.isSittingTooLong
-                                ? '#FF9500'
-                                : item.isHumidHigh
-                                ? '#0288D1'
-                                : '#34C759',
-                          },
-                        ]}
-                      />
+                      <Text
+                        style={
+                          styles.logTimeText
+                        }
+                      >
+                        {formatTime(
+                          item.time
+                        )}{' '}
+                        น.
+                      </Text>
 
-                      <View style={styles.logContent}>
-                        <View style={styles.logTopRow}>
-                          <Text style={styles.logTimeText}>
-                            {formatTime(item.time)} น.
-                          </Text>
+                      {item.isTempHigh && (
+                        <Text
+                          style={
+                            styles.criticalBadge
+                          }
+                        >
+                          🚨 วิกฤต
+                        </Text>
+                      )}
 
-                          {item.isTempHigh && (
-                            <Text
-                              style={
-                                styles.criticalBadge
-                              }
-                            >
-                              🚨 วิกฤต
-                            </Text>
-                          )}
-
-                          {!item.isTempHigh &&
-                            item.isSittingTooLong && (
-                              <Text
-                                style={
-                                  styles.warningBadge
-                                }
-                              >
-                                ⚠️ นั่งนานเกินไป
-                              </Text>
-                            )}
-                        </View>
-
-                        <View style={styles.logSubRow}>
+                      {!item.isTempHigh &&
+                        item.isSittingTooLong && (
                           <Text
                             style={
-                              styles.logDetailText
+                              styles.warningBadge
                             }
                           >
-                            แรงกด: ซ้าย{' '}
-                            <Text
-                              style={
-                                item.leftPressed
-                                  ? styles.textRed
-                                  : styles.textGreen
-                              }
-                            >
-                              {item.leftPressed
-                                ? 'High'
-                                : 'Low'}
-                            </Text>
-
-                            {' | '}ขวา{' '}
-
-                            <Text
-                              style={
-                                item.rightPressed
-                                  ? styles.textRed
-                                  : styles.textGreen
-                              }
-                            >
-                              {item.rightPressed
-                                ? 'High'
-                                : 'Low'}
-                            </Text>
-                          </Text>
-                        </View>
-
-                        <View style={styles.logSubRow}>
-                          <Text
-                            style={
-                              styles.logMetricText
-                            }
-                          >
-                            อุณหภูมิ:{' '}
-                            <Text
-                              style={
-                                item.isTempHigh
-                                  ? styles.textRed
-                                  : styles.textDark
-                              }
-                            >
-                              {item.temperature} °C
-                            </Text>
-
-                            {'  '}ชื้น:{' '}
-
-                            <Text
-                              style={
-                                item.isHumidHigh
-                                  ? styles.textBlue
-                                  : styles.textDark
-                              }
-                            >
-                              {item.humidity}% 💧
-                            </Text>
-                          </Text>
-                        </View>
-
-                        {item.calculatedPosition ===
-                          'CENTER' && (
-                          <Text
-                            style={
-                              styles.sittingTimerText
-                            }
-                          >
-                            🪑 นั่งตรงกลางต่อเนื่อง:{' '}
-                            {item.sittingSeconds}{' '}
-                            วินาที
+                            ⚠️ นั่งนานเกินไป
                           </Text>
                         )}
-                      </View>
                     </View>
-                  ))
-                )}
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
+
+                    <View
+                      style={
+                        styles.logSubRow
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.logDetailText
+                        }
+                      >
+                        แรงกด: ซ้าย{' '}
+                        <Text
+                          style={
+                            item.leftPressed
+                              ? styles.textRed
+                              : styles.textGreen
+                          }
+                        >
+                          {item.leftPressed
+                            ? 'High'
+                            : 'Low'}
+                        </Text>
+
+                        {' | '}ขวา{' '}
+
+                        <Text
+                          style={
+                            item.rightPressed
+                              ? styles.textRed
+                              : styles.textGreen
+                          }
+                        >
+                          {item.rightPressed
+                            ? 'High'
+                            : 'Low'}
+                        </Text>
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.logMetricText
+                        }
+                      >
+                        อุณหภูมิ:{' '}
+                        <Text
+                          style={
+                            item.isTempHigh
+                              ? styles.textRed
+                              : styles.textDark
+                          }
+                        >
+                          {
+                            item.temperature
+                          }{' '}
+                          °C
+                        </Text>
+
+                        {'  '}
+                        ชื้น:{' '}
+
+                        <Text
+                          style={
+                            item.isHumidHigh
+                              ? styles.textBlue
+                              : styles.textDark
+                          }
+                        >
+                          {
+                            item.humidity
+                          }%
+                          💧
+                        </Text>
+                      </Text>
+                    </View>
+
+                    {item.calculatedPosition ===
+                      'CENTER' && (
+                      <Text
+                        style={
+                          styles.sittingTimerText
+                        }
+                      >
+                        🪑 นั่งตรงกลางต่อเนื่อง:{' '}
+                        {
+                          item.sittingSeconds
+                        }{' '}
+                        วินาที
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              )
+            )
+          )}
+        </View>
       </View>
     </ScrollView>
   );
@@ -1509,13 +1745,13 @@ export default function HistoryScreen() {
 // =====================================================
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 60,
-    paddingHorizontal: 16,
-    paddingBottom: 130,
-    backgroundColor: '#F4F6F9',
-    flexGrow: 1,
-    alignItems: 'center',
-  },
+  paddingTop: 60,
+  paddingHorizontal: 16,
+  paddingBottom: 130,
+  backgroundColor: '#F4F6F9',
+  flexGrow: 1,
+  alignItems: 'center',
+},
 
   mainWrapper: {
     alignSelf: 'center',
@@ -1569,7 +1805,7 @@ const styles = StyleSheet.create({
   },
 
   tabText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#8E8E93',
   },
@@ -1608,8 +1844,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
 
-  cardValueText: {
-    fontSize: 20,
+  cardValueText: {           //กล่อง 4 อัน
+    fontSize: 24,
     fontWeight: '700',
     color: '#1C1C1E',
   },
@@ -1628,7 +1864,7 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 20,
     fontWeight: '700',
     color: '#1C1C1E',
   },
@@ -1641,13 +1877,13 @@ const styles = StyleSheet.create({
   },
 
   leftPercentText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#FF3B30',
   },
 
   rightPercentText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#34C759',
   },
@@ -1669,7 +1905,7 @@ const styles = StyleSheet.create({
   },
 
   evalText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#8E8E93',
     marginTop: 8,
   },
@@ -1707,13 +1943,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
+  // --- ปุ่มตอนที่ถูกเลือก (Active) พร้อมใส่เงาให้ดูลอยขึ้นมา ---\\
   humidityActiveBtn: {
     backgroundColor: '#2D69CA',
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    elevation: 4,
-    shadowColor: '#000',
+    elevation: 4,          // เงาสำหรับ Android
+    shadowColor: '#000',   // เงาสำหรับ iOS
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -1743,19 +1980,27 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
 
+  // --- เพิ่มสไตล์สำหรับปุ่มตอนที่ไม่ได้เลือก (Inactive) ตรงนี้ ---
+  inactiveBtn: {
+    backgroundColor: 'transparent', // หรือใช้สีเทาอ่อนมากๆ เช่น '#F2F2F2'
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+//========================================================\\
   chartWrapper: {
     alignItems: 'center',
     marginTop: 4,
   },
 
   xAxisTitle: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#8E8E93',
     marginTop: -8,
   },
 
   graphDescription: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#8E8E93',
     textAlign: 'center',
     marginTop: 8,
@@ -1769,7 +2014,7 @@ const styles = StyleSheet.create({
 
   emptyGraphText: {
     color: '#8E8E93',
-    fontSize: 12,
+    fontSize: 14,
   },
 
   logHeaderRow: {
@@ -1810,19 +2055,19 @@ const styles = StyleSheet.create({
   },
 
   logTimeText: {
-    fontSize: 15,
+    fontSize: 15.5,
     fontWeight: '700',
     color: '#1C1C1E',
   },
 
   criticalBadge: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#FF3B30',
     fontWeight: '600',
   },
 
   warningBadge: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#FF9500',
     fontWeight: '600',
   },
@@ -1833,14 +2078,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // ปรับขนาดตัวอักษร 2 บรรทัดล่างให้ใหญ่ขึ้น (จาก 11 เป็น 13)
   logDetailText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#8E8E93',
   },
 
   logMetricText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#8E8E93',
   },
 
@@ -1870,16 +2114,15 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
     fontWeight: '600',
   },
-
   logHeaderButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-
-  exportBadge: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 6,
+},
+//=================== see all =======================
+exportBadge: {
     backgroundColor: '#2D69CA',
-    height: 29,
+    height: 29,               // 🔥 กำหนดความสูงให้ตายตัว
     paddingHorizontal: 14,
     borderRadius: 8,
     justifyContent: 'center',
@@ -1888,17 +2131,23 @@ const styles = StyleSheet.create({
 
   exportBadgeText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
   },
 
   clearHistoryBadge: {
     backgroundColor: '#FFE5E5',
-    height: 30,
-    paddingHorizontal: 14,
+    height: 30,               // 🔥 ใช้ความสูงเท่ากันเป๊ะๆ (36)
+    paddingHorizontal: 14,    // ปรับให้มีระยะขอบสอดคล้องกัน
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  clearHistoryBadgeText: {
+    color: '#FF3B30',
+    fontSize: 11,
+    fontWeight: '600',
   },
 
   clearHistoryBadgeContent: {
