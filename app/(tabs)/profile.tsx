@@ -157,16 +157,18 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "flex-start", // เปลี่ยนจาก center ให้จัดเรียงชิดด้านบน
     alignItems: "center",
     paddingHorizontal: 24,
+    paddingTop: 150, // ปรับค่านี้เพิ่มขึ้นหรือลดลงเพื่อขยับภาพรวมทั้งก้อนขึ้น-ลงได้ตามชอบ
   },
   logoImage: {
-    width: "120%",
-    maxWidth: 800,
-    height: 100,
+    width: "140%",
+    maxWidth: 900,
+    height: 120,
     alignSelf: "center",
-    marginBottom: 20, // เปลี่ยนจาก marginTop ติดลบ เป็น marginBottom ปกติ
+    marginBottom: 20,
+    marginTop: 10, // เพิ่มค่าติดลบ เช่น -20 หรือลดลงได้ถ้าต้องการให้ชิดขอบบนมากขึ้นอีก
   },
   cardContainer: {
     width: "100%",
