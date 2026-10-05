@@ -976,7 +976,7 @@ const styles = StyleSheet.create({
 
   background: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F4F6F9",
   },
 
   // =======================================================
