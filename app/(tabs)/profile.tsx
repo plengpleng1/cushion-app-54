@@ -110,14 +110,12 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* Logo */}
-        <Text style={styles.logoImage}>
-          <Image
-            source={require("../../assets/images/cushion.png")} // เปลี่ยน path ไปยังไฟล์รูปโลโก้ของคุณ
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
-        </Text>
+        {/* แก้ไขส่วน Logo: ถอดแท็ก <Text> ออกเพื่อไม่ให้ Layout เพี้ยน */}
+        <Image
+          source={require("../../assets/images/cushion.png")}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
 
         <View style={styles.cardContainer}>
           {/* แสดง Username */}
@@ -164,79 +162,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   logoImage: {
-    width: 325, // ปรับความกว้างของโลโก้ตามต้องการ
-    height: 200, // ปรับความสูงของโลโก้ตามสัดส่วนจริง
-    alignSelf: "center", // จัดให้อยู่กึ่งกลางหน้าจอ
-    marginTop: -80,
-    marginLeft: 3,
+    width: "120%",
+    maxWidth: 800,
+    height: 100,
+    alignSelf: "center",
+    marginBottom: 20, // เปลี่ยนจาก marginTop ติดลบ เป็น marginBottom ปกติ
   },
   cardContainer: {
-    width: "108%",
-    maxWidth: 470,
+    width: "100%",
+    maxWidth: 400, // ปรับขนาดการ์ดให้พอดี ไม่กว้างเกินไป
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: 30,
-    paddingVertical: 30,
+    paddingHorizontal: 24,
+    paddingVertical: 24,
     borderColor: "#EAEAEA",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
-    marginTop: -110,
+    marginTop: 0, // เอาค่าติดลบ -110 ออก
   },
   infoBoxWrapper: {
     width: "100%",
-    height: 50,
+    height: 48,
     borderWidth: 1,
-    borderRadius: 10,
-    padding: -5,
-    marginBottom: 15,
+    borderRadius: 8,
+    marginBottom: 16,
     backgroundColor: "#FAFAFA",
     justifyContent: "center",
     alignItems: "flex-start",
-
-    overflow: "hidden",
+    paddingHorizontal: 12,
     borderColor: "#D1D5DB",
   },
-  infoScrollContent: {
-    alignItems: "center",
-    paddingHorizontal: 16,
-    flexGrow: 1,
-    justifyContent: "center",
-  },
   infoText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "500",
     color: "#333333",
-    marginLeft: 8,
   },
   logoutButton: {
     width: "100%",
-    height: 50,
+    height: 48,
     backgroundColor: "#C82828",
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 10,
+    borderRadius: 8,
     marginTop: 8,
-    borderColor: "#EAEAEA",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
   },
   logoutButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   fieldContainer: {
     width: "100%",
-    marginBottom: -5,
   },
-
   fieldLabel: {
     fontSize: 14,
     fontWeight: "600",
