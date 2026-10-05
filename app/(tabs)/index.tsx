@@ -1022,7 +1022,7 @@ warningText: {
   },
 
   cardLabel: {
-    fontSize: 15.5,
+    fontSize: 15.3,
     color: "#8E8E93",
     fontWeight: "600",
     marginBottom: 4,
