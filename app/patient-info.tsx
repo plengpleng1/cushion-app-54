@@ -1044,8 +1044,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 20,
-    paddingVertical: 20,
-    fontSize: 17,
+    paddingVertical: 10,
+    fontSize: 16,
     color: "#222",
     backgroundColor: "#FAFAFA",
     marginBottom: 14,
@@ -1105,6 +1105,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingVertical: 0,
   },
 
   placeholderText: {
