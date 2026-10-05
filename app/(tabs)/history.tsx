@@ -1810,7 +1810,7 @@ const styles = StyleSheet.create({
   },
 
   logTimeText: {
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '700',
     color: '#1C1C1E',
   },
@@ -1834,12 +1834,12 @@ const styles = StyleSheet.create({
   },
 
   logDetailText: {
-    fontSize: 13, // ขยายขนาดตัวอักษรบรรทัดแรงกด
+    fontSize: 15, // ขยายขนาดตัวอักษรบรรทัดแรงกด
     color: '#8E8E93',
   },
 
   logMetricText: {
-    fontSize: 13, // ขยายขนาดตัวอักษรบรรทัดอุณหภูมิและความชื้น
+    fontSize: 15, // ขยายขนาดตัวอักษรบรรทัดอุณหภูมิและความชื้น
     color: '#8E8E93',
   },
 
