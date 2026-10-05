@@ -417,10 +417,7 @@ export default function HistoryScreen() {
     setIsExpanded,
   ] = useState<boolean>(false);
 
-  const [
-  clearedTab,
-  setClearedTab,
-] = useState<TabType | null>(null);
+  
 
   // =====================================================
   // วันที่ปัจจุบัน
@@ -441,18 +438,18 @@ export default function HistoryScreen() {
   const patientIdRef =
     useRef<string | null>(null);
 
-    const handleClearHistory = () => {
-    console.log('🗑️ CLEAR BUTTON PRESSED');
+  const handleClearHistory = () => {
+      //console.log('🗑️ CLEAR EVENT HISTORY');
 
-    const now = Date.now();
+      const now = Date.now();
 
-    setClearedAt((prev) => ({
-      ...prev,
-      [activeTab]: now,
-    }));
+      setClearedAt((prev) => ({
+        ...prev,
+        [activeTab]: now,
+      }));
 
-    setIsExpanded(false);
-  };
+      setIsExpanded(false);
+    };
 
 
   // =====================================================
@@ -583,28 +580,36 @@ export default function HistoryScreen() {
   }, []);
 
 
-  // =====================================================
-  // ข้อมูลที่จะแสดงตาม Tab
-  // =====================================================
-    const filteredLogs = historyLogs.filter((log) => {
-      // Today แสดงเฉพาะข้อมูลของวันนี้
-      if (
-        activeTab === 'today' &&
-        !isToday(log.date)
-      ) {
-        return false;
-      }
+// =====================================================
+// ข้อมูลสำหรับ Dashboard / Summary / Graph
+// ไม่ได้รับผลจากปุ่มล้างประวัติเหตุการณ์
+// =====================================================
+const filteredLogs = historyLogs.filter((log) => {
+  if (
+    activeTab === 'today' &&
+    !isToday(log.date)
+  ) {
+    return false;
+  }
 
-      // เวลาที่กดล้างของ tab นี้
+  return true;
+});
+
+// =====================================================
+// ข้อมูลสำหรับ "ประวัติเหตุการณ์"
+// กรองเฉพาะข้อมูลที่เกิดหลังจากกดล้าง
+// =====================================================
+    const eventLogs = filteredLogs.filter((log) => {
       const clearTime = clearedAt[activeTab];
 
-      // ถ้ายังไม่เคยกดล้าง → แสดงข้อมูลทั้งหมด
+      // ยังไม่เคยกดล้าง
       if (!clearTime) {
         return true;
       }
 
       // แปลงวันที่ DD/MM/YYYY + เวลา HH:mm:ss
-      const [day, month, year] = log.date.split('/');
+      const [day, month, year] =
+        log.date.split('/');
 
       const logDateTime = new Date(
         `${year}-${month}-${day}T${log.time}+07:00`
@@ -613,7 +618,6 @@ export default function HistoryScreen() {
       // แสดงเฉพาะข้อมูลที่เกิดหลังจากกดล้าง
       return logDateTime > clearTime;
     });
-
   // =====================================================
 // เมื่อเข้า History
 // =====================================================
@@ -866,12 +870,9 @@ useFocusEffect(
       .reverse();
 
   const displayedLogs =
-    isExpanded
-      ? filteredLogs
-      : filteredLogs.slice(
-          0,
-          3
-        );
+  isExpanded
+    ? eventLogs
+    : eventLogs.slice(0, 3);
 
   return (
       <ScrollView
