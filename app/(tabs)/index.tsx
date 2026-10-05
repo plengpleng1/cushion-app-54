@@ -11,9 +11,9 @@ import {
   View,
 } from "react-native";
 
+import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fetchSensorData, SensorData } from "../../services/sensorService";
-import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { useAudioPlayer } from "expo-audio";
 
@@ -604,7 +604,7 @@ export default function HomeScreen() {
                 },
               ]}
             >
-              <Text style={styles.cardLabel}>
+              <Text style={[styles.cardLabel, { fontSize: 20 }]}>
                 Status
               </Text>
 
@@ -642,6 +642,7 @@ export default function HomeScreen() {
                   {
                     color:
                       getTimerTextColor(),
+                      fontSize: 20,
                   },
                 ]}
               >
@@ -672,22 +673,21 @@ export default function HomeScreen() {
                 {getDisplayPosition()})
               </Text>
 
-              <View
-                style={styles.badgeContainer}
+              <View 
+              style={styles.badgeContainer}
               >
-                {isHumidHigh && (
-                  <Text
-                    style={styles.humidBadge}
-                  >
-                    💧 Humid High
+                {isTempHigh && (
+                  <Text 
+                style={styles.tempBadge}>
+                    🌡️ Temp High
                   </Text>
                 )}
 
-                {isTempHigh && (
+                {isHumidHigh && (
                   <Text
-                    style={styles.tempBadge}
-                  >
-                    🌡️ Temp High
+                style={styles.humidBadge}
+                >
+                    💧 Humid High
                   </Text>
                 )}
               </View>
@@ -958,14 +958,14 @@ const styles = StyleSheet.create({
   },
 
   alarmTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "bold",
     color: "#FF3B30",
     marginBottom: 6,
   },
 
   alarmText: {
-    fontSize: 13,
+    fontSize: 15,
     color: "#D70000",
     fontWeight: "500",
     marginBottom: 3,
@@ -1022,14 +1022,14 @@ warningText: {
   },
 
   cardLabel: {
-    fontSize: 13,
+    fontSize: 15.5,
     color: "#8E8E93",
     fontWeight: "600",
-    marginBottom: 6,
+    marginBottom: 4,
   },
 
   cardValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "bold",
     color: "#1C1C1E",
   },
@@ -1087,8 +1087,9 @@ warningText: {
   },
 
   badgeContainer: {
-    flexDirection: "row",
-    gap: 5,
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: 4,
   },
 
   humidBadge: {
