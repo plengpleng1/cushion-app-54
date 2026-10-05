@@ -1083,6 +1083,7 @@ const styles = StyleSheet.create({
     color: "#FF0000",
     fontSize: 13,
     marginTop: -8,
+
     marginBottom: 15,
   },
 
