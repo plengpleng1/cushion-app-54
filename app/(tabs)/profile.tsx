@@ -153,14 +153,14 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F4F6F9",
   },
   content: {
     flex: 1,
     justifyContent: "flex-start", // เปลี่ยนจาก center ให้จัดเรียงชิดด้านบน
     alignItems: "center",
     paddingHorizontal: 24,
-    paddingTop: 150, // ปรับค่านี้เพิ่มขึ้นหรือลดลงเพื่อขยับภาพรวมทั้งก้อนขึ้น-ลงได้ตามชอบ
+    // ปรับค่านี้เพิ่มขึ้นหรือลดลงเพื่อขยับภาพรวมทั้งก้อนขึ้น-ลงได้ตามชอบ
   },
   logoImage: {
     width: "140%",
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
     height: 120,
     alignSelf: "center",
     marginBottom: 20,
-    marginTop: 10, // เพิ่มค่าติดลบ เช่น -20 หรือลดลงได้ถ้าต้องการให้ชิดขอบบนมากขึ้นอีก
+    marginTop: 65, // เพิ่มค่าติดลบ เช่น -20 หรือลดลงได้ถ้าต้องการให้ชิดขอบบนมากขึ้นอีก
   },
   cardContainer: {
     width: "100%",
