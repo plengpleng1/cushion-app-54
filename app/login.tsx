@@ -1,3 +1,4 @@
+import { BlurredBackground } from "@/components/BlurredBackground";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -509,484 +510,487 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.container as ViewStyle}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {Platform.OS === "web" && (
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `
-              input::-ms-reveal,
-              input::-ms-clear {
-                display: none !important;
-              }
-            `,
-          }}
-        />
-      )}
+      {/* ครอบเนื้อหาทั้งหมดด้วย BlurredBackground */}
+      <BlurredBackground>
+        {Platform.OS === "web" && (
+          <style
+            dangerouslySetInnerHTML={{
+              __html: `
+                input::-ms-reveal,
+                input::-ms-clear {
+                  display: none !important;
+                }
+              `,
+            }}
+          />
+        )}
 
-      {/* TOP HEADER */}
-      <View style={styles.topHeader as ViewStyle}>
-        <Text style={styles.topHeaderTitle}>
-          {isForgotPassword
-            ? "Reset Password"
-            : isSignUp
-              ? "Sign Up"
-              : "Sign In"}
-        </Text>
-      </View>
+        {/* TOP HEADER */}
+        <View style={styles.topHeader as ViewStyle}>
+          <Text style={styles.topHeaderTitle}>
+            {isForgotPassword
+              ? "Reset Password"
+              : isSignUp
+                ? "Sign Up"
+                : "Sign In"}
+          </Text>
+        </View>
 
-      <View style={styles.headerLine as ViewStyle} />
+        <View style={styles.headerLine as ViewStyle} />
 
-      {/* MAIN CONTENT */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* Welcome Header */}
-          <View style={styles.headerContainer}>
-            <Text style={styles.welcomeText}>Welcome</Text>
+        {/* MAIN CONTENT */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            {/* Welcome Header */}
+            <View style={styles.headerContainer}>
+              <Text style={styles.welcomeText}>Welcome</Text>
 
-            <Image
-              source={require("../assets/images/cushion.png")}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
-          </View>
+              <Image
+                source={require("../assets/images/cushion.png")}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
 
-          {/* FORM CONTAINER */}
-          <View style={styles.formContainer}>
-            {/* STEP 1: RESTORE / SET NEW PASSWORD */}
-            {isResetPasswordStep ? (
-              <View>
-                <Text style={styles.otpTitle}>Set New Password</Text>
-                <Text style={styles.otpSubTitle}>
-                  กรุณากรอกรหัสผ่านใหม่เพื่อเข้าใช้งานระบบ
-                </Text>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>New Password</Text>
-                  <View style={styles.passwordWrapper}>
-                    <TextInput
-                      style={[styles.input, styles.passwordInput]}
-                      placeholder="At least 8 chars with letters & numbers"
-                      placeholderTextColor="#A0A0A0"
-                      secureTextEntry={!showPassword}
-                      value={newPassword}
-                      onChangeText={(text) => {
-                        setNewPassword(text);
-                        if (errorMessage) setErrorMessage("");
-                      }}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      returnKeyType="done"
-                      onSubmitEditing={handleSaveNewPassword}
-                    />
-                    <TouchableOpacity
-                      style={styles.eyeIcon}
-                      onPress={() => setShowPassword(!showPassword)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name={showPassword ? "eye-off-outline" : "eye-outline"}
-                        size={22}
-                        color="#666666"
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {errorMessage ? (
-                  <Text style={styles.errorText}>{errorMessage}</Text>
-                ) : null}
-
-                <TouchableOpacity
-                  style={styles.primaryButton}
-                  onPress={handleSaveNewPassword}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.primaryButtonText}>
-                      Save New Password
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            ) : isOtpStep ? (
-              /* STEP 2: VERIFY OTP (SIGN UP OR FORGOT PASSWORD) */
-              <View>
-                <Text style={styles.otpTitle}>Verify Your Email</Text>
-
-                <Text style={styles.otpSubTitle}>
-                  เราได้ส่งรหัส OTP 6 หลักไปที่{"\n"}
-                  <Text style={{ fontWeight: "700", color: "#2D69CA" }}>
-                    {email}
-                  </Text>
-                </Text>
-
-                <View style={styles.inputGroup}>
-                  <TextInput
-                    style={[styles.input, styles.otpInput]}
-                    placeholder="123456"
-                    placeholderTextColor="#A0A0A0"
-                    value={otp}
-                    onChangeText={(text) => {
-                      setOtp(text);
-                      if (errorMessage) setErrorMessage("");
-                    }}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    returnKeyType="done"
-                    onSubmitEditing={handleSubmit}
-                  />
-                </View>
-
-                {errorMessage ? (
-                  <Text style={styles.errorText}>{errorMessage}</Text>
-                ) : null}
-
-                <TouchableOpacity
-                  style={styles.primaryButton}
-                  onPress={handleSubmit}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.primaryButtonText}>Verify OTP</Text>
-                  )}
-                </TouchableOpacity>
-
-                {/* Resend OTP */}
-                <View style={{ marginTop: 16, alignItems: "center" }}>
-                  {canResend ? (
-                    <TouchableOpacity
-                      onPress={handleResendOtp}
-                      disabled={loading}
-                    >
-                      <Text
-                        style={{
-                          color: "#2D69CA",
-                          fontWeight: "700",
-                          fontSize: 15,
-                        }}
-                      >
-                        ส่งรหัส OTP อีกครั้ง
-                      </Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <Text style={{ color: "#666666", fontSize: 14 }}>
-                      ส่งรหัส OTP อีกครั้งได้ใน {timer} วินาที
-                    </Text>
-                  )}
-                </View>
-
-                {/* Back */}
-                <TouchableOpacity
-                  style={{ marginTop: 16, alignItems: "center" }}
-                  onPress={() => setIsOtpStep(false)}
-                >
-                  <Text style={{ color: "#555555", fontSize: 15 }}>
-                    ← ย้อนกลับเพื่อแก้ไขข้อมูล
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : isForgotPassword ? (
-              /* STEP 3: REQUEST FORGOT PASSWORD EMAIL */
-              <View>
-                <Text style={styles.otpTitle}>Forgot Password</Text>
-                <Text style={styles.otpSubTitle}>
-                  กรอก Email ที่ใช้ลงทะเบียน{"\n"}เพื่อรับรหัส OTP
-                  สำหรับตั้งรหัสผ่านใหม่
-                </Text>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Email</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your email"
-                    placeholderTextColor="#A0A0A0"
-                    value={email}
-                    onChangeText={(text) => {
-                      setEmail(text);
-                      if (errorMessage) setErrorMessage("");
-                    }}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    returnKeyType="done"
-                    onSubmitEditing={handleRequestResetOtp}
-                  />
-                </View>
-
-                {errorMessage ? (
-                  <Text style={styles.errorText}>{errorMessage}</Text>
-                ) : null}
-
-                <TouchableOpacity
-                  style={styles.primaryButton}
-                  onPress={handleRequestResetOtp}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.primaryButtonText}>Send OTP Code</Text>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={{ marginTop: 16, alignItems: "center" }}
-                  onPress={() => {
-                    setIsForgotPassword(false);
-                    setErrorMessage("");
-                  }}
-                >
-                  <Text style={{ color: "#666666", fontSize: 14 }}>
-                    ← Back to Sign In
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              /* STEP 4: SIGN IN / SIGN UP */
-              <View>
-                {/* Username */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>
-                    {isSignUp ? "Username" : "Username or Email"}
+            {/* FORM CONTAINER */}
+            <View style={styles.formContainer}>
+              {/* STEP 1: RESTORE / SET NEW PASSWORD */}
+              {isResetPasswordStep ? (
+                <View>
+                  <Text style={styles.otpTitle}>Set New Password</Text>
+                  <Text style={styles.otpSubTitle}>
+                    กรุณากรอกรหัสผ่านใหม่เพื่อเข้าใช้งานระบบ
                   </Text>
 
-                  <TextInput
-                    style={[
-                      styles.input,
-                      isSignUp && usernameError ? styles.inputError : null,
-                    ]}
-                    placeholder={
-                      isSignUp
-                        ? "Enter your username"
-                        : "Enter username or email"
-                    }
-                    placeholderTextColor="#A0A0A0"
-                    value={username}
-                    onChangeText={(text) => {
-                      setUsername(text);
-                      if (usernameError) setUsernameError("");
-                      if (errorMessage) setErrorMessage("");
-                    }}
-                    onBlur={() => {
-                      if (isSignUp) checkUsernameExists(username);
-                    }}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    returnKeyType="next"
-                    onSubmitEditing={() => {
-                      if (isSignUp) {
-                        emailInputRef.current?.focus();
-                      } else {
-                        passwordInputRef.current?.focus();
-                      }
-                    }}
-                  />
-
-                  {/* Inline Error สำหรับ Username ในหน้า Sign Up */}
-                  {isSignUp && isCheckingUsername && (
-                    <Text style={styles.infoText}>
-                      กำลังตรวจสอบ Username...
-                    </Text>
-                  )}
-                  {isSignUp && usernameError ? (
-                    <Text style={styles.fieldErrorText}>{usernameError}</Text>
-                  ) : null}
-                </View>
-
-                {/* Email - Sign Up only */}
-                {isSignUp && (
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Email</Text>
-
-                    <TextInput
-                      ref={emailInputRef}
-                      style={[
-                        styles.input,
-                        emailError ? styles.inputError : null,
-                      ]}
-                      placeholder="Enter your email"
-                      placeholderTextColor="#A0A0A0"
-                      value={email}
-                      onChangeText={(text) => {
-                        setEmail(text);
-                        if (emailError) setEmailError("");
-                        if (errorMessage) setErrorMessage("");
-                      }}
-                      onBlur={() => {
-                        if (isSignUp) checkEmailExists(email);
-                      }}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      returnKeyType="next"
-                      onSubmitEditing={() => passwordInputRef.current?.focus()}
-                    />
-
-                    {/* Inline Error สำหรับ Email ในหน้า Sign Up */}
-                    {isCheckingEmail && (
-                      <Text style={styles.infoText}>กำลังตรวจสอบ Email...</Text>
-                    )}
-                    {emailError ? (
-                      <Text style={styles.fieldErrorText}>{emailError}</Text>
-                    ) : null}
-                  </View>
-                )}
-
-                {/* Password */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Password</Text>
-
-                  <View style={styles.passwordWrapper}>
-                    <TextInput
-                      ref={passwordInputRef}
-                      style={[styles.input, styles.passwordInput]}
-                      placeholder={
-                        isSignUp
-                          ? "At least 8 chars with letters & numbers"
-                          : "Enter your password"
-                      }
-                      placeholderTextColor="#A0A0A0"
-                      secureTextEntry={!showPassword}
-                      value={password}
-                      onChangeText={(text) => {
-                        setPassword(text);
-                        if (errorMessage) setErrorMessage("");
-                      }}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      returnKeyType={isSignUp ? "next" : "done"}
-                      onSubmitEditing={() => {
-                        if (isSignUp) {
-                          confirmPasswordInputRef.current?.focus();
-                        } else {
-                          handleSubmit();
-                        }
-                      }}
-                    />
-
-                    <TouchableOpacity
-                      style={styles.eyeIcon}
-                      onPress={() => setShowPassword(!showPassword)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name={showPassword ? "eye-off-outline" : "eye-outline"}
-                        size={22}
-                        color="#666666"
-                      />
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Forgot Password Link */}
-                  {!isSignUp && (
-                    <TouchableOpacity
-                      style={styles.forgotPasswordContainer}
-                      onPress={() => {
-                        setIsForgotPassword(true);
-                        setErrorMessage("");
-                      }}
-                    >
-                      <Text style={styles.forgotPasswordText}>
-                        Forgot Password?
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Confirm Password - Sign Up only */}
-                {isSignUp && (
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Confirm Password</Text>
-
+                    <Text style={styles.label}>New Password</Text>
                     <View style={styles.passwordWrapper}>
                       <TextInput
-                        ref={confirmPasswordInputRef}
                         style={[styles.input, styles.passwordInput]}
-                        placeholder="Confirm your password"
+                        placeholder="At least 8 chars with letters & numbers"
                         placeholderTextColor="#A0A0A0"
-                        secureTextEntry={!showConfirmPassword}
-                        value={confirmPassword}
+                        secureTextEntry={!showPassword}
+                        value={newPassword}
                         onChangeText={(text) => {
-                          setConfirmPassword(text);
+                          setNewPassword(text);
                           if (errorMessage) setErrorMessage("");
                         }}
                         autoCapitalize="none"
                         autoCorrect={false}
                         returnKeyType="done"
-                        onSubmitEditing={handleSubmit}
+                        onSubmitEditing={handleSaveNewPassword}
                       />
-
                       <TouchableOpacity
                         style={styles.eyeIcon}
-                        onPress={() =>
-                          setShowConfirmPassword(!showConfirmPassword)
-                        }
+                        onPress={() => setShowPassword(!showPassword)}
                         activeOpacity={0.7}
                       >
                         <Ionicons
-                          name={
-                            showConfirmPassword
-                              ? "eye-off-outline"
-                              : "eye-outline"
-                          }
+                          name={showPassword ? "eye-off-outline" : "eye-outline"}
                           size={22}
                           color="#666666"
                         />
                       </TouchableOpacity>
                     </View>
                   </View>
-                )}
 
-                {/* Error Message รวม */}
-                {errorMessage ? (
-                  <Text style={styles.errorText}>{errorMessage}</Text>
-                ) : null}
-
-                {/* Sign In / Sign Up Button */}
-                <TouchableOpacity
-                  style={styles.primaryButton}
-                  onPress={handleSubmit}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.primaryButtonText}>
-                      {isSignUp ? "Sign Up" : "Sign In"}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-
-                {/* Toggle Sign In / Sign Up */}
-                <View style={styles.toggleContainer}>
-                  <Text style={styles.toggleText}>
-                    {isSignUp
-                      ? "Already have an account? "
-                      : "Don't have an account? "}
-                  </Text>
+                  {errorMessage ? (
+                    <Text style={styles.errorText}>{errorMessage}</Text>
+                  ) : null}
 
                   <TouchableOpacity
-                    onPress={() => {
-                      setIsSignUp(!isSignUp);
-                      resetForm();
-                    }}
+                    style={styles.primaryButton}
+                    onPress={handleSaveNewPassword}
+                    disabled={loading}
                   >
-                    <Text style={styles.toggleLink}>
-                      {isSignUp ? "Sign In" : "Sign Up"}
+                    {loading ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>
+                        Save New Password
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              ) : isOtpStep ? (
+                /* STEP 2: VERIFY OTP (SIGN UP OR FORGOT PASSWORD) */
+                <View>
+                  <Text style={styles.otpTitle}>Verify Your Email</Text>
+
+                  <Text style={styles.otpSubTitle}>
+                    เราได้ส่งรหัส OTP 6 หลักไปที่{"\n"}
+                    <Text style={{ fontWeight: "700", color: "#2D69CA" }}>
+                      {email}
+                    </Text>
+                  </Text>
+
+                  <View style={styles.inputGroup}>
+                    <TextInput
+                      style={[styles.input, styles.otpInput]}
+                      placeholder="123456"
+                      placeholderTextColor="#A0A0A0"
+                      value={otp}
+                      onChangeText={(text) => {
+                        setOtp(text);
+                        if (errorMessage) setErrorMessage("");
+                      }}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      returnKeyType="done"
+                      onSubmitEditing={handleSubmit}
+                    />
+                  </View>
+
+                  {errorMessage ? (
+                    <Text style={styles.errorText}>{errorMessage}</Text>
+                  ) : null}
+
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={handleSubmit}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>Verify OTP</Text>
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Resend OTP */}
+                  <View style={{ marginTop: 16, alignItems: "center" }}>
+                    {canResend ? (
+                      <TouchableOpacity
+                        onPress={handleResendOtp}
+                        disabled={loading}
+                      >
+                        <Text
+                          style={{
+                            color: "#2D69CA",
+                            fontWeight: "700",
+                            fontSize: 15,
+                          }}
+                        >
+                          ส่งรหัส OTP อีกครั้ง
+                        </Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={{ color: "#666666", fontSize: 14 }}>
+                        ส่งรหัส OTP อีกครั้งได้ใน {timer} วินาที
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Back */}
+                  <TouchableOpacity
+                    style={{ marginTop: 16, alignItems: "center" }}
+                    onPress={() => setIsOtpStep(false)}
+                  >
+                    <Text style={{ color: "#555555", fontSize: 15 }}>
+                      ← ย้อนกลับเพื่อแก้ไขข้อมูล
                     </Text>
                   </TouchableOpacity>
                 </View>
-              </View>
-            )}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+              ) : isForgotPassword ? (
+                /* STEP 3: REQUEST FORGOT PASSWORD EMAIL */
+                <View>
+                  <Text style={styles.otpTitle}>Forgot Password</Text>
+                  <Text style={styles.otpSubTitle}>
+                    กรอก Email ที่ใช้ลงทะเบียน{"\n"}เพื่อรับรหัส OTP
+                    สำหรับตั้งรหัสผ่านใหม่
+                  </Text>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Email</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter your email"
+                      placeholderTextColor="#A0A0A0"
+                      value={email}
+                      onChangeText={(text) => {
+                        setEmail(text);
+                        if (errorMessage) setErrorMessage("");
+                      }}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      returnKeyType="done"
+                      onSubmitEditing={handleRequestResetOtp}
+                    />
+                  </View>
+
+                  {errorMessage ? (
+                    <Text style={styles.errorText}>{errorMessage}</Text>
+                  ) : null}
+
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={handleRequestResetOtp}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>Send OTP Code</Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{ marginTop: 16, alignItems: "center" }}
+                    onPress={() => {
+                      setIsForgotPassword(false);
+                      setErrorMessage("");
+                    }}
+                  >
+                    <Text style={{ color: "#666666", fontSize: 14 }}>
+                      ← Back to Sign In
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                /* STEP 4: SIGN IN / SIGN UP */
+                <View>
+                  {/* Username */}
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>
+                      {isSignUp ? "Username" : "Username or Email"}
+                    </Text>
+
+                    <TextInput
+                      style={[
+                        styles.input,
+                        isSignUp && usernameError ? styles.inputError : null,
+                      ]}
+                      placeholder={
+                        isSignUp
+                          ? "Enter your username"
+                          : "Enter username or email"
+                      }
+                      placeholderTextColor="#A0A0A0"
+                      value={username}
+                      onChangeText={(text) => {
+                        setUsername(text);
+                        if (usernameError) setUsernameError("");
+                        if (errorMessage) setErrorMessage("");
+                      }}
+                      onBlur={() => {
+                        if (isSignUp) checkUsernameExists(username);
+                      }}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      returnKeyType="next"
+                      onSubmitEditing={() => {
+                        if (isSignUp) {
+                          emailInputRef.current?.focus();
+                        } else {
+                          passwordInputRef.current?.focus();
+                        }
+                      }}
+                    />
+
+                    {/* Inline Error สำหรับ Username ในหน้า Sign Up */}
+                    {isSignUp && isCheckingUsername && (
+                      <Text style={styles.infoText}>
+                        กำลังตรวจสอบ Username...
+                      </Text>
+                    )}
+                    {isSignUp && usernameError ? (
+                      <Text style={styles.fieldErrorText}>{usernameError}</Text>
+                    ) : null}
+                  </View>
+
+                  {/* Email - Sign Up only */}
+                  {isSignUp && (
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.label}>Email</Text>
+
+                      <TextInput
+                        ref={emailInputRef}
+                        style={[
+                          styles.input,
+                          emailError ? styles.inputError : null,
+                        ]}
+                        placeholder="Enter your email"
+                        placeholderTextColor="#A0A0A0"
+                        value={email}
+                        onChangeText={(text) => {
+                          setEmail(text);
+                          if (emailError) setEmailError("");
+                          if (errorMessage) setErrorMessage("");
+                        }}
+                        onBlur={() => {
+                          if (isSignUp) checkEmailExists(email);
+                        }}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        returnKeyType="next"
+                        onSubmitEditing={() => passwordInputRef.current?.focus()}
+                      />
+
+                      {/* Inline Error สำหรับ Email ในหน้า Sign Up */}
+                      {isCheckingEmail && (
+                        <Text style={styles.infoText}>กำลังตรวจสอบ Email...</Text>
+                      )}
+                      {emailError ? (
+                        <Text style={styles.fieldErrorText}>{emailError}</Text>
+                      ) : null}
+                    </View>
+                  )}
+
+                  {/* Password */}
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Password</Text>
+
+                    <View style={styles.passwordWrapper}>
+                      <TextInput
+                        ref={passwordInputRef}
+                        style={[styles.input, styles.passwordInput]}
+                        placeholder={
+                          isSignUp
+                            ? "At least 8 chars with letters & numbers"
+                            : "Enter your password"
+                        }
+                        placeholderTextColor="#A0A0A0"
+                        secureTextEntry={!showPassword}
+                        value={password}
+                        onChangeText={(text) => {
+                          setPassword(text);
+                          if (errorMessage) setErrorMessage("");
+                        }}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        returnKeyType={isSignUp ? "next" : "done"}
+                        onSubmitEditing={() => {
+                          if (isSignUp) {
+                            confirmPasswordInputRef.current?.focus();
+                          } else {
+                            handleSubmit();
+                          }
+                        }}
+                      />
+
+                      <TouchableOpacity
+                        style={styles.eyeIcon}
+                        onPress={() => setShowPassword(!showPassword)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name={showPassword ? "eye-off-outline" : "eye-outline"}
+                          size={22}
+                          color="#666666"
+                        />
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Forgot Password Link */}
+                    {!isSignUp && (
+                      <TouchableOpacity
+                        style={styles.forgotPasswordContainer}
+                        onPress={() => {
+                          setIsForgotPassword(true);
+                          setErrorMessage("");
+                        }}
+                      >
+                        <Text style={styles.forgotPasswordText}>
+                          Forgot Password?
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Confirm Password - Sign Up only */}
+                  {isSignUp && (
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.label}>Confirm Password</Text>
+
+                      <View style={styles.passwordWrapper}>
+                        <TextInput
+                          ref={confirmPasswordInputRef}
+                          style={[styles.input, styles.passwordInput]}
+                          placeholder="Confirm your password"
+                          placeholderTextColor="#A0A0A0"
+                          secureTextEntry={!showConfirmPassword}
+                          value={confirmPassword}
+                          onChangeText={(text) => {
+                            setConfirmPassword(text);
+                            if (errorMessage) setErrorMessage("");
+                          }}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          returnKeyType="done"
+                          onSubmitEditing={handleSubmit}
+                        />
+
+                        <TouchableOpacity
+                          style={styles.eyeIcon}
+                          onPress={() =>
+                            setShowConfirmPassword(!showConfirmPassword)
+                          }
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons
+                            name={
+                              showConfirmPassword
+                                ? "eye-off-outline"
+                                : "eye-outline"
+                            }
+                            size={22}
+                            color="#666666"
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Error Message รวม */}
+                  {errorMessage ? (
+                    <Text style={styles.errorText}>{errorMessage}</Text>
+                  ) : null}
+
+                  {/* Sign In / Sign Up Button */}
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={handleSubmit}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>
+                        {isSignUp ? "Sign Up" : "Sign In"}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Toggle Sign In / Sign Up */}
+                  <View style={styles.toggleContainer}>
+                    <Text style={styles.toggleText}>
+                      {isSignUp
+                        ? "Already have an account? "
+                        : "Don't have an account? "}
+                    </Text>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsSignUp(!isSignUp);
+                        resetForm();
+                      }}
+                    >
+                      <Text style={styles.toggleLink}>
+                        {isSignUp ? "Sign In" : "Sign Up"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </BlurredBackground>
     </SafeAreaView>
   );
 }
