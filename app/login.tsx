@@ -288,73 +288,86 @@ export default function LoginScreen() {
   // 2. Sign Up Logic
   // =========================================================
 
-  const handleSignUp = async () => {
-    setErrorMessage("");
+ const handleSignUp = async () => {
+  setErrorMessage("");
 
-    const rawUsername = username.trim();
-    const rawEmail = email.trim().toLowerCase();
-    const rawPassword = password;
-    const rawConfirm = confirmPassword;
+  const rawUsername = username.trim();
+  const rawEmail = email.trim().toLowerCase();
+  const rawPassword = password;
+  const rawConfirm = confirmPassword;
 
-    if (!rawUsername || !rawEmail || !rawPassword || !rawConfirm) {
-      showError("กรุณากรอกข้อมูลให้ครบทุกช่อง");
-      return;
-    }
+  if (!rawUsername || !rawEmail || !rawPassword || !rawConfirm) {
+    showError("กรุณากรอกข้อมูลให้ครบทุกช่อง");
+    return;
+  }
 
-    // ตรวจสอบความถูกต้องของ Email และรหัสผ่านก่อน Submit
-    if (!validateEmail(rawEmail)) {
-      setEmailError("กรุณากรอกรูปแบบ Email ให้ถูกต้อง");
-      return;
-    }
+  // ตรวจสอบความถูกต้องของ Email และรหัสผ่านก่อน Submit
+  if (!validateEmail(rawEmail)) {
+    setEmailError("กรุณากรอกรูปแบบ Email ให้ถูกต้อง");
+    return;
+  }
 
-    if (!validatePassword(rawPassword)) {
-      showError(
-        "Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องประกอบด้วยทั้งตัวอักษรและตัวเลข",
-      );
-      return;
-    }
+  if (!validatePassword(rawPassword)) {
+    showError(
+      "Password ต้องมีความยาวอย่างน้อย 8 ตัวอักษร และต้องประกอบด้วยทั้งตัวอักษรและตัวเลข"
+    );
+    return;
+  }
 
-    if (rawPassword !== rawConfirm) {
-      showError("Password และ Confirm Password ไม่ตรงกัน");
-      return;
-    }
+  if (rawPassword !== rawConfirm) {
+    showError("Password และ Confirm Password ไม่ตรงกัน");
+    return;
+  }
 
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      // ตรวจสอบอีกครั้งก่อนส่งข้อมูลสมัคร
-      const isUsernameTaken = await checkUsernameExists(rawUsername);
-      const isEmailTaken = await checkEmailExists(rawEmail);
-
-      if (isUsernameTaken || isEmailTaken) {
-        showError("โปรดแก้ไขข้อมูลที่มีในระบบแล้วก่อนดำเนินการต่อ");
-        return;
-      }
-
-      const { data, error } = await supabase.auth.signUp({
-        email: rawEmail,
-        password: rawPassword,
-        options: {
-          data: {
-            username: rawUsername,
-          },
+    // สั่ง Sign Up ไปที่ Supabase Direct
+    const { data, error } = await supabase.auth.signUp({
+      email: rawEmail,
+      password: rawPassword,
+      options: {
+        data: {
+          username: rawUsername,
         },
-      });
+      },
+    });
 
-      if (error) {
-        showError(error.message);
-        return;
+    if (error) {
+      // หากพบว่าเคยสมัครไปแล้วแต่ยังไม่ได้กรอก OTP (User already registered)
+      if (
+        error.message.includes("User already registered") ||
+        error.message.includes("already exists") ||
+        error.status === 422
+      ) {
+        // ให้สลับไปส่ง OTP ใหม่ให้อัตโนมัติทันที
+        const { error: resendError } = await supabase.auth.resend({
+          type: "signup",
+          email: rawEmail,
+        });
+
+        if (!resendError) {
+          setIsOtpStep(true);
+          setTimer(60);
+          setCanResend(false);
+          return;
+        }
       }
 
-      setIsOtpStep(true);
-      setTimer(60);
-      setCanResend(false);
-    } catch (err: any) {
-      showError("เกิดข้อผิดพลาดในการสมัครสมาชิก");
-    } finally {
-      setLoading(false);
+      showError(error.message);
+      return;
     }
-  };
+
+    // สมัครใหม่สำเร็จ
+    setIsOtpStep(true);
+    setTimer(60);
+    setCanResend(false);
+  } catch (err: any) {
+    showError("เกิดข้อผิดพลาดในการสมัครสมาชิก");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // =========================================================
   // Resend OTP
@@ -685,14 +698,20 @@ export default function LoginScreen() {
                   </View>
 
                   {/* Back */}
-                  <TouchableOpacity
-                    style={{ marginTop: 16, alignItems: "center" }}
-                    onPress={() => setIsOtpStep(false)}
-                  >
-                    <Text style={{ color: "#555555", fontSize: 15 }}>
-                      ← ย้อนกลับเพื่อแก้ไขข้อมูล
-                    </Text>
-                  </TouchableOpacity>
+<TouchableOpacity
+  style={{ marginTop: 16, alignItems: "center" }}
+  onPress={() => {
+    setIsOtpStep(false);      // สลับกลับหน้ากรอกข้อมูล
+    setOtp("");               // ล้างค่า OTP
+    setEmailError("");        // เคลียร์ Error Inline
+    setUsernameError("");
+    setErrorMessage("");      // เคลียร์ ข้อความ Error รวม
+  }}
+>
+  <Text style={{ color: "#555555", fontSize: 15 }}>
+    ← ย้อนกลับเพื่อแก้ไขข้อมูล
+  </Text>
+</TouchableOpacity>
                 </View>
               ) : isForgotPassword ? (
                 /* STEP 3: REQUEST FORGOT PASSWORD EMAIL */
@@ -760,36 +779,35 @@ export default function LoginScreen() {
                     </Text>
 
                     <TextInput
-                      style={[
-                        styles.input,
-                        isSignUp && usernameError ? styles.inputError : null,
-                      ]}
-                      placeholder={
-                        isSignUp
-                          ? "Enter your username"
-                          : "Enter username or email"
-                      }
-                      placeholderTextColor="#A0A0A0"
-                      value={username}
-                      onChangeText={(text) => {
-                        setUsername(text);
-                        if (usernameError) setUsernameError("");
-                        if (errorMessage) setErrorMessage("");
-                      }}
-                      onBlur={() => {
-                        if (isSignUp) checkUsernameExists(username);
-                      }}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      returnKeyType="next"
-                      onSubmitEditing={() => {
-                        if (isSignUp) {
-                          emailInputRef.current?.focus();
-                        } else {
-                          passwordInputRef.current?.focus();
-                        }
-                      }}
-                    />
+  style={[
+    styles.input,
+    isSignUp && usernameError ? styles.inputError : null,
+  ]}
+  placeholder={
+    isSignUp
+      ? "Enter your username"
+      : "Enter username or email"
+  }
+  placeholderTextColor="#A0A0A0"
+  value={username}
+  onChangeText={(text) => {
+    setUsername(text);
+    if (usernameError) setUsernameError("");
+    if (errorMessage) setErrorMessage("");
+  }}
+  // 
+  autoCapitalize="none"
+  autoCorrect={false}
+  returnKeyType="next"
+  onSubmitEditing={() => {
+    if (isSignUp) {
+      emailInputRef.current?.focus();
+    } else {
+      passwordInputRef.current?.focus();
+    }
+  }}
+/>
+                    
 
                     {/* Inline Error สำหรับ Username ในหน้า Sign Up */}
                     {isSignUp && isCheckingUsername && (
@@ -806,30 +824,27 @@ export default function LoginScreen() {
                   {isSignUp && (
                     <View style={styles.inputGroup}>
                       <Text style={styles.label}>Email</Text>
-
-                      <TextInput
-                        ref={emailInputRef}
-                        style={[
-                          styles.input,
-                          emailError ? styles.inputError : null,
-                        ]}
-                        placeholder="Enter your email"
-                        placeholderTextColor="#A0A0A0"
-                        value={email}
-                        onChangeText={(text) => {
-                          setEmail(text);
-                          if (emailError) setEmailError("");
-                          if (errorMessage) setErrorMessage("");
-                        }}
-                        onBlur={() => {
-                          if (isSignUp) checkEmailExists(email);
-                        }}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        returnKeyType="next"
-                        onSubmitEditing={() => passwordInputRef.current?.focus()}
-                      />
+<TextInput
+  ref={emailInputRef}
+  style={[
+    styles.input,
+    emailError ? styles.inputError : null,
+  ]}
+  placeholder="Enter your email"
+  placeholderTextColor="#A0A0A0"
+  value={email}
+  onChangeText={(text) => {
+    setEmail(text);
+    if (emailError) setEmailError("");
+    if (errorMessage) setErrorMessage("");
+  }}
+  // 
+  keyboardType="email-address"
+  autoCapitalize="none"
+  autoCorrect={false}
+  returnKeyType="next"
+  onSubmitEditing={() => passwordInputRef.current?.focus()}
+/>
 
                       {/* Inline Error สำหรับ Email ในหน้า Sign Up */}
                       {isCheckingEmail && (
