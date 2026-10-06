@@ -49,7 +49,7 @@ export const loadSavedHistory = async (
 };
 
 //==================== เชื่อม supabase ===========================\\
-console.log('>>> historyService.ts LOADED');
+//console.log('>>> historyService.ts LOADED');
 export const loadHistoryFromSupabase = async (
   patientId: string
 ): Promise<HistoryLog[]> => {
@@ -57,7 +57,7 @@ export const loadHistoryFromSupabase = async (
     const { data, error } = await supabase
       .from('sensor_history')
       .select('*')
-      .eq('patient_id', patientId)
+      .eq('citizen_id', patientId)
       .order('date', { ascending: false })
       .order('time', { ascending: false });
 

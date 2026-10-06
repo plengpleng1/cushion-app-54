@@ -19,6 +19,7 @@ import { supabase } from "../../lib/supabase";
 
 const BLUE = "#2D69CA";
 const SELECTED_PATIENT_KEY = "selectedPatientId";
+const SELECTED_PATIENT_DB_ID_KEY = "selectedPatientDbId";
 
 type Patient = {
   id: string;
@@ -493,22 +494,38 @@ export default function PatientListScreen() {
   // Select Patient
   // =========================
   const selectPatient = async (patient: Patient) => {
-    try {
-      await AsyncStorage.setItem(SELECTED_PATIENT_KEY, patient.citizenId);
+  try {
+    // เก็บ citizen_id เดิมไว้
+    await AsyncStorage.setItem(
+      SELECTED_PATIENT_KEY,
+      patient.citizenId
+    );
 
-      setSelectedPatientId(patient.citizenId);
-
-      router.push({
-        pathname: "/patient-info",
-        params: {
-          citizenId: patient.citizenId,
-          from: "patient-list",
-        },
-      });
-    } catch (error) {
-      console.error("Select patient error:", error);
+    // เก็บ patient_id เพิ่ม
+    if (patient.patientId) {
+      await AsyncStorage.setItem(
+        SELECTED_PATIENT_DB_ID_KEY,
+        patient.patientId
+      );
+    } else {
+      await AsyncStorage.removeItem(
+        SELECTED_PATIENT_DB_ID_KEY
+      );
     }
-  };
+
+    setSelectedPatientId(patient.citizenId);
+
+    router.push({
+      pathname: "/patient-info",
+      params: {
+        citizenId: patient.citizenId,
+        from: "patient-list",
+      },
+    });
+  } catch (error) {
+    console.error("Select patient error:", error);
+  }
+};
 
   // =========================
   // Edit Patient

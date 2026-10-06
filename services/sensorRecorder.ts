@@ -13,6 +13,8 @@ import {
 
 const SELECTED_PATIENT_KEY =
   'selectedPatientId';
+const SELECTED_PATIENT_DB_ID_KEY =
+  'selectedPatientDbId';
 
 let centerStartTime: number | null = null;
 
@@ -69,14 +71,16 @@ export const recordSensorData =
       // =====================================================
       // 1. อ่าน Patient ที่เลือกอยู่
       // =====================================================
-      const patientId =
+    const citizenId =
         await AsyncStorage.getItem(
-          SELECTED_PATIENT_KEY
+            SELECTED_PATIENT_KEY
         );
-
-      if (!patientId) {
+    const patientId =
+        await AsyncStorage.getItem(
+            SELECTED_PATIENT_DB_ID_KEY
+        );
+      if (!citizenId) {
         //console.log('⚠️ ไม่มี Patient ที่เลือกอยู่');
-
         return null;
       }
 
@@ -186,7 +190,7 @@ export const recordSensorData =
       // 9. สร้าง ID
       // =====================================================
       const logId =
-        `${patientId}_${formattedDate}_${formattedTime}`;
+        `${citizenId}_${formattedDate}_${formattedTime}`;
 
       // =====================================================
       // 10. สร้าง HistoryLog
@@ -242,6 +246,9 @@ export const recordSensorData =
             patient_id:
               patientId,
 
+            citizen_id:
+              citizenId,
+
             date:
               newLog.date,
 
@@ -292,15 +299,13 @@ export const recordSensorData =
           } as any,
           {
             onConflict:
-              'patient_id,date,time',
+              'citizen_id,date,time',
+
           }
         );
 
       if (error) {
-        console.error(
-          '❌ Supabase UPSERT error:',
-          error
-        );
+        //console.error('❌ Supabase UPSERT error:',error);
 
         return null;
       }
