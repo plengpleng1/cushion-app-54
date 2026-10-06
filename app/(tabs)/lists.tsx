@@ -1118,10 +1118,22 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 10,
     right: -10,
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   selectedButton: {
     backgroundColor: "#6691d7",
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   selectButtonText: {
@@ -1143,6 +1155,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#EEF2FF",
     alignItems: "center",
     justifyContent: "center",
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   editText: {
@@ -1159,6 +1177,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#FDECEC",
     alignItems: "center",
     justifyContent: "center",
+    borderColor: "#EAEAEA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   deleteButtonText: {
