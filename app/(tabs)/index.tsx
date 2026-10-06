@@ -300,7 +300,7 @@ export default function HomeScreen() {
         // Temperature
         // ==================================================
         const tempHigh =
-          (data.temperature || 0) > 28;
+          (data.temperature || 0) > 38;
 
         setIsTempHigh(tempHigh);
       } catch (error) {
