@@ -103,7 +103,7 @@ export default function HomeScreen() {
   // Alarm เมื่ออยู่ตรงกลางครบ 2 นาที
   // ==================================================
   useEffect(() => {
-    if (pressureSide === "both" && seconds >= 10) {
+    if (pressureSide === "both" && seconds >= 120) {
       if (!alarmPlayedRef.current) {
         alarmPlayedRef.current = true;
 
@@ -120,11 +120,11 @@ export default function HomeScreen() {
   //================ all alarm ========================
   const isAlarmActive =
   pressureSide === "both" &&
-  seconds >= 10;       // red flash 120
+  seconds >= 120;       // red flash 120
   
   const isSecondAlarmActive =
   pressureSide === "both" &&
-  seconds >= 25;       // 135
+  seconds >= 135;       // 135
 
   useEffect(() => {
   if (isSecondAlarmActive) {
