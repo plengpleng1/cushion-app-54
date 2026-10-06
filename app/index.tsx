@@ -42,11 +42,10 @@ export default function WelcomeScreen() {
         }
 
         // =====================================================
-        // ถ้ายังไม่ได้ Login
-        // → แสดง Splash 5 วินาที
+        // ถ้ายังไม่ได้ Login 
+        // → แสดง Splash 5 วินาที *****
         // → แล้วไป Login
         // =====================================================
-
         Animated.timing(progressAnim, {
           toValue: 1,
           duration: 5000,
@@ -55,7 +54,6 @@ export default function WelcomeScreen() {
           if (!isMounted) {
             return;
           }
-
           router.replace('/login');
         });
       } catch (error) {
