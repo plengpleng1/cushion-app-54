@@ -213,7 +213,14 @@ export default function HomeScreen() {
 
     const loadData = async () => {
       try {
+          //console.log("⏱️ Fetch start:",new Date().toLocaleTimeString());
         const data = await fetchSensorData();
+          
+          //console.log(
+          //"⏱️ Fetch result:",new Date().toLocaleTimeString(),data
+          //  ? `S1=${data.sensor1}, S2=${data.sensor2}`
+          //  : "NULL"
+          //);
 
         // ถ้าดึงข้อมูลไม่ได้
         if (!data || !isMounted) {
@@ -282,6 +289,13 @@ export default function HomeScreen() {
           calcPos = "none";
         }
 
+        //console.log("📍 Pressure:",
+          //`S1=${data.sensor1}`,
+          //`S2=${data.sensor2}`,
+          //`Position=${calcPos}`,
+          //new Date().toLocaleTimeString()
+        //);
+
         setPressureSide(calcPos);
 
         // ==================================================
@@ -312,20 +326,30 @@ export default function HomeScreen() {
     };
 
     // โหลดครั้งแรกทันที
-    loadData();
+    let timeout: ReturnType<typeof setTimeout>;
 
-    // โหลดทุก 2 วินาที
-    const interval = setInterval(loadData, 2000);
+const run = async () => {
+  await loadData();
 
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
+  if (isMounted) {
+    timeout = setTimeout(run, 2000);
+  }
+};
+
+run();
+
+return () => {
+  isMounted = false;
+  clearTimeout(timeout);
+};
   }, []);
 
   // ==================================================
   // Position
   // ==================================================
+  
+  //console.log("🎨 Render Pressure Map:",pressureSide,new Date().toLocaleTimeString());
+  
   const getDisplayPosition = () => {
     switch (pressureSide) {
       case "left":

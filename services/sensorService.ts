@@ -16,25 +16,38 @@ export interface SensorData {
 const API_URL = "https://script.google.com/macros/s/AKfycby9UFBh-2Ct06oGaexrTMqUSGXFjHHAtI67AtrToOXwr1EBl_HztFRzSliLDk2iPQuzYg/exec?action=read";
 
 
-// 3. ฟังก์ชันสำหรับดึงข้อมูลล่าสุด (ป้องกัน Cache เพื่อความ Real-time)
-export const fetchSensorData = async (): Promise<SensorData | null> => {
- try {
-   // เติม &_t=${Date.now()} ต่อท้าย เพื่อบังคับดึงข้อมูลสดใหม่ทุกรอบ
-   const cacheBusterUrl = `${API_URL}&_t=${Date.now()}`;
+// 3. ฟังก์ชันสำหรับดึงข้อมูลล่าสุด
+export const fetchSensorData =
+  async (): Promise<SensorData | null> => {
+    try {
+      //console.log("🌐 API URL:", API_URL);
 
+      const response = await fetch(API_URL);
 
-   const response = await fetch(cacheBusterUrl, {
-     cache: 'no-store' // สั่งไม่ให้เก็บ Cache ในอุปกรณ์
-   });
+      //console.log("🌐 API status:",response.status);
 
+      //console.log("🌐 API final URL:",response.url);
 
-   if (!response.ok) {
-     throw new Error(`HTTP error! status: ${response.status}`);
-   }
-   const data: SensorData = await response.json();
-   return data;
- } catch (error) {
-   console.warn("Error fetching sensor data:", error);
-   return null;
- }
-};
+      if (!response.ok) {
+        //console.error(
+          //"❌ API response not OK:",
+          //response.status,
+          //response.url
+        //);
+        return null;
+      }
+
+      const data: SensorData =
+        await response.json();
+
+      //console.log("✅ API data received:",data);
+
+      return data;
+
+    } catch (error) {
+      //console.error(
+        //"❌ fetchSensorData error:",error
+      //);
+      return null;
+    }
+  };
