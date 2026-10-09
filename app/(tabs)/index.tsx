@@ -1046,7 +1046,7 @@ warningText: {
   },
 
   cardLabel: {
-    fontSize: 15.3,
+    fontSize: 14.7,
     color: "#8E8E93",
     fontWeight: "600",
     marginBottom: 4,
