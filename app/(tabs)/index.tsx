@@ -227,7 +227,7 @@ export default function HomeScreen() {
         // ==================================================
         // Humidity
         // ==================================================
-        const humidHigh = (data.humidity || 0) > 75;
+        const humidHigh = (data.humidity || 0) > 80;
 
         setIsHumidHigh(humidHigh);
 
@@ -272,7 +272,7 @@ export default function HomeScreen() {
         // ==================================================
         // Temperature
         // ==================================================
-        const tempHigh = (data.temperature || 0) > 28;
+        const tempHigh = (data.temperature || 0) > 38;
 
         setIsTempHigh(tempHigh);
       } catch (error) {
